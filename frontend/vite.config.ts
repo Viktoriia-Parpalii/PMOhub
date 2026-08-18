@@ -5,8 +5,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(() => {
   return {
-    // GitHub Pages publishes this repository at /pmohub/.
-    base: '/pmohub/',
+    // GitHub Pages publishes this repository at /PMOhub/.
+    base: '/PMOhub/',
 
     plugins: [
       react(),
