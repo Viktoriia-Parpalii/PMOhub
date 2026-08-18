@@ -1,0 +1,8 @@
+{
+  "name": "Last_Remix PMO Control Hub v3.0",
+  "description": "Централізована система для відстеження статусу проєктів, операційних задач, беклогу з підтримкою розширеного експорту в Excel (багатосторінкова звітність) та JSON резервного копіювання.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
