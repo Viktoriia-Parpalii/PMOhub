@@ -8,11 +8,12 @@ export const getPermissions = (
   permissions: RolePermissions[],
 ): RolePermissions | undefined => user ? permissions.find(item => item.role === user.role) : undefined;
 
-export const canViewInitiative = (record: InitiativeRecord, user: User | null): boolean => {
-  if (!user || user.role !== 'USER' || !user.departmentId) return Boolean(user);
-  return record.implementer_dept_ids.includes(user.departmentId)
-    || (record.cross_functional_dept_ids ?? []).includes(user.departmentId);
-};
+/**
+ * Visibility is intentionally global for every authenticated role.  The USER
+ * role remains read-only through `canEditInitiative` / `canDeleteInitiative`;
+ * department membership is a planning attribute, not a visibility boundary.
+ */
+export const canViewInitiative = (_record: InitiativeRecord, user: User | null): boolean => Boolean(user);
 
 export const canEditInitiative = (
   record: InitiativeRecord,

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { getPriorityBadgeClass } from './priority';
+import { getPriorityBadgeStyle } from './priority';
 
 describe('priority badge presentation', () => {
   it.each([
-    ['Critical', 'bg-rose-100'],
-    ['High', 'bg-orange-100'],
-    ['Medium', 'bg-amber-100'],
-    ['Low', 'bg-emerald-100'],
-  ])('uses the same %s colour across all initiative views', (priority, background) => {
-    expect(getPriorityBadgeClass(priority)).toContain(background);
+    ['Critical', '#e11d48'],
+    ['High', '#ea580c'],
+    ['Medium', '#d97706'],
+    ['Low', '#059669'],
+  ])('uses the configured %s colour across all initiative views', (priority, color) => {
+    expect(getPriorityBadgeStyle(priority, [{ id: priority, name: priority, color, is_active: true }]).color).toBe(color);
   });
 });

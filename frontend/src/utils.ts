@@ -49,8 +49,8 @@ export const truncateText = (str: string | number, length = 60): string => {
   return str.slice(0, length) + '...';
 };
 
-export const isPeriodLocked = (year: number, quarter: string): boolean => {
-  const now = new Date();
+/** A quarter becomes archived at 00:00 on the 15th day of the next quarter. */
+export const isPeriodLocked = (year: number, quarter: string, now = new Date()): boolean => {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   
@@ -124,19 +124,9 @@ export const getLatestPriorState = <T extends { year: number, quarter: string }>
   return priorCards[priorCards.length - 1];
 };
 
-export const isBacklogLocked = (year: number): boolean => {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
-  const currentDate = now.getDate();
-
-  if (year >= currentYear) return false;
-  if (year === currentYear - 1) {
-    if (currentMonth === 0 && currentDate <= 14) {
-      return false;
-    }
-  }
-  return true;
+export const isBacklogLocked = (year: number, now = new Date()): boolean => {
+  if (year >= now.getFullYear()) return false;
+  return isPeriodLocked(year, 'Q4', now);
 };
 
 export const getNextPeriod = (y: number, q: string): { year: number; quarter: import('./types').Quarter } => {

@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
-import { CustomFieldType, UserRole } from '../types';
+import { CustomFieldType, MutationResult, UserRole } from '../types';
 import { Trash2, Copy, Check, Power, PowerOff, FileSpreadsheet, BookOpen, ShieldCheck, Sliders, Pencil, X } from 'lucide-react';
 import { generatePassword, truncateText } from '../utils';
 const DataManagementSection = React.lazy(() => import('./DataManagementSection').then(module => ({ default: module.DataManagementSection })));
+
+const CircularColorInput = ({ value, onChange, label, compact = false }: { value: string; onChange: (value: string) => void; label: string; compact?: boolean }) => (
+  <label aria-label={label} title={label} className={`${compact ? 'h-7 w-7' : 'h-9 w-9'} inline-flex cursor-pointer items-center justify-center rounded-full border-2 border-white shadow-sm ring-1 ring-slate-300`} style={{ backgroundColor: value }}>
+    <input type="color" value={value} onChange={event => onChange(event.target.value)} className="sr-only" />
+  </label>
+);
 
 export const AdminTab = () => {
   const [activeSubTab, setActiveSubTab] = useState<'dicts' | 'rbac' | 'fields' | 'data'>('dicts');
 
     return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm min-h-[500px] flex flex-col">
-      <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 pb-4">
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm min-h-[400px]">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Адміністрування</h2>
         </div>
@@ -65,7 +71,7 @@ export const AdminTab = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-2">
+      <div className="min-w-0">
         {activeSubTab === 'dicts' && <DictionariesSection />}
         {activeSubTab === 'rbac' && <RbacSection />}
         {activeSubTab === 'fields' && <CustomFieldsSection />}
@@ -76,18 +82,29 @@ export const AdminTab = () => {
 };
 
 const DictionariesSection = () => {
-  const { departments, addDepartment, updateDepartment, deleteDepartment, managers, addManager, updateManager, deleteManager, priorities, addPriority, updatePriority, deletePriority, taskWeights, addTaskWeight, updateTaskWeight, deleteTaskWeight, initiativeSizes, addInitiativeSize, updateInitiativeSize, deleteInitiativeSize } = useAppContext();
-  const [deleteConfirm, setDeleteConfirm] = useState<{ title: string; name: string; onConfirm: () => void } | null>(null);
+  const { departments, addDepartment, updateDepartment, deleteDepartment, checkDepartmentDeletion, managers, addManager, updateManager, deleteManager, checkManagerDeletion, priorities, addPriority, updatePriority, deletePriority, checkPriorityDeletion, initiativeStatuses, addInitiativeStatus, updateInitiativeStatus, deleteInitiativeStatus, checkInitiativeStatusDeletion, taskWeights, addTaskWeight, updateTaskWeight, deleteTaskWeight, applyTaskWeightToOpenCards, initiativeSizes, addInitiativeSize, updateInitiativeSize, deleteInitiativeSize, refreshOpenInitiativeSizes } = useAppContext();
+  const [deleteConfirm, setDeleteConfirm] = useState<{ title: string; name: string; onConfirm: () => MutationResult | void } | null>(null);
+  const [deleteBlocked, setDeleteBlocked] = useState<{ title: string; name: string; message: string } | null>(null);
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptLimit, setNewDeptLimit] = useState(10);
   const [newManagerName, setNewManagerName] = useState('');
   const [newManagerDept, setNewManagerDept] = useState('');
   const [newPriorityName, setNewPriorityName] = useState('');
+  const [newPriorityColor, setNewPriorityColor] = useState('#e11d48');
+  const [newStatusName, setNewStatusName] = useState('');
+  const [newStatusColor, setNewStatusColor] = useState('#64748b');
   const [newSizeName, setNewSizeName] = useState('');
   const [newSizeWeight, setNewSizeWeight] = useState(1);
   const [newInitSizeName, setNewInitSizeName] = useState('');
   const [newInitSizeMin, setNewInitSizeMin] = useState(0);
   const [newInitSizeMax, setNewInitSizeMax] = useState(1);
+  const [editingWeight, setEditingWeight] = useState<{ id: string; name: string; weight: number } | null>(null);
+  const [bulkWeight, setBulkWeight] = useState<{ id: string; name: string } | null>(null);
+  const requestProtectedDelete = (title: string, name: string, check: () => MutationResult, onConfirm: () => MutationResult) => {
+    const result = check();
+    if (!result.success) { setDeleteBlocked({ title, name, message: result.message }); return; }
+    setDeleteConfirm({ title, name, onConfirm });
+  };
 
   const handleAddDept = () => {
     if (newDeptName.trim()) {
@@ -106,8 +123,14 @@ const DictionariesSection = () => {
 
   const handleAddPriority = () => {
     if (newPriorityName.trim()) {
-      addPriority({ id: (Math.random().toString(36).substring(2, 10)), name: newPriorityName, is_active: true });
+      addPriority({ id: (Math.random().toString(36).substring(2, 10)), name: newPriorityName, color: newPriorityColor, is_active: true });
       setNewPriorityName('');
+    }
+  };
+  const handleAddInitiativeStatus = () => {
+    if (newStatusName.trim()) {
+      addInitiativeStatus({ id: (Math.random().toString(36).substring(2, 10)), name: newStatusName, color: newStatusColor, is_active: true });
+      setNewStatusName('');
     }
   };
   const handleAddTaskWeight = () => {
@@ -129,7 +152,7 @@ const DictionariesSection = () => {
   return (
     <div className="space-y-8">
       {/* Департаменти */}
-      <div>
+      <div> 
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold text-slate-800">Відділи</h3>
           <div className="flex gap-2">
@@ -144,7 +167,7 @@ const DictionariesSection = () => {
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Відділ</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-32">Ліміт capacity</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-32">Статус</th>
+                <th className="w-44 px-4 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Статус</th>
                 <th aria-label="Дії" className="w-28 py-4 pl-2 pr-3" />
               </tr>
             </thead>
@@ -162,7 +185,7 @@ const DictionariesSection = () => {
                     <button onClick={() => updateDepartment(dept.id, { is_active: dept.is_active === false ? true : false })} className={`text-slate-400 transition-colors mr-3 ${dept.is_active !== false ? 'hover:text-amber-500' : 'hover:text-emerald-500'}`} title={dept.is_active !== false ? "Деактивувати" : "Активувати"}>
                       {dept.is_active !== false ? <PowerOff size={16} /> : <Power size={16} />}
                     </button>
-                    <button onClick={() => setDeleteConfirm({ title: 'відділ', name: dept.name, onConfirm: () => deleteDepartment(dept.id) })} className="text-slate-400 hover:text-rose-500 transition-colors" title="Видалити"><Trash2 size={16} /></button>
+                    <button onClick={() => requestProtectedDelete('відділ', dept.name, () => checkDepartmentDeletion(dept.id), () => deleteDepartment(dept.id))} className="text-slate-400 hover:text-rose-500 transition-colors" title="Видалити"><Trash2 size={16} /></button>
                   </td>
                 </tr>
               ))}
@@ -190,7 +213,7 @@ const DictionariesSection = () => {
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Менеджер</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Департамент</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-32">Статус</th>
+                <th className="w-44 px-4 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Статус</th>
                 <th aria-label="Дії" className="w-28 py-4 pl-2 pr-3" />
               </tr>
             </thead>
@@ -208,7 +231,7 @@ const DictionariesSection = () => {
                     <button onClick={() => updateManager(m.id, { is_active: m.is_active === false ? true : false })} className={`text-slate-400 transition-colors mr-3 ${m.is_active !== false ? 'hover:text-amber-500' : 'hover:text-emerald-500'}`} title={m.is_active !== false ? "Деактивувати" : "Активувати"}>
                       {m.is_active !== false ? <PowerOff size={16} /> : <Power size={16} />}
                     </button>
-                    <button onClick={() => setDeleteConfirm({ title: 'менеджера', name: m.name, onConfirm: () => deleteManager(m.id) })} className="text-slate-400 hover:text-rose-500 transition-colors" title="Видалити"><Trash2 size={16} /></button>
+                    <button onClick={() => requestProtectedDelete('менеджера', m.name, () => checkManagerDeletion(m.id), () => deleteManager(m.id))} className="text-slate-400 hover:text-rose-500 transition-colors" title="Видалити"><Trash2 size={16} /></button>
                   </td>
                 </tr>
               ))}
@@ -223,6 +246,7 @@ const DictionariesSection = () => {
           <h3 className="text-lg font-bold text-slate-800">Пріоритети</h3>
           <div className="flex gap-2">
             <input type="text" value={newPriorityName} onChange={e => setNewPriorityName(e.target.value)} placeholder="Назва пріоритету" className="border border-slate-300 rounded-lg px-3 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+            <CircularColorInput label="Колір пріоритету" value={newPriorityColor} onChange={setNewPriorityColor} />
             <button onClick={handleAddPriority} className="bg-indigo-500 text-white px-3 py-1 rounded-lg text-sm font-bold hover:bg-indigo-600 transition-colors">Додати</button>
           </div>
         </div>
@@ -231,14 +255,14 @@ const DictionariesSection = () => {
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Пріоритет</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-32">Статус</th>
+                <th className="w-44 px-4 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Статус</th>
                 <th aria-label="Дії" className="w-28 py-4 pl-2 pr-3" />
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
               {((priorities || [])).map(p => (
                 <tr key={p.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-sm font-bold text-slate-800">{p.name}</td>
+                  <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-sm font-bold text-slate-800"><div className="flex items-center gap-3"><CircularColorInput compact label={`Колір ${p.name}`} value={p.color ?? '#64748b'} onChange={color => updatePriority(p.id, { color })} /><span>{p.name}</span></div></td>
                   <td className="px-6 py-4 whitespace-normal break-words min-w-0">
                     <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${p.is_active !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                       {p.is_active !== false ? 'Активно' : 'Деактивовано'}
@@ -248,10 +272,30 @@ const DictionariesSection = () => {
                     <button onClick={() => updatePriority(p.id, { is_active: p.is_active === false ? true : false })} className={`text-slate-400 transition-colors mr-3 ${p.is_active !== false ? 'hover:text-amber-500' : 'hover:text-emerald-500'}`} title={p.is_active !== false ? "Деактивувати" : "Активувати"}>
                       {p.is_active !== false ? <PowerOff size={16} /> : <Power size={16} />}
                     </button>
-                    <button onClick={() => setDeleteConfirm({ title: 'пріоритет', name: p.name, onConfirm: () => deletePriority(p.id) })} className="text-slate-400 hover:text-rose-500 transition-colors" title="Видалити"><Trash2 size={16} /></button>
+                    <button onClick={() => requestProtectedDelete('пріоритет', p.name, () => checkPriorityDeletion(p.id), () => deletePriority(p.id))} className="text-slate-400 hover:text-rose-500 transition-colors" title="Видалити"><Trash2 size={16} /></button>
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Статуси ініціатив */}
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <div><h3 className="text-lg font-bold text-slate-800">Статуси ініціатив</h3><p className="mt-1 text-xs text-slate-500">Використовуються для квартальних карток проєктів і операційних задач.</p></div>
+          <div className="flex gap-2">
+            <input type="text" value={newStatusName} onChange={e => setNewStatusName(e.target.value)} placeholder="Назва статусу" className="border border-slate-300 rounded-lg px-3 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+            <CircularColorInput label="Колір статусу" value={newStatusColor} onChange={setNewStatusColor} />
+            <button onClick={handleAddInitiativeStatus} className="bg-indigo-500 text-white px-3 py-1 rounded-lg text-sm font-bold hover:bg-indigo-600 transition-colors">Додати</button>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto max-w-full min-w-0">
+          <table className="min-w-full divide-y divide-slate-200 table-fixed w-full">
+            <thead className="bg-slate-50"><tr><th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Статус</th><th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-32">Активність</th><th aria-label="Дії" className="w-28 py-4 pl-2 pr-3" /></tr></thead>
+            <tbody className="bg-white divide-y divide-slate-100">
+              {initiativeStatuses.map(status => <tr key={status.id} className="hover:bg-slate-50"><td className="px-6 py-4 text-sm font-bold text-slate-800"><div className="flex items-center gap-3"><CircularColorInput compact label={`Колір ${status.name}`} value={status.color} onChange={color => updateInitiativeStatus(status.id, { color })} /><span>{status.name}</span></div></td><td className="px-6 py-4"><span className={`px-2 py-1 rounded text-xs font-bold uppercase ${status.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{status.is_active ? 'Активно' : 'Деактивовано'}</span></td><td className="px-6 py-4 text-right text-sm"><button onClick={() => updateInitiativeStatus(status.id, { is_active: !status.is_active })} className={`mr-3 text-slate-400 transition-colors ${status.is_active ? 'hover:text-amber-500' : 'hover:text-emerald-500'}`} title={status.is_active ? 'Деактивувати' : 'Активувати'}>{status.is_active ? <PowerOff size={16} /> : <Power size={16} />}</button><button onClick={() => requestProtectedDelete('статус ініціативи', status.name, () => checkInitiativeStatusDeletion(status.id), () => deleteInitiativeStatus(status.id))} className="text-slate-400 hover:text-rose-500 transition-colors" title="Видалити"><Trash2 size={16} /></button></td></tr>)}
             </tbody>
           </table>
         </div>
@@ -271,10 +315,10 @@ const DictionariesSection = () => {
           <table className="min-w-full divide-y divide-slate-200 table-fixed w-full min-w-full">
             <thead className="bg-slate-50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Розмір</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-32">Вага</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-32">Статус</th>
-                <th aria-label="Дії" className="w-28 py-4 pl-2 pr-3" />
+                <th className="w-[44%] px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Розмір</th>
+                <th className="w-24 px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Вага</th>
+                <th className="w-40 px-3 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Статус</th>
+                <th aria-label="Дії" className="w-60 py-4 pl-2 pr-4" />
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
@@ -287,11 +331,15 @@ const DictionariesSection = () => {
                       {s.is_active !== false ? 'Активно' : 'Деактивовано'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-right text-sm">
-                    <button onClick={() => { const result = updateTaskWeight(s.id, { is_active: s.is_active === false ? true : false }); if (!result.success) alert(result.message); }} className={`text-slate-400 transition-colors mr-3 ${s.is_active !== false ? 'hover:text-amber-500' : 'hover:text-emerald-500'}`} title={s.is_active !== false ? "Деактивувати" : "Активувати"}>
-                      {s.is_active !== false ? <PowerOff size={16} /> : <Power size={16} />}
-                    </button>
-                    <button onClick={() => setDeleteConfirm({ title: 'розмір', name: s.name, onConfirm: () => { const result = deleteTaskWeight(s.id); if (!result.success) alert(result.message); } })} className="text-slate-400 hover:text-rose-500 transition-colors" title="Видалити"><Trash2 size={16} /></button>
+                  <td className="px-4 py-3 text-right text-sm">
+                    <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                      <button onClick={() => setEditingWeight({ id: s.id, name: s.name, weight: s.weight })} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600" title="Редагувати вагу"><Pencil size={16} /></button>
+                      <button onClick={() => setBulkWeight({ id: s.id, name: s.name })} className="inline-flex h-8 shrink-0 items-center rounded-lg border border-indigo-200 px-2.5 text-[11px] font-bold text-indigo-600 hover:bg-indigo-50" title="Застосувати до поточних і майбутніх карток">Застосувати</button>
+                      <button onClick={() => { const result = updateTaskWeight(s.id, { is_active: s.is_active === false ? true : false }); if (!result.success) alert(result.message); }} className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors ${s.is_active !== false ? 'hover:bg-amber-50 hover:text-amber-500' : 'hover:bg-emerald-50 hover:text-emerald-500'}`} title={s.is_active !== false ? "Деактивувати" : "Активувати"}>
+                        {s.is_active !== false ? <PowerOff size={16} /> : <Power size={16} />}
+                      </button>
+                      <button onClick={() => setDeleteConfirm({ title: 'розмір', name: s.name, onConfirm: () => { const result = deleteTaskWeight(s.id); if (!result.success) alert(result.message); } })} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500" title="Видалити"><Trash2 size={16} /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -302,7 +350,7 @@ const DictionariesSection = () => {
 
 
       <div>
-        <h2 className="mb-4 text-lg font-bold text-slate-800">Розмір (вага) ініціативи</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold text-slate-800">Розмір (вага) ініціативи</h2><button onClick={() => { const result = refreshOpenInitiativeSizes(); if (!result.success) alert(result.message); }} className="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50">Перерахувати відкриті картки</button></div>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 bg-slate-50 border-b border-slate-100">
           <div className="flex flex-col sm:flex-row gap-3 items-end">
@@ -327,7 +375,7 @@ const DictionariesSection = () => {
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-1/3">Назва</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-1/3">Діапазон</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-32">Статус</th>
+                <th className="w-44 px-4 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Статус</th>
                 <th aria-label="Дії" className="w-28 py-4 pl-2 pr-3" />
               </tr>
             </thead>
@@ -355,6 +403,11 @@ const DictionariesSection = () => {
       </div>
       </div>
 
+      {editingWeight && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"><div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"><h3 className="text-lg font-extrabold text-slate-800">Редагування ваги</h3><label className="mt-4 block text-sm font-bold text-slate-700">Назва<input value={editingWeight.name} onChange={event => setEditingWeight({ ...editingWeight, name: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" /></label><label className="mt-3 block text-sm font-bold text-slate-700">Значення<input type="number" min="0" step="0.1" value={editingWeight.weight} onChange={event => setEditingWeight({ ...editingWeight, weight: Number(event.target.value) })} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" /></label><p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Зміна довідника не змінює наявні або архівні картки автоматично.</p><div className="mt-5 flex justify-end gap-3"><button onClick={() => setEditingWeight(null)} className="px-3 py-2 text-sm font-bold text-slate-600">Скасувати</button><button onClick={() => { const result = updateTaskWeight(editingWeight.id, { name: editingWeight.name, weight: editingWeight.weight }); if (!result.success) { alert(result.message); return; } setEditingWeight(null); }} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white">Зберегти</button></div></div></div>}
+      {bulkWeight && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"><div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"><h3 className="text-lg font-extrabold text-slate-800">Застосувати вагу до відкритих карток</h3><p className="mt-3 text-sm text-slate-600">Вага «{bulkWeight.name}» буде оновлена лише в поточних і майбутніх завданнях обсягу робіт. Архівні періоди залишаться без змін.</p><div className="mt-5 flex justify-end gap-3"><button onClick={() => setBulkWeight(null)} className="px-3 py-2 text-sm font-bold text-slate-600">Скасувати</button><button onClick={() => { const result = applyTaskWeightToOpenCards(bulkWeight.id); if (!result.success) { alert(result.message); return; } setBulkWeight(null); }} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white">Застосувати</button></div></div></div>}
+
+      {deleteBlocked && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"><div role="alertdialog" aria-modal="true" className="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-6 shadow-2xl"><div className="flex items-start gap-3"><div className="rounded-xl bg-amber-100 p-2.5 text-amber-700"><Trash2 size={24} /></div><div><h3 className="text-lg font-extrabold text-slate-900">Видалення недоступне</h3><p className="mt-1 text-sm text-slate-500">{deleteBlocked.title[0].toUpperCase() + deleteBlocked.title.slice(1)} <span className="font-bold text-slate-700">«{deleteBlocked.name}»</span> не можна видалити.</p></div></div><p className="mt-5 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">{deleteBlocked.message}</p><div className="mt-5 flex justify-end"><button onClick={() => setDeleteBlocked(null)} className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700">Зрозуміло</button></div></div></div>}
+
       {deleteConfirm && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex justify-center items-center p-3 sm:p-6 overflow-y-auto">
           <div className="bg-white rounded-2xl w-full max-w-md my-auto shadow-2xl border border-slate-200 p-6 flex flex-col">
@@ -376,8 +429,9 @@ const DictionariesSection = () => {
               </button>
               <button
                 onClick={() => {
-                  deleteConfirm.onConfirm();
+                  const result = deleteConfirm.onConfirm();
                   setDeleteConfirm(null);
+                  if (result && !result.success) setDeleteBlocked({ title: deleteConfirm.title, name: deleteConfirm.name, message: result.message });
                 }}
                 className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2 rounded-lg font-bold transition-colors shadow-sm"
               >
@@ -643,16 +697,14 @@ const RbacSection = () => {
   const [editingField, setEditingField] = useState<(typeof customFields)[number] | null>(null);
   const [editName, setEditName] = useState('');
   const [editType, setEditType] = useState<CustomFieldType>('TEXT');
-  const [editEntityType, setEditEntityType] = useState<'project' | 'task' | 'backlog'>('project');
-  const [editRequired, setEditRequired] = useState(false);
+  const [editEntityType, setEditEntityType] = useState<'project' | 'task'>('project');
   const [editOptions, setEditOptions] = useState('');
   const [editShowInTable, setEditShowInTable] = useState(false);
   const [editShowInCards, setEditShowInCards] = useState(false);
   
   const [name, setName] = useState('');
   const [type, setType] = useState<CustomFieldType>('TEXT');
-  const [entityType, setEntityType] = useState<'project'|'task'|'backlog'>('project');
-  const [isRequired, setIsRequired] = useState(false);
+  const [entityType, setEntityType] = useState<'project'|'task'>('project');
   const [optionsStr, setOptionsStr] = useState('');
   const [showInTable, setShowInTable] = useState(false);
   const [showInCards, setShowInCards] = useState(false);
@@ -664,9 +716,9 @@ const RbacSection = () => {
       name,
       type,
       entityType,
-      isRequired,
+      isRequired: false,
       showInTable,
-      showInCards: entityType === 'backlog' ? false : showInCards,
+      showInCards,
       options: type === 'SELECT' ? optionsStr.split(',').map(s => s.trim()).filter(Boolean) : undefined
     };
     addCustomField(newField);
@@ -680,8 +732,7 @@ const RbacSection = () => {
     setEditingField(field);
     setEditName(field.name);
     setEditType(field.type);
-    setEditEntityType(field.entityType);
-    setEditRequired(field.isRequired);
+    setEditEntityType(field.entityType === 'task' ? 'task' : 'project');
     setEditOptions(field.options?.join(', ') ?? '');
     setEditShowInTable(Boolean(field.showInTable));
     setEditShowInCards(Boolean(field.showInCards));
@@ -693,9 +744,9 @@ const RbacSection = () => {
       name: editName.trim(),
       type: editType,
       entityType: editEntityType,
-      isRequired: editRequired,
+      isRequired: false,
       showInTable: editShowInTable,
-      showInCards: editEntityType === 'backlog' ? false : editShowInCards,
+      showInCards: editShowInCards,
       options: editType === 'SELECT' ? editOptions.split(',').map(value => value.trim()).filter(Boolean) : undefined,
     });
     setEditingField(null);
@@ -712,15 +763,14 @@ const RbacSection = () => {
           </div>
           <div className="min-w-0">
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Тип сутності</label>
-            <select value={entityType} onChange={e => setEntityType(e.target.value as any)} className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none truncate">
+            <select value={entityType} onChange={e => setEntityType(e.target.value as 'project' | 'task')} className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none truncate">
               <option value="project">Проєкт</option>
               <option value="task">Операційна задача</option>
-              <option value="backlog">Беклог</option>
             </select>
           </div>
           <div className="min-w-0">
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Тип даних</label>
-            <select value={type} onChange={e => setType(e.target.value as any)} className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none truncate">
+            <select value={type} onChange={e => setType(e.target.value as CustomFieldType)} className="w-full border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none truncate">
               <option value="TEXT">Текст</option>
               <option value="NUMBER">Число</option>
               <option value="SELECT">Випадаючий список (Select)</option>
@@ -730,19 +780,13 @@ const RbacSection = () => {
           </div>
           <div className="flex flex-col justify-end">
             <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer mb-2">
-              <input type="checkbox" checked={isRequired} onChange={e => setIsRequired(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" />
-              Обов'язкове поле
-            </label>
-            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer mb-2">
               <input type="checkbox" checked={showInTable} onChange={e => setShowInTable(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" />
               Показувати в таблиці
             </label>
-            {entityType !== 'backlog' && (
-              <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer mb-2">
-                <input type="checkbox" checked={showInCards} onChange={e => setShowInCards(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" />
-                Показувати в картках
-              </label>
-            )}
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer mb-2">
+              <input type="checkbox" checked={showInCards} onChange={e => setShowInCards(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500" />
+              Показувати в картках
+            </label>
           </div>
         </div>
         {type === 'SELECT' && (
@@ -763,7 +807,6 @@ const RbacSection = () => {
               <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Назва</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Сутність</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Тип</th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Обов'язкове</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Відображення</th>
               <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">Статус</th>
               <th aria-label="Дії" className="w-32 py-4 pl-2 pr-3" />
@@ -773,13 +816,12 @@ const RbacSection = () => {
             {customFields.map(cf => (
               <tr key={cf.id} className="hover:bg-slate-50">
                 <td className="px-6 py-4 whitespace-normal break-words min-w-0 font-bold text-slate-800">{cf.name}</td>
-                <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-slate-500">{cf.entityType === 'project' ? 'Проєкт' : cf.entityType === 'task' ? 'Задача' : 'Беклог'}</td>
+                <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-slate-500">{cf.entityType === 'project' ? 'Проєкт' : 'Операційна задача'}</td>
                 <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-slate-500">{cf.type} {cf.type === 'SELECT' && <span className="text-xs">({cf.options?.join(', ')})</span>}</td>
-                <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-slate-500">{cf.isRequired ? 'Так' : 'Ні'}</td>
                 <td className="px-6 py-4 whitespace-normal break-words min-w-0 text-slate-500 text-xs space-y-1">
                   {cf.showInTable && <div><span className="font-bold">Таблиця:</span> Так</div>}
-                  {cf.entityType !== 'backlog' && cf.showInCards && <div><span className="font-bold">Картки:</span> Так</div>}
-                  {!cf.showInTable && (!cf.showInCards || cf.entityType === 'backlog') && <div className="text-slate-400">Тільки в модалці</div>}
+                  {cf.showInCards && <div><span className="font-bold">Картки:</span> Так</div>}
+                  {!cf.showInTable && !cf.showInCards && <div className="text-slate-400">Тільки в модалці</div>}
                 </td>
                 <td className="px-6 py-4 whitespace-normal break-words min-w-0">
                   <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${cf.isActive !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
@@ -799,7 +841,7 @@ const RbacSection = () => {
             ))}
             {customFields.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-slate-400 font-medium">Немає кастомних полів</td>
+                <td colSpan={6} className="px-6 py-8 text-center text-slate-400 font-medium">Немає кастомних полів</td>
               </tr>
             )}
           </tbody>
@@ -812,10 +854,10 @@ const RbacSection = () => {
             <div className="mb-5 flex items-start justify-between gap-4"><div><h3 className="text-xl font-bold text-slate-900">Редагування поля</h3><p className="mt-1 text-sm text-slate-500">Зміни застосуються до нових і наявних форм.</p></div><button onClick={() => setEditingField(null)} aria-label="Закрити" className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X size={22} /></button></div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm font-bold text-slate-700 sm:col-span-2">Назва поля<input value={editName} onChange={event => setEditName(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" /></label>
-              <div className="block text-sm font-bold text-slate-700">Тип сутності<div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-medium text-slate-500">{editEntityType === 'project' ? 'Проєкт' : editEntityType === 'task' ? 'Операційна задача' : 'Беклог'}</div></div>
+              <div className="block text-sm font-bold text-slate-700">Тип сутності<div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-medium text-slate-500">{editEntityType === 'project' ? 'Проєкт' : 'Операційна задача'}</div></div>
               <div className="block text-sm font-bold text-slate-700">Тип даних<div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-medium text-slate-500">{editType === 'TEXT' ? 'Текст' : editType === 'NUMBER' ? 'Число' : editType === 'SELECT' ? 'Випадаючий список' : editType === 'CHECKBOX' ? 'Прапорець' : 'Текст з форматуванням'}</div></div>
               {editType === 'SELECT' && <label className="block text-sm font-bold text-slate-700 sm:col-span-2">Значення списку (через кому)<input value={editOptions} onChange={event => setEditOptions(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Варіант 1, Варіант 2" /></label>}
-              <div className="space-y-2 text-sm font-bold text-slate-700 sm:col-span-2"><label className="flex items-center gap-2"><input type="checkbox" checked={editRequired} onChange={event => setEditRequired(event.target.checked)} />Обов'язкове поле</label><label className="flex items-center gap-2"><input type="checkbox" checked={editShowInTable} onChange={event => setEditShowInTable(event.target.checked)} />Показувати в таблиці</label>{editEntityType !== 'backlog' && <label className="flex items-center gap-2"><input type="checkbox" checked={editShowInCards} onChange={event => setEditShowInCards(event.target.checked)} />Показувати в картках</label>}</div>
+              <div className="space-y-2 text-sm font-bold text-slate-700 sm:col-span-2"><label className="flex items-center gap-2"><input type="checkbox" checked={editShowInTable} onChange={event => setEditShowInTable(event.target.checked)} />Показувати в таблиці</label><label className="flex items-center gap-2"><input type="checkbox" checked={editShowInCards} onChange={event => setEditShowInCards(event.target.checked)} />Показувати в картках</label></div>
             </div>
             <div className="mt-6 flex justify-end gap-3"><button onClick={() => setEditingField(null)} className="rounded-lg px-4 py-2 font-bold text-slate-600 hover:bg-slate-100">Скасувати</button><button onClick={saveEdit} disabled={!editName.trim()} className="rounded-lg bg-indigo-600 px-5 py-2 font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">Зберегти зміни</button></div>
           </div>

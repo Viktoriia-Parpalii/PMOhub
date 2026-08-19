@@ -19,6 +19,7 @@ describe('розширений демо-набір', () => {
     expect(initialDepartments.length).toBeGreaterThanOrEqual(8);
     expect(masters.length).toBeGreaterThanOrEqual(8);
     expect(cards.length).toBeGreaterThanOrEqual(12);
+    expect(cards.filter(card => card.year < 2026).length).toBeGreaterThanOrEqual(7);
 
     masters.forEach(master => {
       const snapshot = master.yearSnapshots?.[String(master.year)];

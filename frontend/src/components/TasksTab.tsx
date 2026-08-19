@@ -6,12 +6,12 @@ import { useAppContext } from '../store';
 import { TaskCard } from './TaskCard';
 import { OperationalTask } from '../types';
 import { passportFrom } from '../domain/initiatives';
-import { getHealthLabel, getHealthStatusPresentation } from '../domain/health';
-import { getPriorityBadgeClass } from '../domain/priority';
+import { getInitiativeStatus, getInitiativeStatusStyle } from '../domain/health';
+import { getPriorityBadgeStyle, colorWithAlpha } from '../domain/priority';
 import { RichTextPreview } from './RichTextEditor';
 
 export const TasksTab = () => {
-  const { tasks, updateTask, currentUser, customFields, departments, managers, priorities, deleteTask, rolePermissions, savePassport, createBacklogWithCards } = useAppContext();
+  const { tasks, updateTask, currentUser, customFields, departments, managers, priorities, initiativeStatuses, deleteTask, rolePermissions, savePassport, createBacklogWithCards } = useAppContext();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<OperationalTask | null>(null);
@@ -31,10 +31,6 @@ export const TasksTab = () => {
   
 
   let portfolioTasks = tasks.filter(t => !t.is_backlog && t.year === selectedYear && t.quarter === selectedQuarter);
-  if (currentUser?.role === 'USER' && currentUser.departmentId) {
-    portfolioTasks = portfolioTasks.filter(t => (t.implementer_dept_ids || []).includes(currentUser.departmentId!) || (t.cross_functional_dept_ids || []).includes(currentUser.departmentId!));
-  }
-
   if (filterManager) {
     portfolioTasks = portfolioTasks.filter(t => t.manager_id === filterManager);
   }
@@ -219,18 +215,18 @@ export const TasksTab = () => {
                 {taskCustomFields.map(cf => (
                   <th key={cf.id} className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest w-40 truncate" title={cf.name}>{cf.name}</th>
                 ))}
-                {(canEdit || isArchive) && <th className="px-4 py-3 text-right sticky right-0 bg-slate-50 w-16"></th>}
+                <th className="px-4 py-3 text-right sticky right-0 bg-slate-50 w-16"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {portfolioTasks.map(t => {
                 const status = t.health_status || 'DEFAULT';
-                const statusPresentation = getHealthStatusPresentation(status);
+                const statusPresentation = getInitiativeStatus(status, initiativeStatuses);
                 const managerName = managers?.find(m => m.id === t.manager_id)?.name || '—';
                 const goalName = t.strategic_goal || '—';
                 const priority = priorities?.find(item => item.id === t.priority);
                 return (
-                <tr key={t.id} className={`${getRowBgClass(status)} transition-colors border-b border-slate-100/80`}>
+                <tr key={t.id} className="transition-colors border-b border-slate-100/80" style={{ backgroundColor: colorWithAlpha(statusPresentation.color, .07) }}>
                   <td className="px-4 py-3 min-w-0 font-medium text-slate-700">
                     <span className="block break-words line-clamp-2 hover:line-clamp-none transition-all" title={managerName}>
                       {managerName}
@@ -250,33 +246,12 @@ export const TasksTab = () => {
                   </td>
                   <td className="px-4 py-3 min-w-0">
                     <div className="flex flex-col items-start gap-2">
-                      <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider border whitespace-nowrap shadow-2xs ${statusPresentation.badgeClass}`}>
-                        {statusPresentation.label}
+                      <span className="px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider border whitespace-nowrap shadow-2xs" style={getInitiativeStatusStyle(status, initiativeStatuses)}>
+                        {statusPresentation.name}
                       </span>
 
                       {canEdit && (
-                        <div className="flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white/90 p-1 backdrop-blur shadow-2xs" aria-label="Обрати статус ініціативи">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); updateTask(t.id, { health_status: 'DEFAULT' as any }); }}
-                            className={`w-3.5 h-3.5 rounded-full bg-slate-400 border transition-all ${status === 'DEFAULT' ? 'ring-2 ring-slate-400 ring-offset-1 scale-110 border-slate-600' : 'border-slate-500 hover:scale-125'}`}
-                            title={getHealthLabel('DEFAULT')}
-                          />
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); updateTask(t.id, { health_status: 'GREEN' as any }); }}
-                            className={`w-3.5 h-3.5 rounded-full bg-emerald-500 border transition-all ${status === 'GREEN' ? 'ring-2 ring-emerald-500 ring-offset-1 scale-110 border-emerald-700' : 'border-emerald-600 hover:scale-125'}`}
-                            title={getHealthLabel('GREEN')}
-                          />
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); updateTask(t.id, { health_status: 'YELLOW' as any }); }}
-                            className={`w-3.5 h-3.5 rounded-full bg-amber-500 border transition-all ${status === 'YELLOW' ? 'ring-2 ring-amber-500 ring-offset-1 scale-110 border-amber-700' : 'border-amber-600 hover:scale-125'}`}
-                            title={getHealthLabel('YELLOW')}
-                          />
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); updateTask(t.id, { health_status: 'RED' as any }); }}
-                            className={`w-3.5 h-3.5 rounded-full bg-red-500 border transition-all ${status === 'RED' ? 'ring-2 ring-rose-500 ring-offset-1 scale-110 border-red-700' : 'border-red-600 hover:scale-125'}`}
-                            title={getHealthLabel('RED')}
-                          />
-                        </div>
+                        <div className="flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white/90 p-1 backdrop-blur shadow-2xs" aria-label="Обрати статус ініціативи">{initiativeStatuses.filter(item => item.is_active || item.id === status).map(item => <button key={item.id} onClick={(e) => { e.stopPropagation(); updateTask(t.id, { health_status: item.id }); }} className={`w-3.5 h-3.5 rounded-full border transition-all ${status === item.id ? 'ring-2 ring-offset-1 scale-110' : 'hover:scale-125'}`} style={{ backgroundColor: item.color, borderColor: colorWithAlpha(item.color, .8), outlineColor: item.color }} title={item.name} />)}</div>
                       )}
                     </div>
                   </td>
@@ -286,13 +261,13 @@ export const TasksTab = () => {
                     </span>
                   </td>
                   <td className="min-w-[10rem] px-4 py-3 text-center whitespace-nowrap">
-                    <span className={`inline-flex w-32 justify-center truncate rounded-full border px-2.5 py-1 text-xs font-bold ${getPriorityBadgeClass(priority?.id ?? t.priority)}`} title={priority?.name ?? t.priority ?? 'Не обрано'}>
+                    <span className="inline-flex w-32 justify-center truncate rounded-full border px-2.5 py-1 text-xs font-bold" style={getPriorityBadgeStyle(priority?.id ?? t.priority, priorities)} title={priority?.name ?? t.priority ?? 'Не обрано'}>
                       {priority?.name ?? t.priority ?? '—'}
                     </span>
                   </td>
                   <td className="px-4 py-3 min-w-0">
                     <div className="flex flex-wrap gap-1 max-w-full">
-                      {(t.implementer_dept_ids || []).map(id => {
+                      {Array.from(new Set((t.checklist ?? []).flatMap(item => item.implementer_dept_ids ?? []))).map(id => {
                         const d = ((departments || [])).find(dep => dep.id === id);
                         if (!d) return null;
                         return (
@@ -301,7 +276,7 @@ export const TasksTab = () => {
                           </span>
                         );
                       })}
-                      {(!t.implementer_dept_ids || t.implementer_dept_ids.length === 0) && <span className="text-slate-400 text-xs">—</span>}
+                      {!(t.checklist ?? []).some(item => item.implementer_dept_ids?.length) && <span className="text-slate-400 text-xs">—</span>}
                     </div>
                   </td>
                   <td className="px-4 py-3 min-w-0">
@@ -342,13 +317,11 @@ export const TasksTab = () => {
                       </span>
                     </td>
                   ))}
-                  {(canEdit || isArchive) && (
-                    <td className={`px-4 py-3 whitespace-nowrap text-right sticky right-0 ${getStickyBgClass(status)} shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]`}>
-                      <button onClick={() => openEditModal(t)} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors bg-white rounded shadow-sm border border-slate-200" title={!canEdit ? 'Переглянути' : 'Редагувати'}>
-                        {!canEdit ? <Eye size={18} /> : <Edit2 size={18} />}
-                      </button>
-                    </td>
-                  )}
+                  <td className={`px-4 py-3 whitespace-nowrap text-right sticky right-0 ${getStickyBgClass(status)} shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]`}>
+                    <button onClick={() => openEditModal(t)} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors bg-white rounded shadow-sm border border-slate-200" title={!canEdit ? 'Переглянути' : 'Редагувати'}>
+                      {!canEdit ? <Eye size={18} /> : <Edit2 size={18} />}
+                    </button>
+                  </td>
                 </tr>
                 );
               })}
@@ -357,7 +330,7 @@ export const TasksTab = () => {
         </div>
       )}
 
-      {isModalOpen && (canEdit || isArchive) && (
+      {isModalOpen && (
         <TaskModal 
           task={editingTask}
           defaultYear={selectedYear}

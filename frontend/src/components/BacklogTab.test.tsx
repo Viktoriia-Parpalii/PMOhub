@@ -67,7 +67,7 @@ describe('BacklogTab bulk extension', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Увійти для тесту' }));
     fireEvent.click(screen.getByRole('button', { name: 'Нова клієнтська платформа' }));
 
-    expect(screen.getByText('В процесі')).toHaveClass('bg-amber-100', 'text-amber-800');
+    expect(screen.getByText('В процесі')).toHaveStyle({ backgroundColor: 'rgba(245, 158, 11, 0.13)' });
     expect(screen.getByText('3 завдання')).toBeInTheDocument();
     expect(screen.getByText('1/3 · 33%')).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: 'Прогрес scope Q3 2026' })).toHaveAttribute('aria-valuenow', '33');

@@ -7,10 +7,11 @@ const user = (departmentId: string): User => ({ id: departmentId, name: departme
 const permissions: RolePermissions[] = [{ role: 'USER', canCreateEditProjects: false, canDeleteProjects: false, canAccessAdmin: false, isReadOnly: true, canEditArchive: false }];
 
 describe('permissions', () => {
-  it('shows records to executor and involved departments only', () => {
+  it('shows every record to an authenticated user, regardless of department', () => {
     expect(canViewInitiative(card, user('D1'))).toBe(true);
     expect(canViewInitiative(card, user('D2'))).toBe(true);
-    expect(canViewInitiative(card, user('D3'))).toBe(false);
+    expect(canViewInitiative(card, user('D3'))).toBe(true);
+    expect(canViewInitiative(card, null)).toBe(false);
   });
   it('enforces delete permission', () => expect(canDeleteInitiative(card, user('D1'), permissions)).toBe(false));
 

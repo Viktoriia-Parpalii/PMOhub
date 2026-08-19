@@ -3,12 +3,12 @@ import { useAppContext } from '../store';
 import { Project, OperationalTask, Quarter } from '../types';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 import { getComputedTotalWeight, truncateText, getAvailableYears, getCurrentQuarter } from '../utils';
-import { getHealthStatusPresentation } from '../domain/health';
+import { getInitiativeStatus } from '../domain/health';
 import { averageInitiativeDuration, capacityByQuarter, healthCounts, averageScopeProgress, scopeStatusCounts, sizeBreakdown, AnalyticsCard, normalizeHealthStatus } from '../domain/analytics';
 import { getYearSnapshot } from '../domain/initiatives';
 
 export const Dashboard = () => {
-  const { projects, tasks, departments, managers, priorities, taskWeights, initiativeSizes, currentUser } = useAppContext();
+  const { projects, tasks, departments, managers, priorities, initiativeStatuses, taskWeights, initiativeSizes } = useAppContext();
   
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [quarter, setQuarter] = useState<Quarter | 'ALL'>(getCurrentQuarter());
@@ -33,11 +33,6 @@ export const Dashboard = () => {
     if (typeFilter === 'PROJECTS') t = [];
     if (typeFilter === 'TASKS') p = [];
 
-    if (currentUser?.role === 'USER' && currentUser.departmentId) {
-      p = p.filter(proj => (proj.implementer_dept_ids || []).includes(currentUser.departmentId!) || proj.cross_functional_dept_ids.includes(currentUser.departmentId!));
-      t = t.filter(task => (task.implementer_dept_ids || []).includes(currentUser.departmentId!) || (task.cross_functional_dept_ids || []).includes(currentUser.departmentId!));
-    }
-
     if (deptFilter !== 'ALL') {
       p = p.filter(proj => (proj.implementer_dept_ids || []).includes(deptFilter) || (proj.cross_functional_dept_ids || []).includes(deptFilter));
       t = t.filter(task => (task.implementer_dept_ids || []).includes(deptFilter) || (task.cross_functional_dept_ids || []).includes(deptFilter));
@@ -60,7 +55,6 @@ export const Dashboard = () => {
       const managerId = stage?.manager_id ?? snapshot?.manager_id ?? record.manager_id;
       const involved = stage?.cross_functional_dept_ids ?? snapshot?.cross_functional_dept_ids ?? record.cross_functional_dept_ids;
       const visibleRecord = { ...record, manager_id: managerId, cross_functional_dept_ids: involved, implementer_dept_ids: [] };
-      if (currentUser?.role === 'USER' && currentUser.departmentId && !isVisibleForUser(visibleRecord, currentUser.departmentId)) return false;
       if (deptFilter !== 'ALL' && !isVisibleForUser(visibleRecord, deptFilter)) return false;
       return managerFilter === 'ALL' || managerId === managerFilter;
     };
@@ -113,12 +107,9 @@ export const Dashboard = () => {
   const scopeDefaultPct = scopeTotal ? Math.round((scopeDefault / scopeTotal) * 100) : 0;
 
   // Donut Data
-  const donutData = [
-    { name: getHealthStatusPresentation('GREEN').label, value: greenCount, color: '#10b981' },
-    { name: getHealthStatusPresentation('YELLOW').label, value: yellowCount, color: '#f59e0b' },
-    { name: getHealthStatusPresentation('RED').label, value: redCount, color: '#f43f5e' },
-    { name: getHealthStatusPresentation('DEFAULT').label, value: defaultCount, color: '#94a3b8' },
-  ].filter(d => d.value > 0);
+  const donutData = ([
+    ['GREEN', greenCount], ['YELLOW', yellowCount], ['RED', redCount], ['DEFAULT', defaultCount],
+  ] as Array<[string, number]>).map(([id, value]) => { const definition = getInitiativeStatus(id, initiativeStatuses); return { name: definition.name, value, color: definition.color }; }).filter(d => d.value > 0);
   const totalStatusItems = activeItems.length;
 
   // History Stacked Data (All Years)
@@ -195,7 +186,9 @@ export const Dashboard = () => {
     return 'border-emerald-200 bg-emerald-50 text-emerald-700';
   };
   const capacityDepartments = (departments || []).filter(department => deptFilter === 'ALL' || department.id === deptFilter);
-  const capacityReserveData = capacityDepartments
+  const heatmapDepartments = capacityDepartments.filter(department => department.is_active !== false || annualCapacity.some(period => (period.loads.find(load => load.departmentId === department.id)?.load ?? 0) > 0));
+  const reserveDepartments = capacityDepartments.filter(department => department.is_active !== false);
+  const capacityReserveData = reserveDepartments
     .map(department => {
       const loads = annualCapacity.map(period => period.loads.find(item => item.departmentId === department.id)?.load ?? 0);
       const isAnnualView = quarter === 'ALL';
@@ -206,8 +199,7 @@ export const Dashboard = () => {
       const reserve = limit - load;
       return { id: department.id, name: department.name, load, limit, reserve };
     })
-    .sort((left, right) => left.reserve - right.reserve || right.load - left.load)
-    .slice(0, 5);
+    .sort((left, right) => left.reserve - right.reserve || right.load - left.load);
   const overloadedDepartmentCount = capacityReserveData.filter(department => department.reserve < 0).length;
 
   // New Graph: Size Breakdown Data
@@ -216,7 +208,7 @@ export const Dashboard = () => {
   // Priority Distribution Data
   const priorityData = ((priorities || [])).map(pr => {
     const items = activeItems.filter(i => i.priority === pr.id);
-    const weightsByHealth = items.reduce<Record<'GREEN' | 'YELLOW' | 'RED' | 'DEFAULT', number>>((totals, item) => {
+    const weightsByHealth = items.reduce<Record<string, number>>((totals, item) => {
       totals[normalizeHealthStatus(item.health_status)] += getComputedTotalWeight(item.checklist, taskWeights, item.year, item.quarter);
       return totals;
     }, { GREEN: 0, YELLOW: 0, RED: 0, DEFAULT: 0 });
@@ -315,7 +307,7 @@ export const Dashboard = () => {
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getInitiativeStatus('GREEN', initiativeStatuses).color }}></div>
                   <span className="text-xs text-slate-500 font-medium uppercase">Виконано</span>
                 </div>
                 <div className="text-right">
@@ -325,7 +317,7 @@ export const Dashboard = () => {
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getInitiativeStatus('YELLOW', initiativeStatuses).color }}></div>
                   <span className="text-xs text-slate-500 font-medium uppercase">В процесі</span>
                 </div>
                 <div className="text-right">
@@ -345,7 +337,7 @@ export const Dashboard = () => {
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-slate-400"></div>
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getInitiativeStatus('DEFAULT', initiativeStatuses).color }}></div>
                   <span className="text-xs text-slate-500 font-medium uppercase">Без статусу</span>
                 </div>
                 <div className="text-right">
@@ -357,10 +349,10 @@ export const Dashboard = () => {
           </div>
           {scopeTotal > 0 && (
             <div className="w-full bg-slate-100 rounded-full h-1.5 mt-4 flex overflow-hidden">
-              {scopeGreenPct > 0 && <div className="bg-emerald-500 h-full" style={{ width: `${scopeGreenPct}%` }} title={`Виконано: ${scopeGreenPct}%`}></div>}
-              {scopeYellowPct > 0 && <div className="bg-amber-500 h-full" style={{ width: `${scopeYellowPct}%` }} title={`В процесі: ${scopeYellowPct}%`}></div>}
+              {scopeGreenPct > 0 && <div className="h-full" style={{ width: `${scopeGreenPct}%`, backgroundColor: getInitiativeStatus('GREEN', initiativeStatuses).color }} title={`Виконано: ${scopeGreenPct}%`}></div>}
+              {scopeYellowPct > 0 && <div className="h-full" style={{ width: `${scopeYellowPct}%`, backgroundColor: getInitiativeStatus('YELLOW', initiativeStatuses).color }} title={`В процесі: ${scopeYellowPct}%`}></div>}
               {scopeRedPct > 0 && <div className="bg-rose-500 h-full" style={{ width: `${scopeRedPct}%` }} title={`На паузі / блоковано: ${scopeRedPct}%`}></div>}
-              {scopeDefaultPct > 0 && <div className="bg-slate-400 h-full" style={{ width: `${scopeDefaultPct}%` }} title={`Без статусу: ${scopeDefaultPct}%`}></div>}
+              {scopeDefaultPct > 0 && <div className="h-full" style={{ width: `${scopeDefaultPct}%`, backgroundColor: getInitiativeStatus('DEFAULT', initiativeStatuses).color }} title={`Без статусу: ${scopeDefaultPct}%`}></div>}
             </div>
           )}
         </div>
@@ -455,10 +447,10 @@ export const Dashboard = () => {
                     <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                     <RechartsTooltip content={<HistoryTooltip />} cursor={{ fill: '#f8fafc' }} />
                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                    <Bar name="Виконано" dataKey="Виконано" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} maxBarSize={60} />
-                    <Bar name="В процесі" dataKey="В процесі" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} maxBarSize={60} />
-                    <Bar name="На паузі / блоковано" dataKey="На паузі / блоковано" stackId="a" fill="#f43f5e" radius={[0, 0, 0, 0]} maxBarSize={60} />
-                    <Bar name="Без статусу" dataKey="Без статусу" stackId="a" fill="#94a3b8" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                    <Bar name={getInitiativeStatus('GREEN', initiativeStatuses).name} dataKey="Виконано" stackId="a" fill={getInitiativeStatus('GREEN', initiativeStatuses).color} radius={[0, 0, 0, 0]} maxBarSize={60} />
+                    <Bar name={getInitiativeStatus('YELLOW', initiativeStatuses).name} dataKey="В процесі" stackId="a" fill={getInitiativeStatus('YELLOW', initiativeStatuses).color} radius={[0, 0, 0, 0]} maxBarSize={60} />
+                    <Bar name={getInitiativeStatus('RED', initiativeStatuses).name} dataKey="На паузі / блоковано" stackId="a" fill={getInitiativeStatus('RED', initiativeStatuses).color} radius={[0, 0, 0, 0]} maxBarSize={60} />
+                    <Bar name={getInitiativeStatus('DEFAULT', initiativeStatuses).name} dataKey="Без статусу" stackId="a" fill={getInitiativeStatus('DEFAULT', initiativeStatuses).color} radius={[4, 4, 0, 0]} maxBarSize={60} />
                   </BarChart>
                 </ResponsiveContainer>
              )}
@@ -479,7 +471,7 @@ export const Dashboard = () => {
             <div className="grid grid-cols-[minmax(126px,1fr)_repeat(4,64px)] gap-2 px-1 text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">
               <span className="text-left">Відділ</span>{(['Q1', 'Q2', 'Q3', 'Q4'] as Quarter[]).map(item => <span key={item}>{item}</span>)}
             </div>
-            {capacityDepartments.map(department => (
+            {heatmapDepartments.map(department => (
               <div key={department.id} className="grid grid-cols-[minmax(126px,1fr)_repeat(4,64px)] items-center gap-2">
                 <span className="truncate px-1 text-sm font-bold text-slate-700" title={department.name}>{department.name}</span>
                 {annualCapacity.map(period => {
@@ -592,10 +584,10 @@ export const Dashboard = () => {
                     <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                     <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }} />
                     <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                    <Bar name="Виконано" dataKey="green" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={32} />
-                    <Bar name="В процесі" dataKey="yellow" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />
-                    <Bar name="На паузі / блоковано" dataKey="red" stackId="a" fill="#f43f5e" radius={[0, 0, 0, 0]} />
-                    <Bar name="Без статусу" dataKey="default" stackId="a" fill="#94a3b8" radius={[0, 4, 4, 0]} />
+                    <Bar name={getInitiativeStatus('GREEN', initiativeStatuses).name} dataKey="green" stackId="a" fill={getInitiativeStatus('GREEN', initiativeStatuses).color} radius={[0, 0, 0, 0]} barSize={32} />
+                    <Bar name={getInitiativeStatus('YELLOW', initiativeStatuses).name} dataKey="yellow" stackId="a" fill={getInitiativeStatus('YELLOW', initiativeStatuses).color} radius={[0, 0, 0, 0]} />
+                    <Bar name={getInitiativeStatus('RED', initiativeStatuses).name} dataKey="red" stackId="a" fill={getInitiativeStatus('RED', initiativeStatuses).color} radius={[0, 0, 0, 0]} />
+                    <Bar name={getInitiativeStatus('DEFAULT', initiativeStatuses).name} dataKey="default" stackId="a" fill={getInitiativeStatus('DEFAULT', initiativeStatuses).color} radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
              )}

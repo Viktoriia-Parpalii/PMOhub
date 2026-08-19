@@ -4,8 +4,8 @@ import { useAppContext } from '../store';
 import { OperationalTask, Project, Quarter } from '../types';
 import { canViewInitiative, getPermissions } from '../domain/permissions';
 import { getChainId, getYearSnapshot, isCompletedItem, materializeBacklogYear, passportFrom } from '../domain/initiatives';
-import { getHealthStatusPresentation } from '../domain/health';
-import { getPriorityBadgeClass } from '../domain/priority';
+import { getInitiativeStatus, getInitiativeStatusStyle } from '../domain/health';
+import { getPriorityBadgeStyle } from '../domain/priority';
 import { getAvailableYears, getCurrentPeriod, isBacklogLocked } from '../utils';
 import { BacklogModal } from './BacklogModal';
 import { PreparationStageModal } from './PreparationStageModal';
@@ -32,7 +32,7 @@ const taskCountLabel = (count: number) => {
 
 export const BacklogTab = () => {
   const {
-    projects, tasks, managers, priorities, departments, currentUser, rolePermissions,
+    projects, tasks, managers, priorities, initiativeStatuses, departments, currentUser, rolePermissions,
     addProject, addTask, updateProject, updateTask, deleteProject, deleteTask, createBacklogSnapshots,
   } = useAppContext();
   const [activeTab, setActiveTab] = useState<Tab>('PROJECTS');
@@ -89,7 +89,7 @@ export const BacklogTab = () => {
   );
   const selectableMasterIds = masters.filter(master => eligibleIds.has(master.id)).map(master => master.id);
   const allVisibleSelected = selectableMasterIds.length > 0 && selectableMasterIds.every(id => selectedIds.includes(id));
-  const cardsFor = (masterId: string) => records.filter(record => !record.is_backlog && record.backlog_id === masterId);
+  const cardsFor = (masterId: string) => records.filter(record => !record.is_backlog && record.backlog_id === masterId && record.year === selectedYear);
   const cancelExtensionSelection = () => { setIsSelectingForExtension(false); setSelectedIds([]); };
   const changeTab = (tab: Tab) => { setActiveTab(tab); setExpandedId(null); cancelExtensionSelection(); setNotice(null); };
   const changeYear = (year: number) => { setSelectedYear(year); setExpandedId(null); cancelExtensionSelection(); setNotice(null); };
@@ -232,7 +232,7 @@ export const BacklogTab = () => {
                     <td className="px-4 py-4"><div className="flex justify-end gap-1"><button type="button" onClick={() => { setEditingItem(master); setIsModalOpen(true); }} title={canEdit ? 'Редагувати' : 'Переглянути'} className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-indigo-600">{canEdit ? <Edit2 size={17} /> : <Eye size={17} />}</button>{canEdit && <button type="button" onClick={() => setMasterToDelete(master)} title="Видалити" className="rounded-xl p-2 text-rose-500 transition hover:bg-rose-50"><Trash2 size={17} /></button>}</div></td>
                   </tr>
                   {expandedId === master.id && <tr><td colSpan={columnCount} className="bg-slate-50 px-6 py-4"><div className="flex flex-wrap gap-3">{cards.length ? [...cards].sort((a, b) => a.year - b.year || a.quarter.localeCompare(b.quarter)).map(card => {
-                    const status = getHealthStatusPresentation(card.health_status);
+                    const status = getInitiativeStatus(card.health_status, initiativeStatuses);
                     const scope = getScopeProgress(card);
                     const cardManager = managers.find(item => item.id === card.manager_id);
                     const cardPriority = priorities.find(item => item.id === card.priority);
@@ -240,18 +240,18 @@ export const BacklogTab = () => {
                     return <button type="button" key={card.id} onClick={() => setEditingCard(card)} className="min-w-[292px] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-indigo-300 hover:shadow-md" aria-label={`Редагувати ${card.quarter} ${card.year}`}>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm font-extrabold text-slate-800">{card.quarter} {card.year}</span>
-                        <span className={`inline-flex min-w-24 justify-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${status.badgeClass}`}>{status.label}</span>
+                        <span className="inline-flex min-w-24 justify-center rounded-full border px-2.5 py-1 text-[11px] font-bold" style={getInitiativeStatusStyle(card.health_status, initiativeStatuses)}>{status.name}</span>
                       </div>
-                      <div className="mt-3 space-y-1.5 text-xs leading-5 text-slate-600"><p><span className="font-bold text-slate-700">Менеджер:</span> {cardManager?.name ?? '—'}</p><p className="flex items-center gap-2"><span className="font-bold text-slate-700">Пріоритет:</span><span className={`inline-flex w-24 justify-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${getPriorityBadgeClass(cardPriority?.id ?? card.priority)}`}>{cardPriority?.name ?? '—'}</span></p><p title={involved.join(', ')} className="line-clamp-2"><span className="font-bold text-slate-700">Залучені:</span> {involved.length ? involved.join(', ') : '—'}</p></div>
+                      <div className="mt-3 space-y-1.5 text-xs leading-5 text-slate-600"><p><span className="font-bold text-slate-700">Менеджер:</span> {cardManager?.name ?? '—'}</p><p className="flex items-center gap-2"><span className="font-bold text-slate-700">Пріоритет:</span><span className="inline-flex w-24 justify-center rounded-full border px-2 py-0.5 text-[10px] font-bold" style={getPriorityBadgeStyle(cardPriority?.id ?? card.priority, priorities)}>{cardPriority?.name ?? '—'}</span></p><p title={involved.join(', ')} className="line-clamp-2"><span className="font-bold text-slate-700">Залучені:</span> {involved.length ? involved.join(', ') : '—'}</p></div>
                       <div className="mt-3 flex items-center justify-between gap-3 text-xs font-medium text-slate-500">
                         <span>{taskCountLabel(scope.total)}</span>
                         <span className="font-bold text-slate-700">{scope.completed}/{scope.total} · {scope.percent}%</span>
                       </div>
                       <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label={`Прогрес scope ${card.quarter} ${card.year}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={scope.percent}>
-                        <div className={`h-full rounded-full transition-[width] ${status.progressClass}`} style={{ width: `${scope.percent}%` }} />
+                        <div className="h-full rounded-full transition-[width]" style={{ width: `${scope.percent}%`, backgroundColor: status.color }} />
                       </div>
                     </button>;
-                  }) : (() => { const stage = getYearSnapshot(master, selectedYear)?.preparationStage; const stageManager = managers.find(item => item.id === stage?.manager_id); const stagePriority = priorities.find(item => item.id === stage?.priority); const involved = (stage?.cross_functional_dept_ids ?? []).map(id => departments.find(department => department.id === id)?.name ?? id); return <button type="button" onClick={() => setPreparationItem(master)} className="min-w-[292px] rounded-2xl border border-dashed border-indigo-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-indigo-400 hover:bg-indigo-50" aria-label="Відкрити підготовчий етап"><div className="flex items-center justify-between gap-3"><span className="text-sm font-extrabold text-slate-800">Підготовчий етап</span><span className="inline-flex min-w-24 justify-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-600">Без статусу</span></div><div className="mt-3 space-y-1.5 text-xs leading-5 text-slate-600"><p><span className="font-bold text-slate-700">Менеджер:</span> {stageManager?.name ?? '—'}</p><p className="flex items-center gap-2"><span className="font-bold text-slate-700">Пріоритет:</span><span className={`inline-flex w-24 justify-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${getPriorityBadgeClass(stagePriority?.id ?? stage?.priority)}`}>{stagePriority?.name ?? '—'}</span></p><p title={involved.join(', ')} className="line-clamp-2"><span className="font-bold text-slate-700">Залучені:</span> {involved.length ? involved.join(', ') : '—'}</p></div></button>; })()}</div></td></tr>}
+                  }) : (() => { const stage = getYearSnapshot(master, selectedYear)?.preparationStage; const stageManager = managers.find(item => item.id === stage?.manager_id); const stagePriority = priorities.find(item => item.id === stage?.priority); const involved = (stage?.cross_functional_dept_ids ?? []).map(id => departments.find(department => department.id === id)?.name ?? id); return <button type="button" onClick={() => setPreparationItem(master)} className="min-w-[292px] rounded-2xl border border-dashed border-indigo-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-indigo-400 hover:bg-indigo-50" aria-label="Відкрити підготовчий етап"><div className="flex items-center justify-between gap-3"><span className="text-sm font-extrabold text-slate-800">Підготовчий етап</span><span className="inline-flex min-w-24 justify-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-600">Без статусу</span></div><div className="mt-3 space-y-1.5 text-xs leading-5 text-slate-600"><p><span className="font-bold text-slate-700">Менеджер:</span> {stageManager?.name ?? '—'}</p><p className="flex items-center gap-2"><span className="font-bold text-slate-700">Пріоритет:</span><span className="inline-flex w-24 justify-center rounded-full border px-2 py-0.5 text-[10px] font-bold" style={getPriorityBadgeStyle(stagePriority?.id ?? stage?.priority, priorities)}>{stagePriority?.name ?? '—'}</span></p><p title={involved.join(', ')} className="line-clamp-2"><span className="font-bold text-slate-700">Залучені:</span> {involved.length ? involved.join(', ') : '—'}</p></div></button>; })()}</div></td></tr>}
                 </React.Fragment>;
               })}
               {masters.length === 0 && <tr><td colSpan={columnCount} className="py-14 text-center text-slate-500">За заданими фільтрами ініціатив не знайдено.</td></tr>}

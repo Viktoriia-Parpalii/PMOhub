@@ -2,9 +2,11 @@ import {
   ChecklistItem,
   Department,
   InitiativeSizeDef,
+  InitiativeSizeSnapshot,
   OperationalTask,
   Project,
   TaskWeightDef,
+  TaskWeightSnapshot,
 } from '../types';
 
 export type QuarterCard = Project | OperationalTask;
@@ -27,10 +29,17 @@ export const getTaskWeight = (
   item: ChecklistItem,
   taskWeights: TaskWeightDef[],
 ): number => {
+  if (item.weightSnapshot && Number.isFinite(item.weightSnapshot.value)) return item.weightSnapshot.value;
   if (!item.weightId) return 0;
-  const definition = taskWeights.find(weight => weight.id === item.weightId && weight.is_active);
+  const definition = taskWeights.find(weight => weight.id === item.weightId);
   return definition?.weight ?? 0;
 };
+
+export const makeWeightSnapshot = (definition: TaskWeightDef): TaskWeightSnapshot => ({
+  definitionId: definition.id,
+  name: definition.name,
+  value: definition.weight,
+});
 
 export const getInitiativeWeight = (
   checklist: ChecklistItem[] | undefined,
@@ -44,13 +53,21 @@ export const getInitiativeSize = (
   size => size.is_active && totalWeight >= size.min_score && totalWeight <= size.max_score,
 )?.name ?? 'Не визначено';
 
+export const makeSizeSnapshot = (
+  totalWeight: number,
+  initiativeSizes: InitiativeSizeDef[],
+): InitiativeSizeSnapshot => {
+  const definition = initiativeSizes.find(size => size.is_active && totalWeight >= size.min_score && totalWeight <= size.max_score);
+  return { definitionId: definition?.id, name: definition?.name ?? 'Не визначено', totalWeight };
+};
+
 export const getInitiativeMetrics = (
   card: QuarterCard,
   taskWeights: TaskWeightDef[],
   initiativeSizes: InitiativeSizeDef[],
 ): InitiativeMetrics => {
   const totalWeight = getInitiativeWeight(card.checklist, taskWeights);
-  return { totalWeight, sizeName: getInitiativeSize(totalWeight, initiativeSizes) };
+  return { totalWeight, sizeName: card.sizeSnapshot?.name ?? getInitiativeSize(totalWeight, initiativeSizes) };
 };
 
 export const validateChecklistCapacity = (
@@ -60,7 +77,8 @@ export const validateChecklistCapacity = (
   const errors: string[] = [];
   (checklist ?? []).forEach((item, index) => {
     const label = item.text.trim() || `Завдання ${index + 1}`;
-    if (!item.weightId || !taskWeights.some(weight => weight.id === item.weightId && weight.is_active)) {
+    const hasSnapshot = Boolean(item.weightSnapshot && item.weightSnapshot.name.trim() && Number.isFinite(item.weightSnapshot.value) && item.weightSnapshot.value >= 0);
+    if (!hasSnapshot && (!item.weightId || !taskWeights.some(weight => weight.id === item.weightId && weight.is_active))) {
       errors.push(`«${label}»: оберіть активну вагу`);
     }
     if (!item.implementer_dept_ids?.length) {

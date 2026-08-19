@@ -1,21 +1,23 @@
 import React from 'react';
 import { OperationalTask } from '../types';
-import { calculateProgress, getHealthColors, getHealthLabel, stripHtml, getComputedTotalWeight } from '../utils';
+import { calculateProgress, stripHtml, getComputedTotalWeight } from '../utils';
 import { useAppContext } from '../store';
 import { getInitiativeSize, getInitiativeWeight } from '../domain/capacity';
-import { getPriorityBadgeClass } from '../domain/priority';
+import { getPriorityBadgeStyle, colorWithAlpha } from '../domain/priority';
+import { getInitiativeStatus } from '../domain/health';
 import { RichTextPreview } from './RichTextEditor';
 
 export const TaskCard: React.FC<{ task: OperationalTask; onClick?: () => void; hideColorPicker?: boolean; isBacklogView?: boolean }> = ({ task, onClick, hideColorPicker, isBacklogView }) => {
-  const { departments, priorities, taskWeights, initiativeSizes, updateProject, updateTask, currentUser, customFields, managers } = useAppContext();
+  const { departments, priorities, initiativeStatuses, taskWeights, initiativeSizes, updateProject, updateTask, currentUser, customFields, managers } = useAppContext();
   
   
   const cardFields = (customFields || []).filter(cf => cf.entityType === 'task' && cf.showInCards);
   const effectiveStatus = task.is_backlog ? 'DEFAULT' : task.health_status;
-  const colors = getHealthColors(effectiveStatus);
+  const statusDefinition = getInitiativeStatus(effectiveStatus, initiativeStatuses);
   const progress = calculateProgress(task.checklist);
   
-  const implementerNames = (task.implementer_dept_ids || []).map(id => ((departments || [])).find(d => d.id === id)?.name).filter(Boolean).join(', ');
+  const implementerIds = Array.from(new Set((task.checklist ?? []).flatMap(item => item.implementer_dept_ids ?? [])));
+  const implementerNames = implementerIds.map(id => ((departments || [])).find(d => d.id === id)?.name).filter(Boolean).join(', ');
   const manager = ((managers || [])).find(m => m.id === task.manager_id);
   
   const crossFuncNames = (task.cross_functional_dept_ids || [])
@@ -24,9 +26,7 @@ export const TaskCard: React.FC<{ task: OperationalTask; onClick?: () => void; h
     .join(', ');
 
   
-  const getSizeName = (checklist: any[]) => {
-    return getInitiativeSize(getInitiativeWeight(checklist, taskWeights || []), initiativeSizes || []);
-  };
+  const getSizeName = (checklist: any[]) => task.sizeSnapshot?.name ?? getInitiativeSize(getInitiativeWeight(checklist, taskWeights || []), initiativeSizes || []);
   const getPriorityLabel = (p?: string) => {
     const found = ((priorities || [])).find(pr => pr.id === p);
     return found ? found.name : '—';
@@ -46,33 +46,12 @@ export const TaskCard: React.FC<{ task: OperationalTask; onClick?: () => void; h
       onClick={onClick}
       className={`group relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 ${onClick ? 'cursor-pointer hover:shadow-md hover:border-indigo-200 hover:-translate-y-0.5 transition-all duration-300' : ''} flex flex-col h-fit`}
     >
-      <div className={`absolute left-0 top-0 bottom-0 w-2 ${colors.main}`}></div>
+      <div className="absolute left-0 top-0 bottom-0 w-2" style={{ backgroundColor: statusDefinition.color }}></div>
       
       {!hideColorPicker && !task.is_backlog && (
       <div className="absolute top-2 right-2 flex flex-col opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-white/95 backdrop-blur shadow-lg border border-slate-200 rounded-lg py-1.5 px-2.5">
         <div className="text-[8px] font-bold text-slate-400 text-center tracking-wider mb-1.5">СТАТУС</div>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={(e) => { e.stopPropagation(); updateTask(task.id, { health_status: 'DEFAULT' as any }) }} 
-            className="w-3.5 h-3.5 rounded-full bg-slate-400 border border-slate-500 hover:scale-125 transition-transform" 
-            title={getHealthLabel('DEFAULT')}
-          />
-          <button 
-            onClick={(e) => { e.stopPropagation(); updateTask(task.id, { health_status: 'GREEN' as any }) }} 
-            className="w-3.5 h-3.5 rounded-full bg-emerald-500 border border-emerald-600 hover:scale-125 transition-transform" 
-            title={getHealthLabel('GREEN')}
-          />
-          <button 
-            onClick={(e) => { e.stopPropagation(); updateTask(task.id, { health_status: 'YELLOW' as any }) }} 
-            className="w-3.5 h-3.5 rounded-full bg-amber-500 border border-amber-600 hover:scale-125 transition-transform" 
-            title={getHealthLabel('YELLOW')}
-          />
-          <button 
-            onClick={(e) => { e.stopPropagation(); updateTask(task.id, { health_status: 'RED' as any }) }} 
-            className="w-3.5 h-3.5 rounded-full bg-red-500 border border-red-600 hover:scale-125 transition-transform" 
-            title={getHealthLabel('RED')}
-          />
-        </div>
+        <div className="flex items-center gap-2">{initiativeStatuses.filter(item => item.is_active || item.id === effectiveStatus).map(item => <button key={item.id} onClick={(e) => { e.stopPropagation(); updateTask(task.id, { health_status: item.id }); }} className="w-3.5 h-3.5 rounded-full border hover:scale-125 transition-transform" style={{ backgroundColor: item.color, borderColor: colorWithAlpha(item.color, .8) }} title={item.name} />)}</div>
       </div>
       )}
 
@@ -90,7 +69,7 @@ export const TaskCard: React.FC<{ task: OperationalTask; onClick?: () => void; h
         </div>
         <div className="flex justify-between items-center text-xs sm:text-sm">
           <span className="text-slate-500">Пріоритет:</span>
-          <span className={`rounded border px-2 py-0.5 text-xs font-bold ${getPriorityBadgeClass(task.priority)}`}>
+          <span className="rounded border px-2 py-0.5 text-xs font-bold" style={getPriorityBadgeStyle(task.priority, priorities)}>
             {getPriorityLabel(task.priority)}
           </span>
         </div>
@@ -179,7 +158,7 @@ export const TaskCard: React.FC<{ task: OperationalTask; onClick?: () => void; h
             <span className="text-slate-800">{progress}%</span>
           </div>
           <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-            <div className={`${colors.main} h-full transition-all`} style={{ width: `${progress}%` }}></div>
+            <div className="h-full transition-all" style={{ width: `${progress}%`, backgroundColor: statusDefinition.color }}></div>
           </div>
         </div>
       )}

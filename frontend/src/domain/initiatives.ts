@@ -71,6 +71,33 @@ export const moveCard = <T extends InitiativeRecord>(records: T[], input: MoveCa
   const prepared = ensureAnnualMaster(records, card, input.toYear, input.author); const event = makeHistory(input.author, `Картку перенесено з ${card.quarter} ${card.year} до ${input.toQuarter} ${input.toYear}`);
   return { success: true, message: 'Картку перенесено', data: prepared.records.map(record => record.id === card.id ? { ...record, backlog_id: prepared.master.id, initiative_chain_id: chain, year: input.toYear, quarter: input.toQuarter, health_status: 'DEFAULT', moved_from: `${card.quarter} ${card.year}`, history: [event, ...(record.history ?? [])] } : record) as T[] };
 };
+
+/** Creates a new empty quarterly card while preserving the source card and its annual backlog chain. */
+export const continueCard = <T extends InitiativeRecord>(records: T[], input: Omit<MoveCardInput, 'confirmation'> & { newCardId: string }): MutationResult<T[]> => {
+  const source = records.find(record => record.id === input.cardId && !record.is_backlog);
+  if (!source || !source.backlog_id) return { success: false, message: 'Квартальну картку не знайдено або вона не пов’язана з беклогом' };
+  if (source.year === input.toYear && source.quarter === input.toQuarter) return { success: false, message: 'Для продовження оберіть інший квартал або рік' };
+  const chain = getChainId(source);
+  if (records.some(record => !record.is_backlog && getChainId(record) === chain && record.year === input.toYear && record.quarter === input.toQuarter)) {
+    return { success: false, message: `У ${input.toQuarter} ${input.toYear} вже є картка цієї ініціативи. Продовження неможливе.` };
+  }
+  const prepared = ensureAnnualMaster(records, source, input.toYear, input.author);
+  const event = makeHistory(input.author, `Ініціативу продовжено з ${source.quarter} ${source.year} до ${input.toQuarter} ${input.toYear}`);
+  const copy = {
+    ...source,
+    id: input.newCardId,
+    backlog_id: prepared.master.id,
+    initiative_chain_id: chain,
+    year: input.toYear,
+    quarter: input.toQuarter,
+    health_status: 'DEFAULT',
+    checklist: [],
+    yearSnapshots: undefined,
+    moved_from: undefined,
+    history: [event],
+  } as T;
+  return { success: true, message: 'Створено нову картку без завдань обсягу робіт', data: [...prepared.records, copy] };
+};
 export interface MoveChecklistItemInput extends Omit<MoveCardInput, 'confirmation'> { itemId: string; newCardId: string; confirmation?: ScopeMergePreview }
 export const moveChecklistItem = <T extends InitiativeRecord>(records: T[], input: MoveChecklistItemInput): MutationResult<T[]> => {
   const source = records.find(record => record.id === input.cardId && !record.is_backlog); if (!source || !source.backlog_id) return { success: false, message: 'Вихідну картку не знайдено' }; const item = source.checklist.find(candidate => candidate.id === input.itemId); if (!item) return { success: false, message: 'Завдання не знайдено' }; if (isCompletedItem(item)) return { success: false, message: 'Виконане або зелене завдання переносити не можна' };

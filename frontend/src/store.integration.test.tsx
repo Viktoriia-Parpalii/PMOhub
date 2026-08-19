@@ -58,6 +58,19 @@ const SnapshotProbe = () => {
   </>;
 };
 
+const DictionaryDeletionProbe = () => {
+  const { users, login, departments, managers, priorities, deleteDepartment, deleteManager, deletePriority } = useAppContext();
+  const [result, setResult] = React.useState('');
+  return <>
+    <span data-testid="dictionary-result">{result}</span>
+    <span data-testid="dictionary-counts">{departments.length}:{managers.length}:{priorities.length}</span>
+    <button onClick={() => login(users[0])}>dictionary-login</button>
+    <button onClick={() => setResult(deleteDepartment('D1').message)}>delete-used-department</button>
+    <button onClick={() => setResult(deleteManager('M1').message)}>delete-used-manager</button>
+    <button onClick={() => setResult(deletePriority('Critical').message)}>delete-used-priority</button>
+  </>;
+};
+
 describe('store integration', () => {
   it('starts from demo data without a persisted session', () => {
     render(<AppProvider><Probe /></AppProvider>);
@@ -68,7 +81,7 @@ describe('store integration', () => {
   });
   it('rejects legacy backups', () => expect(validateExportData({ version: '1.0' }).success).toBe(false));
 
-  it('supports Merge and Replace imports for valid v3 backups', () => {
+  it('supports Merge and Replace imports for valid v4 backups', () => {
     render(<AppProvider><Probe /></AppProvider>);
     fireEvent.click(screen.getByRole('button', { name: 'login' }));
     fireEvent.click(screen.getByRole('button', { name: 'merge' }));
@@ -104,5 +117,18 @@ describe('store integration', () => {
     expect(screen.getByTestId('snapshot-2027')).toHaveTextContent('Explicit future');
     fireEvent.click(screen.getByRole('button', { name: 'invalid-atomic' }));
     expect(screen.getByTestId('snapshot-2026')).toHaveTextContent('Explicit future');
+  });
+
+  it('blocks deletion of dictionary entries referenced by initiatives and keeps the definitions intact', () => {
+    render(<AppProvider><DictionaryDeletionProbe /></AppProvider>);
+    fireEvent.click(screen.getByRole('button', { name: 'dictionary-login' }));
+    const counts = screen.getByTestId('dictionary-counts').textContent;
+    fireEvent.click(screen.getByRole('button', { name: 'delete-used-department' }));
+    expect(screen.getByTestId('dictionary-result')).toHaveTextContent('Неможливо видалити відділ');
+    fireEvent.click(screen.getByRole('button', { name: 'delete-used-manager' }));
+    expect(screen.getByTestId('dictionary-result')).toHaveTextContent('Неможливо видалити менеджера');
+    fireEvent.click(screen.getByRole('button', { name: 'delete-used-priority' }));
+    expect(screen.getByTestId('dictionary-result')).toHaveTextContent('Неможливо видалити пріоритет');
+    expect(screen.getByTestId('dictionary-counts')).toHaveTextContent(counts ?? '');
   });
 });

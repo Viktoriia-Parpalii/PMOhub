@@ -13,7 +13,7 @@ interface BacklogModalProps {
 
 export const BacklogModal = ({ onClose, type, editItem, selectedYear, isReadOnly = false }: BacklogModalProps) => {
   const {
-    departments, managers, priorities, projects, tasks, customFields,
+    departments, managers, priorities, projects, tasks,
     savePassport, createBacklogWithCards,
   } = useAppContext();
   const sourceRecords = type === 'PROJECTS' ? projects : tasks;
@@ -27,14 +27,12 @@ export const BacklogModal = ({ onClose, type, editItem, selectedYear, isReadOnly
   // синхронізований паспортний знімок, тому тут їх не можна редагувати.
   const syncedImplementerIds = editItem?.implementer_dept_ids ?? [];
   const [crossFunctional, setCrossFunctional] = useState<string[]>(editItem?.cross_functional_dept_ids ?? []);
-  const [fieldVals, setFieldVals] = useState<Record<string, unknown>>(editItem?.custom_fields ?? {});
   const [selectedQuarters, setSelectedQuarters] = useState<Quarter[]>([]);
   const [targetYears, setTargetYears] = useState<number[]>([]);
   const [targetCardIds, setTargetCardIds] = useState<string[]>([]);
   const [showSaveMenu, setShowSaveMenu] = useState(false);
   const [error, setError] = useState('');
 
-  const modalCustomFields = customFields.filter(field => field.entityType === 'backlog' && (field.isActive !== false || fieldVals[field.id] !== undefined));
   const availableFutureYears = Object.keys(master?.yearSnapshots ?? {}).map(Number)
     .filter(year => year > selectedYear && !isBacklogLocked(year)).sort((a, b) => a - b);
   const current = getCurrentPeriod();
@@ -77,7 +75,7 @@ export const BacklogModal = ({ onClose, type, editItem, selectedYear, isReadOnly
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 z-50 overflow-y-auto">
       <div className="bg-white rounded-2xl w-full max-w-[780px] max-h-[96vh] shadow-2xl flex flex-col border border-slate-200 overflow-hidden">
         <div className="flex justify-between items-center gap-4 px-6 py-5 border-b border-slate-100">
-          <h2 className="text-[20px] font-extrabold text-slate-800">{editItem ? `Редагувати ${type === 'PROJECTS' ? 'проєкт' : 'операційну задачу'} в ${selectedYear}` : `Створити ${type === 'PROJECTS' ? 'проєкт' : 'операційну задачу'} в ${selectedYear}`}</h2>
+          <h2 className="text-[20px] font-extrabold text-slate-800">{editItem ? isReadOnly ? `Перегляд ${type === 'PROJECTS' ? 'проєкту' : 'операційної задачі'} за ${selectedYear}` : `Редагувати ${type === 'PROJECTS' ? 'проєкт' : 'операційну задачу'} в ${selectedYear}` : `Створити ${type === 'PROJECTS' ? 'проєкт' : 'операційну задачу'} в ${selectedYear}`}</h2>
           <button onClick={onClose} aria-label="Закрити" className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 text-2xl">×</button>
         </div>
         <div className="p-6 space-y-5 overflow-y-auto">

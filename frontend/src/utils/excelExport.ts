@@ -498,7 +498,6 @@ export const exportPortfolioToExcel = async ({
   // -------------------------------------------------------------
   const projCustomFields = (customFields || []).filter(cf => cf.entityType === 'project');
   const taskCustomFields = (customFields || []).filter(cf => cf.entityType === 'task');
-  const backlogCustomFields = (customFields || []).filter(cf => cf.entityType === 'backlog');
 
   years.forEach(year => {
     // --- 2.1 SHEET: Беклог_{year}_Проєкти ---
@@ -539,10 +538,6 @@ export const exportPortfolioToExcel = async ({
         'Деталі скоупу (чекліст)': item.checklist && item.checklist.length > 0 ? '' : '—',
         'Примітки / Опис': stripHtml(item.notes || '') || '—'
       };
-
-      backlogCustomFields.forEach(cf => {
-        row[`[Поле] ${cf.name}`] = formatCustomFieldValue(item.custom_fields?.[cf.id], cf);
-      });
 
       return row;
     });
@@ -597,10 +592,6 @@ export const exportPortfolioToExcel = async ({
         'Деталі скоупу (чекліст)': item.checklist && item.checklist.length > 0 ? '' : '—',
         'Примітки / Опис': stripHtml(item.notes || '') || '—'
       };
-
-      backlogCustomFields.forEach(cf => {
-        row[`[Поле] ${cf.name}`] = formatCustomFieldValue(item.custom_fields?.[cf.id], cf);
-      });
 
       return row;
     });

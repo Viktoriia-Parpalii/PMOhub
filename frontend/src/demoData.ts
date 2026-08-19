@@ -49,10 +49,17 @@ export const initialManagers: Manager[] = [
 ];
 
 export const initialPriorities: PriorityDef[] = [
-  { id: 'Critical', name: 'Критичний', is_active: true },
-  { id: 'High', name: 'Високий', is_active: true },
-  { id: 'Medium', name: 'Середній', is_active: true },
-  { id: 'Low', name: 'Низький', is_active: true },
+  { id: 'Critical', name: 'Критичний', color: '#e11d48', is_active: true },
+  { id: 'High', name: 'Високий', color: '#ea580c', is_active: true },
+  { id: 'Medium', name: 'Середній', color: '#d97706', is_active: true },
+  { id: 'Low', name: 'Низький', color: '#059669', is_active: true },
+];
+
+export const initialInitiativeStatuses = [
+  { id: 'DEFAULT', name: 'Без статусу', color: '#94a3b8', is_active: true },
+  { id: 'GREEN', name: 'Виконано', color: '#10b981', is_active: true },
+  { id: 'YELLOW', name: 'В процесі', color: '#f59e0b', is_active: true },
+  { id: 'RED', name: 'На паузі / блоковано', color: '#f43f5e', is_active: true },
 ];
 
 export const initialTaskWeights: TaskWeightDef[] = [
@@ -180,6 +187,27 @@ export const initialProjects: Project[] = [
       { id: 'SCOPE-DATA-ACCESS', text: 'Матриця доступів до даних', weightId: 'TW-M', implementer_dept_ids: ['D1', 'D7'], is_completed: false, color: 'RED' },
     ], history: [],
   },
+  {
+    ...projectMaster2, id: 'PRJ-C-ERP-Q4-2025', is_backlog: false, backlog_id: projectMaster2.id, yearSnapshots: undefined, year: 2025, quarter: 'Q4', health_status: 'GREEN',
+    checklist: [
+      { id: 'SCOPE-ERP-2025-CLOSE', text: 'Закриття річного фінансового циклу', weightId: 'TW-L', implementer_dept_ids: ['D5'], is_completed: true, color: 'GREEN' },
+      { id: 'SCOPE-ERP-2025-CONTROL', text: 'Контроль якості даних звітності', weightId: 'TW-M', implementer_dept_ids: ['D5', 'D7'], is_completed: true, color: 'GREEN' },
+    ], history: [],
+  },
+  {
+    ...projectMaster3, id: 'PRJ-C-DATA-Q3-2025', is_backlog: false, backlog_id: projectMaster3.id, yearSnapshots: undefined, year: 2025, quarter: 'Q3', health_status: 'GREEN',
+    checklist: [
+      { id: 'SCOPE-DATA-2025-MART', text: 'Вітрина управлінських показників', weightId: 'TW-XL', implementer_dept_ids: ['D7'], is_completed: true, color: 'GREEN' },
+      { id: 'SCOPE-DATA-2025-QUALITY', text: 'Перевірки якості історичних даних', weightId: 'TW-L', implementer_dept_ids: ['D7', 'D5'], is_completed: true, color: 'GREEN' },
+    ], history: [],
+  },
+  {
+    ...projectMaster4, id: 'PRJ-C-OPS-Q4-2024', is_backlog: false, backlog_id: projectMaster4.id, yearSnapshots: undefined, year: 2024, quarter: 'Q4', health_status: 'GREEN',
+    checklist: [
+      { id: 'SCOPE-OPS-2024-MAP', text: 'Карта клієнського шляху', weightId: 'TW-M', implementer_dept_ids: ['D8', 'D3'], is_completed: true, color: 'GREEN' },
+      { id: 'SCOPE-OPS-2024-STANDARD', text: 'Стандарт обробки звернень', weightId: 'TW-L', implementer_dept_ids: ['D6', 'D8'], is_completed: true, color: 'GREEN' },
+    ], history: [],
+  },
 ];
 
 const taskMaster: OperationalTask = {
@@ -251,6 +279,27 @@ export const initialTasks: OperationalTask[] = [
     checklist: [
       { id: 'SCOPE-SUPPORT-CSAT', text: 'Аналіз показника задоволеності', weightId: 'TW-S', implementer_dept_ids: ['D6'], is_completed: false, color: 'YELLOW' },
       { id: 'SCOPE-SUPPORT-ESCALATION', text: 'Контроль ескалацій', weightId: 'TW-M', implementer_dept_ids: ['D6', 'D8'], is_completed: false, color: 'YELLOW' },
+    ], history: [],
+  },
+  {
+    ...taskMaster, id: 'TSK-C-SECURITY-Q4-2025', is_backlog: false, backlog_id: taskMaster.id, yearSnapshots: undefined, year: 2025, quarter: 'Q4', health_status: 'GREEN',
+    checklist: [
+      { id: 'SCOPE-SECURITY-2025-PENTEST', text: 'Пентест критичних систем', weightId: 'TW-L', implementer_dept_ids: ['D1'], is_completed: true, color: 'GREEN' },
+      { id: 'SCOPE-SECURITY-2025-REPORT', text: 'План усунення ризиків', weightId: 'TW-M', implementer_dept_ids: ['D1', 'D5'], is_completed: true, color: 'GREEN' },
+    ], history: [],
+  },
+  {
+    ...taskMaster2, id: 'TSK-C-LEADS-Q4-2025', is_backlog: false, backlog_id: taskMaster2.id, yearSnapshots: undefined, year: 2025, quarter: 'Q4', health_status: 'YELLOW',
+    checklist: [
+      { id: 'SCOPE-LEADS-2025-AUDIT', text: 'Аудит воронки лідів', weightId: 'TW-M', implementer_dept_ids: ['D2', 'D3'], is_completed: false, color: 'YELLOW' },
+      { id: 'SCOPE-LEADS-2025-COACHING', text: 'Навчання менеджерів продажів', weightId: 'TW-S', implementer_dept_ids: ['D3'], is_completed: true, color: 'GREEN' },
+    ], history: [],
+  },
+  {
+    ...taskMaster3, id: 'TSK-C-ONBOARDING-Q2-2024', is_backlog: false, backlog_id: taskMaster3.id, yearSnapshots: undefined, year: 2024, quarter: 'Q2', health_status: 'GREEN',
+    checklist: [
+      { id: 'SCOPE-ONBOARDING-2024-PLAN', text: 'Базовий план адаптації', weightId: 'TW-M', implementer_dept_ids: ['D4'], is_completed: true, color: 'GREEN' },
+      { id: 'SCOPE-ONBOARDING-2024-BUDDY', text: 'Програма наставництва', weightId: 'TW-S', implementer_dept_ids: ['D1', 'D4'], is_completed: true, color: 'GREEN' },
     ], history: [],
   },
 ];

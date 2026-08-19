@@ -8,7 +8,7 @@ export interface HistoryEvent {
 
 export type CapacityWeight = string;
 export type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
-export type HealthStatus = 'GREEN' | 'YELLOW' | 'RED' | 'GRAY' | 'DEFAULT';
+export type HealthStatus = string;
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'USER';
 
 export interface User {
@@ -33,7 +33,7 @@ export type CustomFieldType = 'TEXT' | 'NUMBER' | 'SELECT' | 'CHECKBOX' | 'RICHT
 
 export interface CustomFieldDef {
   id: string;
-  entityType: 'project' | 'task' | 'backlog';
+  entityType: 'project' | 'task';
   name: string;
   type: CustomFieldType;
   isRequired: boolean;
@@ -63,10 +63,25 @@ export interface ChecklistItem {
   is_completed: boolean;
   color?: 'GREEN' | 'YELLOW' | 'RED' | 'GRAY' | 'DEFAULT';
   weightId?: string;
+  /** Незмінний знімок довідникової ваги для історичних розрахунків. */
+  weightSnapshot?: TaskWeightSnapshot;
   assigneeIds?: string[];
   implementer_dept_ids?: string[];
   moved_from?: string;
   history?: HistoryEvent[];
+}
+
+export interface TaskWeightSnapshot {
+  definitionId?: string;
+  name: string;
+  value: number;
+}
+
+/** Розмір фіксується на квартальній картці, а не обчислюється з актуального довідника. */
+export interface InitiativeSizeSnapshot {
+  definitionId?: string;
+  name: string;
+  totalWeight: number;
 }
 
 export interface MutationResult<T = undefined> {
@@ -117,6 +132,7 @@ export interface Project extends InitiativePassport {
   backlog_id?: string;
   moved_from?: string;
   history?: HistoryEvent[];
+  sizeSnapshot?: InitiativeSizeSnapshot;
 }
 export interface OperationalTask extends InitiativePassport {
   id: string;
@@ -131,6 +147,7 @@ export interface OperationalTask extends InitiativePassport {
   backlog_id?: string;
   moved_from?: string;
   history?: HistoryEvent[];
+  sizeSnapshot?: InitiativeSizeSnapshot;
 }
 
 export interface ScopeMergePreview {
@@ -162,6 +179,14 @@ export interface SavePassportCommand {
 export interface PriorityDef {
   id: string;
   name: string;
+  color?: string;
+  is_active: boolean;
+}
+
+export interface InitiativeStatusDef {
+  id: string;
+  name: string;
+  color: string;
   is_active: boolean;
 }
 
@@ -181,7 +206,7 @@ export interface InitiativeSizeDef {
 }
 
 export interface FullExportData {
-  version: '3.0';
+  version: '5.0';
   exportedAt: string;
   exportedBy?: {
     id?: string;
@@ -191,6 +216,7 @@ export interface FullExportData {
   };
   departments: Department[];
   priorities: PriorityDef[];
+  initiativeStatuses: InitiativeStatusDef[];
   taskWeights: TaskWeightDef[];
   initiativeSizes: InitiativeSizeDef[];
   managers: Manager[];
@@ -204,6 +230,7 @@ export interface FullExportData {
 export interface AppDataState {
   departments: Department[];
   priorities: PriorityDef[];
+  initiativeStatuses: InitiativeStatusDef[];
   taskWeights: TaskWeightDef[];
   initiativeSizes: InitiativeSizeDef[];
   managers: Manager[];

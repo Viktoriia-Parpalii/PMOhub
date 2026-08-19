@@ -1,4 +1,4 @@
-import { calculateDepartmentLoads, getInitiativeSize } from './capacity';
+import { calculateDepartmentLoads, getInitiativeSize, getInitiativeWeight } from './capacity';
 import { calculateProgress } from '../utils';
 import { Department, HealthStatus, InitiativeSizeDef, OperationalTask, Project, TaskWeightDef } from '../types';
 
@@ -65,11 +65,8 @@ export const sizeBreakdown = (
 ) => {
   const counts = new Map<string, number>();
   cards.forEach(card => {
-    const weight = card.checklist.reduce((sum, item) => {
-      const definition = taskWeights.find(candidate => candidate.id === item.weightId && candidate.is_active);
-      return sum + (definition?.weight ?? 0);
-    }, 0);
-    const name = getInitiativeSize(weight, sizes);
+    const weight = getInitiativeWeight(card.checklist, taskWeights);
+    const name = card.sizeSnapshot?.name ?? getInitiativeSize(weight, sizes);
     counts.set(name, (counts.get(name) ?? 0) + 1);
   });
   return Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));

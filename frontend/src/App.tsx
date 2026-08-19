@@ -6,6 +6,7 @@ import { ProjectsTab } from './components/ProjectsTab';
 import { TasksTab } from './components/TasksTab';
 import { BacklogTab } from './components/BacklogTab';
 import { Login } from './components/Login';
+import { SystemAlertDialog } from './components/SystemAlertDialog';
 import { LayoutDashboard, FolderKanban, CheckSquare, Archive, Settings, LogOut, KeyRound, Eye, EyeOff, Menu, X } from 'lucide-react';
 
 const AdminTab = React.lazy(() => import('./components/AdminTab').then(module => ({ default: module.AdminTab })));
@@ -82,7 +83,7 @@ function AppContent() {
   const currentTab = visibleTabs.find(t => t.id === activeTab) || visibleTabs[0];
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col lg:flex-row overflow-hidden">
+    <div className="h-dvh min-h-0 overflow-hidden bg-slate-50 font-sans text-slate-900 flex flex-col lg:flex-row">
       {/* Mobile/Tablet Backdrop Overlay */}
       {mobileMenuOpen && (
         <div 
@@ -175,7 +176,7 @@ function AppContent() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 lg:ml-64 ml-0 flex flex-col h-screen overflow-hidden min-w-0">
+      <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:ml-64">
         {/* Mobile / Tablet Header Bar */}
         <header className="lg:hidden bg-slate-900 text-white px-4 py-3 flex items-center justify-between border-b border-slate-800 shrink-0 z-20">
           <div className="flex items-center gap-3">
@@ -195,8 +196,8 @@ function AppContent() {
           </div>
         </header>
 
-        <div className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto space-y-6">
-          <div className={`w-full mx-auto ${['projects', 'tasks', 'backlog', 'dashboard'].includes(currentTab.id) ? 'max-w-[1920px] 2xl:max-w-full' : 'max-w-7xl'}`}>
+        <div className={`custom-scrollbar flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-6 sm:p-4 md:p-6`}>
+          <div className={`min-h-full w-full mx-auto ${['projects', 'tasks', 'backlog', 'dashboard'].includes(currentTab.id) ? 'max-w-[1920px] 2xl:max-w-full' : 'max-w-7xl'}`}>
             {currentTab.id === 'dashboard' && <Dashboard />}
             {currentTab.id === 'projects' && <ProjectsTab />}
             {currentTab.id === 'tasks' && <TasksTab />}
@@ -251,6 +252,7 @@ function AppContent() {
 export default function App() {
   return (
     <AppProvider>
+      <SystemAlertDialog />
       <AppContent />
     </AppProvider>
   );
