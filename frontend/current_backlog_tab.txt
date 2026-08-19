@@ -1,0 +1,341 @@
+import React, { useState } from 'react';
+import { getAvailableYears } from '../utils';
+import { useAppContext } from '../store';
+import { Project, OperationalTask, Quarter, Priority } from '../types';
+import { BacklogModal } from './BacklogModal';
+import { Trash2, Edit2 } from 'lucide-react';
+
+export const BacklogTab = () => {
+  const { departments, managers, goals, priorities, sizes, users, addProject, addTask, updateProject, updateTask, deleteProject, deleteTask, customFields, currentUser, projects, tasks } = useAppContext();
+  
+    const tableFields = customFields.filter(cf => cf.entityType === 'backlog' && cf.showInTable);
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [selectedQuarter, setSelectedQuarter] = useState<Quarter | 'ALL'>('ALL');
+  const [activeTab, setActiveTab] = useState<'PROJECTS' | 'TASKS'>('PROJECTS');
+  const [filterManager, setFilterManager] = useState<string>('');
+  const [filterPriority, setFilterPriority] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchGoal, setSearchGoal] = useState<string>('');
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Project | OperationalTask | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  const canEdit = !currentUser?.rolePermissions?.isReadOnly;
+
+  const backlogProjects = projects.filter(p => p.is_backlog && p.year === selectedYear);
+  const backlogTasks = tasks.filter(t => t.is_backlog && t.year === selectedYear);
+
+  const getActiveCards = (backlogId: string, type: 'PROJECTS' | 'TASKS') => {
+    if (type === 'PROJECTS') {
+      return projects.filter(p => !p.is_backlog && p.backlog_id === backlogId && p.year === selectedYear);
+    } else {
+      return tasks.filter(t => !t.is_backlog && t.backlog_id === backlogId && t.year === selectedYear);
+    }
+  };
+
+  const filterBacklog = (itemsList: any[], type: 'PROJECTS' | 'TASKS') => {
+    return itemsList.filter(item => {
+      if (selectedQuarter === 'ALL') return true;
+      const activeCards = getActiveCards(item.id, type);
+      return activeCards.some(c => c.quarter === selectedQuarter);
+    });
+  };
+
+  let filteredProjects = filterBacklog(backlogProjects, 'PROJECTS');
+  let filteredTasks = filterBacklog(backlogTasks, 'TASKS');
+  let filteredItems = activeTab === 'PROJECTS' ? filteredProjects : filteredTasks;
+
+  if (filterManager) {
+    filteredItems = filteredItems.filter(p => p.manager_id === filterManager);
+  }
+  if (filterPriority) {
+    filteredItems = filteredItems.filter(p => p.priority === filterPriority);
+  }
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filteredItems = filteredItems.filter(p => p.name.toLowerCase().includes(q));
+  }
+  if (searchGoal) {
+    const q = searchGoal.toLowerCase();
+    filteredItems = filteredItems.filter(p => {
+      const goalName = goals.find(g => g.id === p.strategic_pillar_id)?.name || '';
+      return goalName.toLowerCase().includes(q);
+    });
+  }
+
+  const toggleQuarterForBacklog = (item: Project | OperationalTask, q: Quarter) => {
+    const activeCards = getActiveCards(item.id, activeTab);
+    const existing = activeCards.find(c => c.quarter === q);
+    
+    if (existing) {
+      // Remove it
+      if (activeTab === 'PROJECTS') deleteProject(existing.id);
+      else deleteTask(existing.id);
+    } else {
+      // Add it
+      const newId = item.id + '-' + q + '-' + Date.now().toString().slice(-3);
+      const baseClone = {
+        ...item,
+        id: newId,
+        is_backlog: false,
+        backlog_id: item.id,
+        year: selectedYear,
+        quarter: q,
+        health_status: 'DEFAULT' as import('../types').HealthStatus,
+        checklist: []
+      };
+      
+      if (activeTab === 'PROJECTS') addProject(baseClone as Project);
+      else addTask(baseClone as OperationalTask);
+    }
+  };
+
+  const handleDeleteBacklog = (id: string) => {
+    setItemToDelete(id);
+  };
+  
+  const confirmDelete = () => {
+    if (itemToDelete) {
+      if (activeTab === 'PROJECTS') deleteProject(itemToDelete);
+      else deleteTask(itemToDelete);
+      setItemToDelete(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Header Panel */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Беклог</h2>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <select 
+            value={selectedYear} 
+            onChange={e => setSelectedYear(Number(e.target.value))}
+            className="border border-slate-300 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 truncate"
+          >
+            {getAvailableYears().map(y => <option key={y} value={y}>{y} рік</option>)}
+          </select>
+          
+          <div className="bg-slate-100 p-1 rounded-xl flex gap-1">
+            <button 
+              onClick={() => setSelectedQuarter('ALL')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${selectedQuarter === 'ALL' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Всі квартали
+            </button>
+            {(['Q1', 'Q2', 'Q3', 'Q4'] as Quarter[]).map(q => (
+              <button 
+                key={q}
+                onClick={() => setSelectedQuarter(q)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${selectedQuarter === q ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+
+          {canEdit && (
+            <button 
+              onClick={() => { setEditingItem(null); setIsModalOpen(true); }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl font-bold transition-colors shadow-sm flex items-center gap-2"
+            >
+              + Додати в беклог
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button 
+          onClick={() => setActiveTab('PROJECTS')}
+          className={`px-5 py-2.5 rounded-t-xl font-bold transition-colors border-b-2 ${activeTab === 'PROJECTS' ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+        >
+          📁 Проєкти ({filteredProjects.length})
+        </button>
+        <button 
+          onClick={() => setActiveTab('TASKS')}
+          className={`px-5 py-2.5 rounded-t-xl font-bold transition-colors border-b-2 ${activeTab === 'TASKS' ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+        >
+          📋 Операційні задачі ({filteredTasks.length})
+        </button>
+      </div>
+
+      <div className="bg-white rounded-b-2xl rounded-tr-2xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* FILTERS */}
+        <div className="p-4 bg-slate-50 border-b border-slate-100 flex flex-wrap items-center gap-3">
+          <input type="text" placeholder="Пошук за назвою..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-indigo-500 focus:border-indigo-500 outline-none flex-1 min-w-[200px]" />
+          <input type="text" placeholder="Пошук за стратегічною задачею..." value={searchGoal} onChange={e => setSearchGoal(e.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-indigo-500 focus:border-indigo-500 outline-none flex-1 min-w-[200px]" />
+          <select value={filterManager} onChange={e => setFilterManager(e.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-indigo-500 focus:border-indigo-500 outline-none min-w-[150px]">
+            <option value="">Всі менеджери</option>
+            {managers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+          <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-indigo-500 focus:border-indigo-500 outline-none min-w-[120px]">
+            <option value="">Всі пріоритети</option>
+            {priorities.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          {(filterManager || filterPriority || searchQuery || searchGoal) && (
+            <button onClick={() => { setFilterManager(''); setFilterPriority(''); setSearchQuery(''); setSearchGoal(''); }} className="text-slate-500 hover:text-slate-700 text-sm font-medium px-2">Скинути</button>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm table-fixed min-w-[1200px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                <th className="px-4 py-3 font-bold w-40">Менеджер</th>
+                <th className="px-4 py-3 font-bold w-1/4">Назва</th>
+                <th className="px-4 py-3 font-bold w-48">Стратегічна задача</th>
+                <th className="px-4 py-3 font-bold text-center w-24">Пріоритет</th>
+                <th className="px-4 py-3 font-bold text-center w-24">Розмір</th>
+                <th className="px-4 py-3 font-bold text-center w-12">Q1</th>
+                <th className="px-4 py-3 font-bold text-center w-12">Q2</th>
+                <th className="px-4 py-3 font-bold text-center w-12">Q3</th>
+                <th className="px-4 py-3 font-bold text-center w-12">Q4</th>
+                <th className="px-4 py-3 font-bold w-48">Виконавці підрозділи</th>
+                <th className="px-4 py-3 font-bold w-48">Залучені підрозділи</th>
+                {tableFields.map(cf => (
+                  <th key={cf.id} className="px-4 py-3 font-bold w-40 truncate" title={cf.name}>{cf.name}</th>
+                ))}
+                {canEdit && <th className="px-4 py-3 font-bold text-center w-24">Дії</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredItems.map(item => {
+                const activeCards = getActiveCards(item.id, activeTab);
+                const hasQ1 = activeCards.some(c => c.quarter === 'Q1');
+                const hasQ2 = activeCards.some(c => c.quarter === 'Q2');
+                const hasQ3 = activeCards.some(c => c.quarter === 'Q3');
+                const hasQ4 = activeCards.some(c => c.quarter === 'Q4');
+                
+                const manager = managers.find(m => m.id === item.manager_id);
+                const goal = goals.find(g => g.id === item.strategic_pillar_id);
+                
+                const getSizeBadge = (sId?: string) => {
+                  const s = sizes.find(x => x.id === sId);
+                  if (!s) return <span className="text-slate-400">—</span>;
+                  return <span className="font-bold text-slate-700">{s.name}</span>;
+                };
+                const getPriorityBadge = (p?: Priority) => {
+                  const pr = priorities.find(x => x.id === p);
+                  if (!pr) return <span className="text-slate-400">—</span>;
+                  if (p === 'High') return <span className="px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold uppercase">{pr.name}</span>;
+                  if (p === 'Medium') return <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase">{pr.name}</span>;
+                  if (p === 'Low') return <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase">{pr.name}</span>;
+                  return <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold uppercase">{pr.name}</span>;
+                };
+
+                const renderToggle = (q: Quarter, isActive: boolean) => (
+                  <button 
+                    disabled={!canEdit}
+                    onClick={() => toggleQuarterForBacklog(item, q)}
+                    className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs transition-colors ${isActive ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'} ${!canEdit ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {isActive ? '+' : '-'}
+                  </button>
+                );
+
+                return (
+                  <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-3 text-slate-600">{manager?.name || '—'}</td>
+                    <td className="px-4 py-3 font-bold text-slate-800 whitespace-normal min-w-[200px]">{item.name}</td>
+                    <td className="px-4 py-3 text-slate-600 max-w-[200px] truncate" title={goal?.name}>{goal?.name || '—'}</td>
+                    <td className="px-4 py-3 text-center">{getPriorityBadge(item.priority)}</td>
+                    <td className="px-4 py-3 text-center">{getSizeBadge(item.capacity_weight)}</td>
+                    
+                    <td className="px-4 py-3"><div className="flex justify-center">{renderToggle('Q1', hasQ1)}</div></td>
+                    <td className="px-4 py-3"><div className="flex justify-center">{renderToggle('Q2', hasQ2)}</div></td>
+                    <td className="px-4 py-3"><div className="flex justify-center">{renderToggle('Q3', hasQ3)}</div></td>
+                    <td className="px-4 py-3"><div className="flex justify-center">{renderToggle('Q4', hasQ4)}</div></td>
+                    
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1 w-48 whitespace-normal">
+                        {(item.implementer_dept_ids || []).map(id => {
+                          const d = departments.find(dep => dep.id === id);
+                          if (!d) return null;
+                          return <span key={id} className="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 font-medium">{d.name}</span>;
+                        })}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1 w-48 whitespace-normal">
+                        {(item.cross_functional_dept_ids || []).map(id => {
+                          const d = departments.find(dep => dep.id === id);
+                          if (!d) return null;
+                          return <span key={id} className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200">{d.name}</span>;
+                        })}
+                      </div>
+                    </td>
+                {tableFields.map(cf => {
+                  const val = item.custom_fields?.[cf.id];
+                  let displayVal = val;
+                  if (cf.type === 'CHECKBOX') displayVal = val ? 'Так' : 'Ні';
+                  else if (cf.type === 'RICHTEXT' && val) displayVal = val.replace(/<[^>]+>/g, '').substring(0, 50) + (val.length > 50 ? '...' : '');
+                  return <td key={cf.id} className="px-4 py-3 truncate max-w-[160px]" title={String(displayVal || '')}>{displayVal || ''}</td>;
+                })}
+                    
+                    {canEdit && (
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex justify-center gap-2">
+                          <button onClick={() => { setEditingItem(item); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors bg-white border border-slate-200 rounded shadow-sm hover:shadow">
+                            <Edit2 size={16} />
+                          </button>
+                          <button onClick={() => handleDeleteBacklog(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors bg-white border border-slate-200 rounded shadow-sm hover:shadow">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+              {filteredItems.length === 0 && (
+                <tr>
+                  <td colSpan={canEdit ? 11 + tableFields.length : 10 + tableFields.length} className="px-4 py-12 text-center text-slate-500 italic">
+                    Немає записів у беклозі для обраних фільтрів
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {isModalOpen && (
+        <BacklogModal 
+          onClose={() => setIsModalOpen(false)} 
+          type={activeTab} 
+          editItem={editingItem}
+          selectedYear={selectedYear}
+        />
+      )}
+      {itemToDelete && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl relative animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Підтвердження видалення</h3>
+            <p className="text-slate-600 text-sm mb-6">
+              Ви впевнені, що хочете видалити цей запис з беклогу? Всі пов'язані активні картки залишаться.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setItemToDelete(null)}
+                className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Скасувати
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-lg transition-colors shadow-sm"
+              >
+                Видалити
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

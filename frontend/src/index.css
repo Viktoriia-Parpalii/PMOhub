@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@layer base {
+  select {
+    padding-right: 3rem !important;
+  }
+
+  table thead th {
+    text-align: left !important;
+  }
+
+  table thead th.portfolio-header-center {
+    text-align: center !important;
+  }
+
+  .rich-text-card-preview {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .rich-text-card-preview p,
+  .rich-text-card-preview div {
+    margin: 0;
+  }
+
+  .rich-text-card-preview ul,
+  .rich-text-card-preview ol {
+    margin: 0;
+    padding-left: 1.15rem;
+  }
+
+  .rich-text-card-preview:hover {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+  }
+
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #c7d2fe transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #c7d2fe;
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #818cf8;
+  }
+
+}
