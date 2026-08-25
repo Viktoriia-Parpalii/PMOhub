@@ -1,6 +1,6 @@
 import { calculateDepartmentLoads, getInitiativeSize, getInitiativeWeight } from './capacity';
-import { calculateProgress } from '../utils';
-import { Department, HealthStatus, InitiativeSizeDef, OperationalTask, Project, TaskWeightDef } from '../types';
+import { calculateProgress } from '../shared/utils';
+import { Department, HealthStatus, InitiativeSizeDef, OperationalTask, Project, TaskWeightDef } from '../shared/types';
 
 export type AnalyticsCard = (Project | OperationalTask) & { type: 'PROJECT' | 'TASK' };
 export type CanonicalHealthStatus = Exclude<HealthStatus, 'GRAY'>;

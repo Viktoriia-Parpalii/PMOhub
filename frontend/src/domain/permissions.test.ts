@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { canDeleteInitiative, canEditInitiative, canViewInitiative } from './permissions';
-import { Project, RolePermissions, User } from '../types';
+import { Project, RolePermissions, User } from '../shared/types';
 
 const card: Project = { id: 'C', name: 'Card', strategic_goal: 'Goal', implementer_dept_ids: ['D1'], cross_functional_dept_ids: ['D2'], year: 2026, quarter: 'Q3', health_status: 'DEFAULT', checklist: [], is_backlog: false };
 const user = (departmentId: string): User => ({ id: departmentId, name: departmentId, email: `${departmentId}@test`, role: 'USER', departmentId });

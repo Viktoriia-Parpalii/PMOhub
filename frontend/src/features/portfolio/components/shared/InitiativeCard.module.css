@@ -1,0 +1,302 @@
+.card {
+  position: relative;
+  display: flex;
+  height: fit-content;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.interactive {
+  cursor: pointer;
+  transition: all 300ms;
+}
+
+.interactive:hover {
+  transform: translateY(-0.125rem);
+  border-color: #c7d2fe;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.statusStripe {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0.5rem;
+}
+
+.statusPicker {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: rgb(255 255 255 / 0.95);
+  padding: 0.375rem 0.625rem;
+  opacity: 0;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  backdrop-filter: blur(4px);
+  transition: opacity 150ms;
+}
+
+.card:hover .statusPicker {
+  opacity: 1;
+}
+
+.statusPickerLabel {
+  margin-bottom: 0.375rem;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.statusPickerOptions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.statusOption {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 1px solid;
+  border-radius: 9999px;
+  transition: transform 150ms;
+}
+
+.statusOption:hover {
+  transform: scale(1.25);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  margin-left: 0.5rem;
+}
+
+.headerContent {
+  min-width: 0;
+  flex: 1 1 0%;
+}
+
+.title {
+  display: -webkit-box;
+  overflow: hidden;
+  padding-right: 1.5rem;
+  color: #1e293b;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.id {
+  margin-top: 0.25rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.metadataGrid {
+  display: grid;
+  flex: 1 1 0%;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+  margin-left: 0.5rem;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+  margin-left: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 0.75rem;
+}
+
+.scopeSection {
+  margin-bottom: 1rem;
+  margin-left: 0.5rem;
+}
+
+.scopeBlock {
+  margin-bottom: 0.75rem;
+}
+
+.scopeTitle {
+  margin-bottom: 0.375rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.scopeList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.scopeItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+}
+
+.scopeMarker {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.125rem;
+}
+
+.scopeNumber {
+  width: 0.75rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.scopeDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+}
+
+.scopeText {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.875rem;
+  line-height: 1.375;
+  overflow-wrap: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.notes {
+  border: 1px solid #f1f5f9;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  padding: 0.625rem;
+}
+
+.notesTitle {
+  margin-bottom: 0.25rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.notesText {
+  color: #475569;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.customFields {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  margin-left: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 0.75rem;
+}
+
+.progress {
+  margin-top: auto;
+  margin-left: 0.5rem;
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.progressLabel {
+  color: #64748b;
+}
+
+.progressValue {
+  color: #1e293b;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 0.375rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: #e2e8f0;
+}
+
+.progressBar {
+  height: 100%;
+  transition: all 150ms;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  font-size: 0.75rem;
+}
+
+.rowLabel {
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.rowValue {
+  padding-left: 0.5rem;
+  color: #1e293b;
+  font-weight: 700;
+  text-align: right;
+  overflow-wrap: break-word;
+}
+
+.rowValueSuccess {
+  color: #059669;
+}
+
+@media (min-width: 640px) {
+  .metadataGrid,
+  .customFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .scopeItem,
+  .row {
+    font-size: 0.875rem;
+  }
+
+  .notesText {
+    font-size: 0.875rem;
+  }
+}

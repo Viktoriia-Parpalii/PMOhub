@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Project } from '../types';
+import { Project } from '../shared/types';
 import { pickPassportPatch } from './sync';
 
 describe('passport synchronization', () => {

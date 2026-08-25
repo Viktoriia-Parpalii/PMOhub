@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculateCardDepartmentLoads, getInitiativeSize, getInitiativeWeight, validateChecklistCapacity } from './capacity';
-import { Department, Project, TaskWeightDef } from '../types';
+import { Department, Project, TaskWeightDef } from '../shared/types';
 
 const weights: TaskWeightDef[] = [
   { id: 'S', name: 'S', weight: 3, is_active: true },

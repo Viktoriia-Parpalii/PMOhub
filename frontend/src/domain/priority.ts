@@ -1,4 +1,4 @@
-import { PriorityDef } from '../types';
+import { PriorityDef } from '../shared/types';
 
 const fallbackColor = '#64748b';
 

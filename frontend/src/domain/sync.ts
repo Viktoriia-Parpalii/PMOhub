@@ -1,4 +1,4 @@
-import { OperationalTask, Project } from '../types';
+import { OperationalTask, Project } from '../shared/types';
 
 type Initiative = Project | OperationalTask;
 

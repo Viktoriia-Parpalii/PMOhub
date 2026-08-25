@@ -1,4 +1,4 @@
-import { HealthStatus, InitiativeStatusDef } from '../types';
+import { HealthStatus, InitiativeStatusDef } from '../shared/types';
 import { colorWithAlpha } from './priority';
 
 export interface HealthStatusPresentation {

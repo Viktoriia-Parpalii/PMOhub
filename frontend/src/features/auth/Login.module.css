@@ -1,0 +1,247 @@
+.page {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  padding: 1rem;
+}
+
+.panel {
+  width: 100%;
+  max-width: 28rem;
+  margin: 2rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 2rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / .08);
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+
+.brandLogo {
+  flex-shrink: 0;
+  color: #6366f1;
+}
+
+.brandTitle {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -.025em;
+}
+
+.brandSubtitle {
+  margin: 0;
+  color: #64748b;
+  font-size: .875rem;
+}
+
+.loginForm {
+  margin-bottom: 1.5rem;
+}
+
+.loginForm>*+* {
+  margin-top: 1rem;
+}
+
+.fieldLabel {
+  display: block;
+  margin-bottom: .5rem;
+  color: #334155;
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: .5rem;
+  background: #f8fafc;
+  color: #0f172a;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.input {
+  padding: .5rem 1rem;
+}
+
+.input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px #6366f1;
+}
+
+.passwordField {
+  position: relative;
+}
+
+.passwordInput {
+  padding-right: 2.5rem;
+}
+
+.passwordToggle {
+  position: absolute;
+  top: 50%;
+  right: .75rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #94a3b8;
+  transform: translateY(-50%);
+  transition: color .15s;
+}
+
+.passwordToggle:hover {
+  color: #475569;
+}
+
+.passwordToggle:focus {
+  outline: none;
+}
+
+.error {
+  margin: 0;
+  color: #e11d48;
+  font-size: .875rem;
+  font-weight: 500;
+}
+
+.submitButton {
+  width: 100%;
+  margin-top: .5rem;
+  border: 0;
+  border-radius: .5rem;
+  background: #6366f1;
+  padding: .5rem;
+  color: #fff;
+  font-weight: 700;
+  transition: background .15s;
+}
+
+.submitButton:hover {
+  background: #4f46e5;
+}
+
+.changePassword {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.changePasswordButton {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #64748b;
+  font-size: .875rem;
+  font-weight: 700;
+  transition: color .15s;
+}
+
+.changePasswordButton:hover {
+  color: #4f46e5;
+}
+
+.divider {
+  position: relative;
+  margin-bottom: 2rem;
+}
+
+.dividerLine {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+}
+
+.dividerLine>div {
+  width: 100%;
+  border-top: 1px solid #e2e8f0;
+}
+
+.dividerContent {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  font-size: .875rem;
+}
+
+.dividerContent span {
+  background: #fff;
+  padding: 0 .5rem;
+  color: #64748b;
+}
+
+.usersList {
+  max-height: 15rem;
+  overflow-y: auto;
+  padding-right: .25rem;
+}
+
+.usersList>*+* {
+  margin-top: .75rem;
+}
+
+.userButton {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #e2e8f0;
+  border-radius: .5rem;
+  background: #fff;
+  padding: .75rem 1rem;
+  text-align: left;
+  transition: border-color .15s, background .15s;
+}
+
+.userButton:hover {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.userName {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.userButton:hover .userName {
+  color: #312e81;
+}
+
+.userDetails {
+  color: #64748b;
+  font-size: .75rem;
+}
+
+.roleBadge {
+  border-radius: .25rem;
+  background: #f1f5f9;
+  padding: .25rem .5rem;
+  color: #475569;
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.userButton:hover .roleBadge {
+  background: #e0e7ff;
+  color: #4338ca;
+}

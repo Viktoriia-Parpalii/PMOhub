@@ -1,5 +1,5 @@
-import { OperationalTask, Project, RolePermissions, User } from '../types';
-import { isPeriodLocked } from '../utils';
+import { OperationalTask, Project, RolePermissions, User } from '../shared/types';
+import { isPeriodLocked } from '../shared/utils';
 
 export type InitiativeRecord = Project | OperationalTask;
 

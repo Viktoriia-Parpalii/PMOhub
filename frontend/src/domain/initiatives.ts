@@ -1,4 +1,4 @@
-import { ChecklistItem, HistoryEvent, InitiativePassport, InitiativeYearSnapshot, MutationResult, OperationalTask, PreparationStage, Project, Quarter, ScopeMergePreview } from '../types';
+import { ChecklistItem, HistoryEvent, InitiativePassport, InitiativeYearSnapshot, MutationResult, OperationalTask, PreparationStage, Project, Quarter, ScopeMergePreview } from '../shared/types';
 
 export type InitiativeRecord = Project | OperationalTask;
 export const isCompletedItem = (item: ChecklistItem) => item.is_completed || item.color === 'GREEN';

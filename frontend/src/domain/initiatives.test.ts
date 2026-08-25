@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { commitScopeMerge, continueCard, deleteInitiative, materializeBacklogYear, moveCard, moveChecklistItem } from './initiatives';
-import { Project } from '../types';
+import { Project } from '../shared/types';
 
 const currentYear = new Date().getFullYear();
 const passport = { name: 'Master', strategic_goal: 'Current\nstrategy', implementer_dept_ids: ['D1'], cross_functional_dept_ids: [] as string[] };

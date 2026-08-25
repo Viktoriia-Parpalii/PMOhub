@@ -1,0 +1,354 @@
+.shell {
+    display: flex;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    flex-direction: column;
+    background: #f8fafc;
+    color: #0f172a;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.mobileBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgb(15 23 42 / .6);
+    backdrop-filter: blur(4px);
+    transition: opacity .15s;
+}
+
+.sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    display: flex;
+    width: 16rem;
+    flex-direction: column;
+    border-right: 1px solid #1e293b;
+    background: #0f172a;
+    padding: 1.5rem;
+    color: #cbd5e1;
+    transform: translateX(-100%);
+    transition: transform .3s ease-in-out;
+}
+
+.sidebarOpen {
+    transform: translateX(0);
+}
+
+.brandRow,
+.brandIdentity,
+.profileSummary,
+.mobileHeaderLeft {
+    display: flex;
+    align-items: center;
+}
+
+.brandRow {
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+.brandIdentity {
+    gap: .75rem;
+}
+
+.brandLogo {
+    flex-shrink: 0;
+    color: #6366f1;
+}
+
+.brandName {
+    margin: 0;
+    color: #fff;
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: -.025em;
+}
+
+.mobileCloseButton {
+    border: 0;
+    border-radius: .5rem;
+    background: transparent;
+    padding: .25rem;
+    color: #94a3b8;
+}
+
+.mobileCloseButton:hover {
+    color: #fff;
+}
+
+.navigation {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.navigation>*+* {
+    margin-top: .5rem;
+}
+
+.navigationButton {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: .75rem;
+    border: 0;
+    border-radius: .75rem;
+    padding: .625rem .75rem;
+    font-size: .875rem;
+    font-weight: 500;
+    transition: .2s;
+}
+
+.navigationButtonActive {
+    background: #4f46e5;
+    box-shadow: 0 10px 15px rgb(79 70 229 / .3);
+    color: #fff;
+    font-weight: 600;
+}
+
+.navigationButtonInactive {
+    cursor: pointer;
+    background: transparent;
+    color: #94a3b8;
+}
+
+.navigationButtonInactive:hover {
+    background: rgb(30 41 59 / .6);
+    color: #e2e8f0;
+}
+
+.profileArea {
+    position: relative;
+    margin-top: 1rem;
+    border-top: 1px solid #1e293b;
+    padding-top: 1rem;
+}
+
+.profileSummary {
+    gap: .75rem;
+}
+
+.avatarButton {
+    display: flex;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 2px solid rgb(99 102 241 / .3);
+    border-radius: 999px;
+    background: rgb(99 102 241 / .2);
+    color: #a5b4fc;
+    font-weight: 700;
+    transition: background .15s;
+}
+
+.avatarButton:hover {
+    background: rgb(99 102 241 / .3);
+}
+
+.profileDetails {
+    min-width: 0;
+    flex: 1;
+    cursor: pointer;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    text-align: left;
+}
+
+.profileName,
+.profileRole {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profileName {
+    color: #fff;
+    font-size: .875rem;
+    font-weight: 700;
+}
+
+.profileRole {
+    color: #94a3b8;
+    font-size: .75rem;
+    font-weight: 500;
+}
+
+.profileMenuBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+}
+
+.profileMenu {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    z-index: 20;
+    width: 100%;
+    margin-bottom: 1rem;
+    overflow: hidden;
+    border: 1px solid #334155;
+    border-radius: .75rem;
+    background: #1e293b;
+    padding: .25rem 0;
+    box-shadow: 0 10px 15px rgb(15 23 42 / .25);
+}
+
+.profileMenuButton,
+.profileMenuLogout {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: .5rem;
+    border: 0;
+    padding: .5rem 1rem;
+    text-align: left;
+    font-size: .875rem;
+}
+
+.profileMenuButton {
+    background: transparent;
+    color: #cbd5e1;
+}
+
+.profileMenuButton:hover,
+.profileMenuLogout:hover {
+    background: #334155;
+}
+
+.profileMenuLogout {
+    border-top: 1px solid #334155;
+    background: transparent;
+    color: #fb7185;
+}
+
+.mainArea {
+    display: flex;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.contentScroller {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: .75rem;
+}
+
+.contentContainer {
+    min-height: 100%;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.wideContent {
+    max-width: 1920px;
+}
+
+.standardContent {
+    max-width: 80rem;
+}
+
+.mobileHeader {
+    z-index: 20;
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #1e293b;
+    background: #0f172a;
+    padding: .75rem 1rem;
+    color: #fff;
+}
+
+.mobileHeaderLeft {
+    gap: .75rem;
+}
+
+.mobileMenuButton {
+    border: 0;
+    border-radius: .75rem;
+    background: transparent;
+    padding: .5rem;
+    color: #cbd5e1;
+    transition: .15s;
+}
+
+.mobileMenuButton:hover {
+    background: #1e293b;
+    color: #fff;
+}
+
+.mobileTitle {
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.mobileUserName {
+    max-width: 150px;
+    overflow: hidden;
+    border: 1px solid rgb(99 102 241 / .3);
+    border-radius: .5rem;
+    background: rgb(49 46 129 / .8);
+    padding: .25rem .625rem;
+    color: #a5b4fc;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .75rem;
+    font-weight: 600;
+}
+
+.loading {
+    padding: 2rem;
+    color: #64748b;
+    text-align: center;
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+    .contentScroller {
+        padding: 1rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .shell {
+        flex-direction: row;
+    }
+
+    .mobileBackdrop,
+    .mobileHeader,
+    .mobileCloseButton {
+        display: none;
+    }
+
+    .sidebar {
+        transform: translateX(0);
+    }
+
+    .mainArea {
+        margin-left: 16rem;
+    }
+
+    .contentScroller {
+        padding: 1.5rem;
+    }
+}
+
+@media (min-width: 1536px) {
+    .wideContent {
+        max-width: none;
+    }
+}

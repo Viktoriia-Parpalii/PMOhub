@@ -7,7 +7,7 @@ import {
   Project,
   TaskWeightDef,
   TaskWeightSnapshot,
-} from '../types';
+} from '../shared/types';
 
 export type QuarterCard = Project | OperationalTask;
 
