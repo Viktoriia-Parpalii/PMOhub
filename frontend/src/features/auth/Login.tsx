@@ -3,32 +3,19 @@ import { useAppContext } from "../../app/store";
 import { User } from "../../shared/types";
 import { Eye, EyeOff } from "lucide-react";
 import styles from "./Login.module.css";
-import { PasswordChangeModal } from "./PasswordChangeModal";
 
 export const Login = () => {
-  const { users, login, departments } = useAppContext();
+  const { users, authenticate, departments, backendEnabled } = useAppContext();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-  const handleEmailLogin = (e: React.FormEvent) => {
+  const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = users.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase(),
-    );
-
-    if (user) {
-      if (user.password === password) {
-        login(user);
-      } else {
-        setError("Невірний пароль");
-      }
-    } else {
-      setError("Користувача з таким email не знайдено");
-    }
+    const result = await authenticate(email, password);
+    if (!result.success) setError(result.message);
   };
 
   const handleTestUserClick = (user: User) => {
@@ -105,16 +92,7 @@ export const Login = () => {
           </button>
         </form>
 
-        <div className={styles.changePassword}>
-          <button
-            onClick={() => setShowPasswordModal(true)}
-            className={styles.changePasswordButton}
-          >
-            Змінити пароль
-          </button>
-        </div>
-
-        <div className={styles.divider}>
+        {!backendEnabled && <><div className={styles.divider}>
           <div className={styles.dividerLine}>
             <div></div>
           </div>
@@ -141,14 +119,8 @@ export const Login = () => {
               <div className={styles.roleBadge}>{user.role}</div>
             </button>
           ))}
-        </div>
+        </div></>}
       </div>
-
-      <PasswordChangeModal
-        isOpen={showPasswordModal}
-        onClose={() => setShowPasswordModal(false)}
-        mode="login"
-      />
     </div>
   );
 };

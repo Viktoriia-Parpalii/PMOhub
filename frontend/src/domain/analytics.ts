@@ -9,7 +9,8 @@ export const normalizeHealthStatus = (status: HealthStatus): CanonicalHealthStat
 
 export const healthCounts = (cards: AnalyticsCard[]) => cards.reduce<Record<CanonicalHealthStatus, number>>(
   (counts, card) => {
-    counts[normalizeHealthStatus(card.health_status)] += 1;
+    const status = normalizeHealthStatus(card.health_status_code ?? card.health_status);
+    counts[status] = (counts[status] ?? 0) + 1;
     return counts;
   },
   { GREEN: 0, YELLOW: 0, RED: 0, DEFAULT: 0 },

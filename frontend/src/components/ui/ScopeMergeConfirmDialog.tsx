@@ -16,20 +16,20 @@ export const ScopeMergeConfirmDialog = ({
       <div className="p-5 bg-amber-50 border-b border-amber-200 flex gap-3">
         <AlertTriangle className="text-amber-600 shrink-0" />
         <div>
-          <h3 className="font-bold text-slate-900">Підтвердіть злиття scope</h3>
+          <h3 className="font-bold text-slate-900">Підтвердіть перенесення завдання.</h3>
           <p className="text-sm text-slate-600 mt-1">
-            У цільовому періоді вже існує картка цього master-record.
+            У цільовому періоді вже існує картка. Скоуп буде об'єднано.
           </p>
         </div>
       </div>
       <div className="p-5 space-y-3 text-sm text-slate-700">
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-slate-50 p-3">
-            <span className="text-xs text-slate-500">Source</span>
+            <span className="text-xs text-slate-500">Звідки</span>
             <strong className="block">{preview.sourcePeriod}</strong>
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
-            <span className="text-xs text-slate-500">Target</span>
+            <span className="text-xs text-slate-500">Куди</span>
             <strong className="block">{preview.targetPeriod}</strong>
           </div>
         </div>
@@ -45,7 +45,7 @@ export const ScopeMergeConfirmDialog = ({
         )}
         {preview.deletesSource && (
           <p className="font-semibold text-rose-700">
-            Після злиття порожню source-картку буде видалено.
+            Це останнє завдання, картку буде видалено з кварталу.
           </p>
         )}
       </div>
@@ -60,7 +60,7 @@ export const ScopeMergeConfirmDialog = ({
           onClick={onConfirm}
           className="px-4 py-2 rounded-xl font-bold bg-amber-600 text-white hover:bg-amber-700"
         >
-          Об’єднати scope
+          Об’єднати скоуп
         </button>
       </div>
     </div>

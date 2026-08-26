@@ -16,6 +16,11 @@ describe('analytics selectors', () => {
     expect(scopeStatusCounts([card('Q1', 'DEFAULT', 'GRAY')])).toMatchObject({ DEFAULT: 1 });
   });
 
+  it('uses the canonical code when the read model also contains a status UUID', () => {
+    const item = { ...card('Q1', '00000000-0000-4000-8000-000000000001'), health_status_code: 'GREEN' };
+    expect(healthCounts([item])).toMatchObject({ GREEN: 1, DEFAULT: 0 });
+  });
+
   it('uses the card progress formula for portfolio progress', () => {
     expect(averageScopeProgress([card('Q1', 'DEFAULT', 'GRAY'), card('Q2', 'DEFAULT', 'GREEN')])).toBe(100);
   });

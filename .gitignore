@@ -27,6 +27,7 @@ coverage/
 .cache/
 .eslintcache
 *.tsbuildinfo
+backend/src/generated/prisma/
 
 # OS files
 .DS_Store

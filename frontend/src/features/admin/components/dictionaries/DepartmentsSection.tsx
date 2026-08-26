@@ -9,7 +9,7 @@ export type ProtectedDelete = (
   title: string,
   name: string,
   check: () => MutationResult,
-  onConfirm: () => MutationResult,
+  onConfirm: () => Promise<MutationResult>,
 ) => void;
 
 export const DepartmentsSection = ({
@@ -26,15 +26,15 @@ export const DepartmentsSection = ({
   } = useAppContext();
   const [name, setName] = useState("");
   const [limit, setLimit] = useState(10);
-  const add = () => {
+  const add = async () => {
     if (!name.trim()) return;
-    addDepartment({
+    const result = await addDepartment({
       id: Math.random().toString(36).substring(2, 10),
       name,
       capacity_limit_points: limit,
       is_active: true,
     });
-    setName("");
+    if (result.success) setName("");
   };
   return (
     <section>

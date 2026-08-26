@@ -21,16 +21,18 @@ export const ManagersSection = ({
   } = useAppContext();
   const [name, setName] = useState("");
   const [departmentId, setDepartmentId] = useState("");
-  const add = () => {
+  const add = async () => {
     if (!name.trim() || !departmentId) return;
-    addManager({
+    const result = await addManager({
       id: Math.random().toString(36).substring(2, 10),
       name,
       department_id: departmentId,
       is_active: true,
     });
-    setName("");
-    setDepartmentId("");
+    if (result.success) {
+      setName("");
+      setDepartmentId("");
+    }
   };
   return (
     <section>

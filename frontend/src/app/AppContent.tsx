@@ -11,7 +11,6 @@ import { AppTabId, NavigationItem } from "./appTypes";
 import { AppSidebar } from "./components/AppSidebar";
 import { AppContentArea } from "./components/AppContentArea";
 import { MobileHeader } from "./components/MobileHeader";
-import { Dashboard } from "../features/analytics/Dashboard";
 import { ProjectsTab } from "../features/portfolio/projects/ProjectsTab";
 import { TasksTab } from "../features/portfolio/tasks/TasksTab";
 import { BacklogTab } from "../features/backlog/BacklogTab";
@@ -24,6 +23,7 @@ const AdminTab = React.lazy(() =>
     default: module.AdminTab,
   })),
 );
+const Dashboard = React.lazy(() => import("../features/analytics/Dashboard").then((module) => ({ default: module.Dashboard })));
 const wideTabs: AppTabId[] = ["projects", "tasks", "backlog", "dashboard"];
 const getRoleLabel = (role: string) =>
   role === "SUPER_ADMIN"
@@ -33,11 +33,12 @@ const getRoleLabel = (role: string) =>
       : "Користувач";
 
 export const AppContent = () => {
-  const { currentUser, logout, departments, rolePermissions } = useAppContext();
+  const { currentUser, logout, departments, rolePermissions, isHydrating } = useAppContext();
   const [activeTab, setActiveTab] = useState<AppTabId>("dashboard");
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  if (isHydrating) return <div className={styles.loading}>Відновлення сесії…</div>;
   if (!currentUser) return <Login />;
 
   const userRolePerm = rolePermissions.find(
@@ -123,7 +124,7 @@ export const AppContent = () => {
           />
         }
       >
-        {currentTab.id === "dashboard" && <Dashboard />}
+        {currentTab.id === "dashboard" && <React.Suspense fallback={<div className={styles.loading}>Завантаження аналітики…</div>}><Dashboard /></React.Suspense>}
         {currentTab.id === "projects" && <ProjectsTab />}
         {currentTab.id === "tasks" && <TasksTab />}
         {currentTab.id === "backlog" && <BacklogTab />}
@@ -142,7 +143,6 @@ export const AppContent = () => {
       <PasswordChangeModal
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
-        mode="profile"
       />
     </div>
   );

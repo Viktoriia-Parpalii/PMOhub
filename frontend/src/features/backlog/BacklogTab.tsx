@@ -176,8 +176,8 @@ export const BacklogTab = () => {
         ? current.filter((id) => !selectableMasterIds.includes(id))
         : Array.from(new Set([...current, ...selectableMasterIds])),
     );
-  const confirmExtension = () => {
-    const result = createBacklogSnapshots(
+  const confirmExtension = async () => {
+    const result = await createBacklogSnapshots(
       activeTab === "PROJECTS" ? "project" : "task",
       selectedIds,
       selectedYear,
@@ -193,14 +193,14 @@ export const BacklogTab = () => {
     });
     cancelExtensionSelection();
   };
-  const toggleQuarter = (master: Initiative, quarter: Quarter) => {
+  const toggleQuarter = async (master: Initiative, quarter: Quarter) => {
     if (isPastQuarter(quarter)) {
       setNotice({ type: "error", message: "Картки можна створювати лише для поточного або майбутніх кварталів" });
       return;
     }
     const existing = cardsFor(master.id).find((card) => card.year === selectedYear && card.quarter === quarter);
     if (existing) {
-      const result = activeTab === "PROJECTS" ? deleteProject(existing.id) : deleteTask(existing.id);
+      const result = await (activeTab === "PROJECTS" ? deleteProject(existing.id) : deleteTask(existing.id));
       if (!result.success) setNotice({ type: "error", message: result.message });
       return;
     }
@@ -222,12 +222,12 @@ export const BacklogTab = () => {
       checklist: [],
       history: [],
     };
-    const result = activeTab === "PROJECTS" ? addProject(card as Project) : addTask(card as OperationalTask);
+    const result = await (activeTab === "PROJECTS" ? addProject(card as Project) : addTask(card as OperationalTask));
     if (!result.success) setNotice({ type: "error", message: result.message });
   };
-  const removeMaster = () => {
+  const removeMaster = async () => {
     if (!masterToDelete) return;
-    const result = activeTab === "PROJECTS" ? deleteProject(masterToDelete.id) : deleteTask(masterToDelete.id);
+    const result = await (activeTab === "PROJECTS" ? deleteProject(masterToDelete.id) : deleteTask(masterToDelete.id));
     if (!result.success) setNotice({ type: "error", message: result.message });
     setMasterToDelete(null);
   };
@@ -336,20 +336,22 @@ export const BacklogTab = () => {
           isReadOnly={!canEdit}
           openInViewMode={canEdit}
           onClose={() => setEditingCard(null)}
-          onSave={(item) => {
-            const result =
+          onSave={async (item) => {
+            const result = await (
               activeTab === "PROJECTS"
                 ? updateProject(item.id, item as Project)
-                : updateTask(item.id, item as OperationalTask);
+                : updateTask(item.id, item as OperationalTask)
+            );
             if (!result.success) {
               setNotice({ type: "error", message: result.message });
               return;
             }
             setEditingCard(null);
           }}
-          onDelete={(id) => {
-            const result =
-              activeTab === "PROJECTS" ? deleteProject(id) : deleteTask(id);
+          onDelete={async (id) => {
+            const result = await (
+              activeTab === "PROJECTS" ? deleteProject(id) : deleteTask(id)
+            );
             if (!result.success) {
               setNotice({ type: "error", message: result.message });
               return;

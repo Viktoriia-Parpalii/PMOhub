@@ -285,7 +285,7 @@ export const ProjectsTab = () => {
           defaultQuarter={selectedQuarter}
           isReadOnly={isReadOnlyModal}
           onClose={() => setIsModalOpen(false)}
-          onSave={(proj, syncTargets) => {
+          onSave={async (proj, syncTargets) => {
             if (editingProject) {
               const backlogYears = (syncTargets ?? [])
                 .filter((id) => id.startsWith("BACKLOG_YEAR:"))
@@ -295,7 +295,7 @@ export const ProjectsTab = () => {
               const cardIds = (syncTargets ?? []).filter((id) =>
                 projects.some((card) => !card.is_backlog && card.id === id),
               );
-              const result = savePassport({
+              const result = await savePassport({
                 kind: "project",
                 source: { type: "card", cardId: editingProject.id },
                 passportPatch: passportFrom(proj),
@@ -324,7 +324,7 @@ export const ProjectsTab = () => {
                   },
                 },
               };
-              const result = createBacklogWithCards(
+              const result = await createBacklogWithCards(
                 "project",
                 master,
                 [proj.quarter],
@@ -337,8 +337,8 @@ export const ProjectsTab = () => {
             }
             setIsModalOpen(false);
           }}
-          onDelete={(id) => {
-            const result = deleteProject(id);
+          onDelete={async (id) => {
+            const result = await deleteProject(id);
             if (!result.success) {
               alert(result.message);
               return;

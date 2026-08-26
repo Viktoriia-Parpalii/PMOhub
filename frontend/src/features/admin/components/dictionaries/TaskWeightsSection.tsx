@@ -11,7 +11,7 @@ export type BulkWeight = { id: string; name: string } | null;
 type DeleteConfirmation = {
   title: string;
   name: string;
-  onConfirm: () => MutationResult | void;
+  onConfirm: () => Promise<MutationResult> | void;
 };
 
 export const TaskWeightsSection = ({
@@ -27,9 +27,9 @@ export const TaskWeightsSection = ({
     useAppContext();
   const [name, setName] = useState("");
   const [weight, setWeight] = useState(1);
-  const add = () => {
+  const add = async () => {
     if (!name.trim()) return;
-    const result = addTaskWeight({
+    const result = await addTaskWeight({
       id: Math.random().toString(36).substring(2, 10),
       name,
       weight,
@@ -104,8 +104,8 @@ export const TaskWeightsSection = ({
                       Застосувати
                     </DictionaryActionButton>
                     <DictionaryActivationButton
-                      onClick={() => {
-                        const result = updateTaskWeight(item.id, {
+                      onClick={async () => {
+                        const result = await updateTaskWeight(item.id, {
                           is_active: item.is_active === false,
                         });
                         if (!result.success) alert(result.message);
@@ -118,9 +118,10 @@ export const TaskWeightsSection = ({
                         openDeleteConfirm({
                           title: "розмір",
                           name: item.name,
-                          onConfirm: () => {
-                            const result = deleteTaskWeight(item.id);
+                          onConfirm: async () => {
+                            const result = await deleteTaskWeight(item.id);
                             if (!result.success) alert(result.message);
+                            return result;
                           },
                         })
                       }

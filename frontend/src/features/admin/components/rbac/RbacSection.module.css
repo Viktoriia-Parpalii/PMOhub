@@ -167,6 +167,34 @@
     color: #f43f5e;
 }
 
+.resetPasswordButton {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    margin-right: .5rem;
+    border: 1px solid #c7d2fe;
+    border-radius: .5rem;
+    background: #eef2ff;
+    padding: .375rem .625rem;
+    color: #4338ca;
+    font-size: .75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: background .15s, border-color .15s;
+}
+
+.resetPasswordButton:hover {
+    border-color: #a5b4fc;
+    background: #e0e7ff;
+}
+
+.resetIcon {
+    border-radius: .75rem;
+    background: #eef2ff;
+    padding: .625rem;
+    color: #4f46e5;
+}
+
 .backdrop {
     position: fixed;
     inset: 0;

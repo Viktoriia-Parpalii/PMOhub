@@ -8,7 +8,7 @@ import { DictionaryActivationButton, DictionaryActionGroup, DictionaryDeleteButt
 type DeleteConfirmation = {
   title: string;
   name: string;
-  onConfirm: () => MutationResult | void;
+  onConfirm: () => Promise<MutationResult> | void;
 };
 export const InitiativeSizesSection = ({
   openDeleteConfirm,
@@ -25,9 +25,9 @@ export const InitiativeSizesSection = ({
   const [name, setName] = useState("");
   const [min, setMin] = useState(0);
   const [max, setMax] = useState(1);
-  const add = () => {
+  const add = async () => {
     if (!name.trim()) return;
-    const result = addInitiativeSize({
+    const result = await addInitiativeSize({
       id: Math.random().toString(36).substring(2, 10),
       name,
       min_score: min,
@@ -46,8 +46,8 @@ export const InitiativeSizesSection = ({
           Розмір (вага) ініціативи
         </h2>
         <button
-          onClick={() => {
-            const result = refreshOpenInitiativeSizes();
+          onClick={async () => {
+            const result = await refreshOpenInitiativeSizes();
             if (!result.success) alert(result.message);
           }}
           className="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50"
@@ -117,8 +117,8 @@ export const InitiativeSizesSection = ({
                   <td className={table.actionsCell}>
                     <DictionaryActionGroup>
                       <DictionaryActivationButton
-                        onClick={() => {
-                        const result = updateInitiativeSize(item.id, {
+                        onClick={async () => {
+                        const result = await updateInitiativeSize(item.id, {
                           is_active: item.is_active === false,
                         });
                         if (!result.success) alert(result.message);
@@ -129,9 +129,10 @@ export const InitiativeSizesSection = ({
                         openDeleteConfirm({
                           title: "розмір ініціативи",
                           name: item.name,
-                          onConfirm: () => {
-                            const result = deleteInitiativeSize(item.id);
+                          onConfirm: async () => {
+                            const result = await deleteInitiativeSize(item.id);
                             if (!result.success) alert(result.message);
+                            return result;
                           },
                         })
                       } />

@@ -8,7 +8,7 @@ import styles from "./DictionariesSection.module.css";
 export type DeleteConfirmation = {
   title: string;
   name: string;
-  onConfirm: () => MutationResult | void;
+  onConfirm: () => Promise<MutationResult> | void;
 } | null;
 
 export type DeleteBlocked = {
@@ -86,8 +86,8 @@ export const DictionaryDialogs = ({
                 Скасувати
               </button>
               <button
-                onClick={() => {
-                  const result = updateTaskWeight(editingWeight.id, {
+                onClick={async () => {
+                  const result = await updateTaskWeight(editingWeight.id, {
                     name: editingWeight.name,
                     weight: editingWeight.weight,
                   });
@@ -121,8 +121,8 @@ export const DictionaryDialogs = ({
                 Скасувати
               </button>
               <button
-                onClick={() => {
-                  const result = applyTaskWeightToOpenCards(bulkWeight.id);
+                onClick={async () => {
+                  const result = await applyTaskWeightToOpenCards(bulkWeight.id);
                   if (!result.success) return alert(result.message);
                   setBulkWeight(null);
                 }}
@@ -190,8 +190,8 @@ export const DictionaryDialogs = ({
                 Скасувати
               </button>
               <button
-                onClick={() => {
-                  const result = deleteConfirm.onConfirm();
+                onClick={async () => {
+                  const result = await deleteConfirm.onConfirm();
                   setDeleteConfirm(null);
                   if (result && !result.success)
                     setDeleteBlocked({

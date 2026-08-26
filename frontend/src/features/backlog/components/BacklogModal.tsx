@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { useAppContext } from "../../../app/store";
 import {
   InitiativeYearSnapshot,
@@ -39,6 +40,7 @@ export const BacklogModal = ({
     tasks,
     savePassport,
     createBacklogWithCards,
+    isMutating,
   } = useAppContext();
   const sourceRecords = type === "PROJECTS" ? projects : tasks;
   const master = editItem
@@ -106,13 +108,13 @@ export const BacklogModal = ({
     implementer_dept_ids: [],
     cross_functional_dept_ids: [],
   });
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
-      setError("Вкажіть назву ініціативи");
+      setError(`Вкажіть назву ${type === "PROJECTS" ? "проєкту" : "операційної задачі"}`);
       return;
     }
     if (editItem && master) {
-      const result = savePassport({
+      const result = await savePassport({
         kind: type === "PROJECTS" ? "project" : "task",
         source: { type: "backlog", masterId: master.id, year: selectedYear },
         passportPatch: passport(),
@@ -140,7 +142,7 @@ export const BacklogModal = ({
         yearSnapshots: { [String(selectedYear)]: yearSnapshot },
         history: [],
       };
-      const result = createBacklogWithCards(
+      const result = await createBacklogWithCards(
         type === "PROJECTS" ? "project" : "task",
         base as Project | OperationalTask,
         [],
@@ -153,7 +155,7 @@ export const BacklogModal = ({
     onClose();
   };
 
-  return (
+  return createPortal(
     <div className={styles.backdrop}>
       <div className={styles.backlogModal}>
         <div className={styles.modalHeader}>
@@ -264,13 +266,15 @@ export const BacklogModal = ({
           {!isReadOnly && (
             <button
               onClick={handleSave}
+              disabled={isMutating}
               className={styles.footerSave}
             >
-              Зберегти
+              {isMutating ? "Збереження…" : "Зберегти"}
             </button>
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

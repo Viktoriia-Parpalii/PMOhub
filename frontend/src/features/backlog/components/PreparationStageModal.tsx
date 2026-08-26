@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { useAppContext } from "../../../app/store";
 import { OperationalTask, Project } from "../../../shared/types";
 import { getYearSnapshot } from "../../../domain/initiatives";
@@ -13,7 +14,7 @@ export const PreparationStageModal = ({
   type: "project" | "task";
   onClose: () => void;
 }) => {
-  const { departments, managers, priorities, updatePreparationStage } =
+  const { departments, managers, priorities, updatePreparationStage, isMutating } =
     useAppContext();
   const stage = getYearSnapshot(item, item.year)?.preparationStage;
   const [managerId, setManagerId] = useState(stage?.manager_id ?? "");
@@ -28,8 +29,8 @@ export const PreparationStageModal = ({
         ? current.filter((value) => value !== id)
         : [...current, id],
     );
-  const save = () => {
-    const result = updatePreparationStage(type, item.id, {
+  const save = async () => {
+    const result = await updatePreparationStage(type, item.id, {
       manager_id: managerId || undefined,
       priority: priority || undefined,
       cross_functional_dept_ids: departmentIds,
@@ -40,7 +41,7 @@ export const PreparationStageModal = ({
     }
     onClose();
   };
-  return (
+  return createPortal(
     <div className={styles.preparationBackdrop}>
       <div className={styles.preparationModal}>
         <div className={styles.preparationHeader}>
@@ -141,12 +142,14 @@ export const PreparationStageModal = ({
           </button>
           <button
             onClick={save}
+            disabled={isMutating}
             className={styles.preparationSave}
           >
-            Зберегти
+            {isMutating ? "Збереження…" : "Зберегти"}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { Check, Copy, Power, PowerOff, Trash2, X } from "lucide-react";
+import { Check, Copy, KeyRound, Power, PowerOff, Trash2, X } from "lucide-react";
 import { useAppContext } from "../../../../app/store";
 import { UserRole } from "../../../../shared/types";
-import { generatePassword, truncateText } from "../../../../shared/utils";
+import { truncateText } from "../../../../shared/utils";
 import styles from "./RbacSection.module.css";
 
 export const RbacSection = () => {
@@ -14,11 +14,13 @@ export const RbacSection = () => {
     deleteUser,
     departments,
     addUser,
+    resetUserPassword,
+    currentUser,
   } = useAppContext();
   const [deleteConfirm, setDeleteConfirm] = useState<{
     title: string;
     name: string;
-    onConfirm: () => void;
+    onConfirm: () => Promise<{ success: boolean; message: string }>;
   } | null>(null);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [newUserName, setNewUserName] = useState("");
@@ -28,8 +30,21 @@ export const RbacSection = () => {
   const [newUserRole, setNewUserRole] = useState<UserRole>("USER");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [temporaryPassword, setTemporaryPassword] = useState<{ name: string; value: string } | null>(null);
+  const [resetError, setResetError] = useState("");
 
-  const handleAddUser = () => {
+  const handleResetPassword = async (user: { id: string; name: string; role: UserRole }) => {
+    setResetError("");
+    const result = await resetUserPassword(user.id);
+    if (!result.success || !result.data) {
+      setResetError(result.message);
+      return;
+    }
+    setCopied(false);
+    setTemporaryPassword({ name: user.name, value: result.data.temporary_password });
+  };
+
+  const handleAddUser = async () => {
     if (!newUserName.trim() || !newUserEmail.trim() || !newUserDept) {
       setError("Заповніть всі поля");
       return;
@@ -41,18 +56,20 @@ export const RbacSection = () => {
       return;
     }
 
-    const pwd = generatePassword();
-    setGeneratedPassword(pwd);
     setCopied(false);
-
-    addUser({
+    const result = await addUser({
       id: "USR-" + Math.random().toString(36).substring(2, 8),
       name: newUserName.trim(),
       email: newUserEmail.trim().toLowerCase(),
       role: newUserRole,
       departmentId: newUserDept || undefined,
-      password: pwd,
+      password: "",
     });
+    if (!result.success || !result.data) {
+      setError(result.message);
+      return;
+    }
+    setGeneratedPassword(result.data.temporary_password);
   };
 
   return (
@@ -197,6 +214,16 @@ export const RbacSection = () => {
                     </select>
                   </td>
                   <td className={styles.tableCellRight}>
+                    {!(currentUser?.role !== "SUPER_ADMIN" && user.role === "SUPER_ADMIN") && (
+                      <button
+                        onClick={() => void handleResetPassword(user)}
+                        className={styles.resetPasswordButton}
+                        title="Видати тимчасовий пароль"
+                      >
+                        <KeyRound size={15} />
+                        Тимчасовий пароль
+                      </button>
+                    )}
                     <button
                       onClick={() =>
                         setDeleteConfirm({
@@ -240,8 +267,12 @@ export const RbacSection = () => {
                 Скасувати
               </button>
               <button
-                onClick={() => {
-                  deleteConfirm.onConfirm();
+                onClick={async () => {
+                  const result = await deleteConfirm.onConfirm();
+                  if (!result.success) {
+                    setResetError(result.message);
+                    return;
+                  }
                   setDeleteConfirm(null);
                 }}
                 className={styles.dangerButton}
@@ -249,6 +280,39 @@ export const RbacSection = () => {
                 Видалити
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {temporaryPassword && (
+        <div className={styles.backdrop}>
+          <div className={styles.dialog}>
+            <div className={styles.dialogLead}>
+              <div className={styles.resetIcon}><KeyRound size={22} /></div>
+              <h3 className={styles.dialogTitle}>Тимчасовий пароль</h3>
+            </div>
+            <p className={styles.dialogDescription}>
+              Передайте пароль користувачу <span className={styles.emphasis}>«{temporaryPassword.name}»</span> захищеним каналом. Він показується лише зараз і має бути змінений після входу.
+            </p>
+            <div className={styles.passwordRow}>
+              <div className={`${styles.valueBox} ${styles.passwordBox}`}>{temporaryPassword.value}</div>
+              <button onClick={() => { navigator.clipboard.writeText(temporaryPassword.value); setCopied(true); window.setTimeout(() => setCopied(false), 2000); }} className={styles.copyButton} title="Скопіювати пароль">
+                {copied ? <Check size={20} /> : <Copy size={20} />}
+              </button>
+            </div>
+            <div className={styles.dialogActions}>
+              <button onClick={() => setTemporaryPassword(null)} className={styles.closeButton}>Готово</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {resetError && (
+        <div className={styles.backdrop}>
+          <div className={styles.dialog}>
+            <div className={styles.dialogLead}><div className={styles.dangerIcon}><X size={22} /></div><h3 className={styles.dialogTitle}>Не вдалося видати пароль</h3></div>
+            <p className={styles.dialogDescription}>{resetError}</p>
+            <div className={styles.dialogActions}><button onClick={() => setResetError("")} className={styles.closeButton}>Закрити</button></div>
           </div>
         </div>
       )}

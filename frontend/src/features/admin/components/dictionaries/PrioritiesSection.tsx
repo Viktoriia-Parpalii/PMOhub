@@ -20,15 +20,15 @@ export const PrioritiesSection = ({
   } = useAppContext();
   const [name, setName] = useState("");
   const [color, setColor] = useState("#e11d48");
-  const add = () => {
+  const add = async () => {
     if (!name.trim()) return;
-    addPriority({
+    const result = await addPriority({
       id: Math.random().toString(36).substring(2, 10),
       name,
       color,
       is_active: true,
     });
-    setName("");
+    if (result.success) setName("");
   };
   return (
     <section>

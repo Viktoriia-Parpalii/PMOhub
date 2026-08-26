@@ -5,6 +5,7 @@ on:
     branches: [develop]
     paths:
       - 'frontend/**'
+      - 'backend/openapi.json'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -36,10 +37,15 @@ jobs:
         run: npm ci
       - name: Type check
         run: npm run typecheck
+      - name: Verify generated API types
+        run: npm run api:generate && git diff --exit-code -- src/api/generated/schema.d.ts
       - name: Test
         run: npm run test -- --run
       - name: Build frontend
         run: npm run build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/pmohub/' }}
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload GitHub Pages artifact

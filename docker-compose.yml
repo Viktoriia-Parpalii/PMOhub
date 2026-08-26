@@ -1,0 +1,32 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-ChangeMe_Strong_123}
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - pmohub_sql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '$$MSSQL_SA_PASSWORD' -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      # localhost in backend/.env means the host machine. From this container
+      # SQL Server is reachable by the Compose service name instead.
+      DATABASE_URL: "sqlserver://sqlserver:1433;database=pmohub;schema=dbo;user=sa;password=${MSSQL_SA_PASSWORD:-ChangeMe_Strong_123};encrypt=true;trustServerCertificate=true"
+    ports:
+      - "4000:4000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+volumes:
+  pmohub_sql_data:

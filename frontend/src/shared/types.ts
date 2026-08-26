@@ -62,6 +62,8 @@ export interface ChecklistItem {
   text: string;
   is_completed: boolean;
   color?: 'GREEN' | 'YELLOW' | 'RED' | 'GRAY' | 'DEFAULT';
+  status_id?: string;
+  status_code?: string;
   weightId?: string;
   /** Незмінний знімок довідникової ваги для історичних розрахунків. */
   weightSnapshot?: TaskWeightSnapshot;
@@ -89,6 +91,8 @@ export interface MutationResult<T = undefined> {
   message: string;
   data?: T;
   requiresConfirmation?: ScopeMergePreview;
+  status?: 'COMMIT_FAILED' | 'COMMITTED_REFRESH_FAILED' | 'SUCCESS';
+  committed?: boolean;
 }
 
 export type Priority = string;
@@ -121,12 +125,16 @@ export interface PreparationStage {
 
 export interface Project extends InitiativePassport {
   id: string;
+  /** Server optimistic-concurrency version. */
+  revision?: number;
   /** Незмінний ідентифікатор ланцюжка річних backlog-записів. */
   initiative_chain_id?: string;
   year: number;
   yearSnapshots?: Record<string, InitiativeYearSnapshot>;
   quarter: Quarter;
   health_status: HealthStatus;
+  health_status_id?: string;
+  health_status_code?: string;
   checklist: ChecklistItem[];
   is_backlog: boolean;
   backlog_id?: string;
@@ -136,12 +144,16 @@ export interface Project extends InitiativePassport {
 }
 export interface OperationalTask extends InitiativePassport {
   id: string;
+  /** Server optimistic-concurrency version. */
+  revision?: number;
   /** Незмінний ідентифікатор ланцюжка річних backlog-записів. */
   initiative_chain_id?: string;
   year: number;
   yearSnapshots?: Record<string, InitiativeYearSnapshot>;
   quarter: Quarter;
   health_status: HealthStatus;
+  health_status_id?: string;
+  health_status_code?: string;
   checklist: ChecklistItem[];
   is_backlog: boolean;
   backlog_id?: string;
@@ -185,6 +197,7 @@ export interface PriorityDef {
 
 export interface InitiativeStatusDef {
   id: string;
+  code?: string;
   name: string;
   color: string;
   is_active: boolean;
@@ -206,7 +219,7 @@ export interface InitiativeSizeDef {
 }
 
 export interface FullExportData {
-  version: '5.0';
+  version: '5.0' | '6.0';
   exportedAt: string;
   exportedBy?: {
     id?: string;

@@ -1,0 +1,56 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'docker-compose.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: CiOnly_Strong_123
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P CiOnly_Strong_123 -C -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: sqlserver://localhost:1433;database=pmohub;schema=dbo;user=sa;password=CiOnly_Strong_123;encrypt=true;trustServerCertificate=true
+      JWT_ACCESS_SECRET: ci-only-access-secret-at-least-32-characters
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-at-least-32-characters
+      MERGE_TOKEN_SECRET: ci-only-merge-secret-at-least-32-characters
+      RUN_DB_TESTS: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run prisma:generate
+      - run: npx prisma validate
+      - name: Create CI database
+        run: docker exec $(docker ps --filter ancestor=mcr.microsoft.com/mssql/server:2022-latest -q) /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P CiOnly_Strong_123 -C -Q "IF DB_ID('pmohub') IS NULL CREATE DATABASE [pmohub]"
+      - run: npm run db:migrate
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - run: npm run openapi
+      - run: git diff --exit-code -- openapi.json

@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { useAppContext } from "../../../app/store";
 import { getAvailableYears } from "../../../shared/utils";
 import { FullExportData } from "../../../shared/types";
+import { ApiError, exportBackup, validateBackup } from "../../../api/apiClient";
 import {
   FileSpreadsheet,
   FileJson,
@@ -29,9 +30,10 @@ export const DataManagementSection = () => {
     customFields,
     users,
     rolePermissions,
-    getFullDataSnapshot,
     importFullData,
+    currentUser,
   } = useAppContext();
+  const canImportBackup = currentUser?.role === "SUPER_ADMIN";
 
   const [excelYear, setExcelYear] = useState<number | "ALL">("ALL");
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -44,6 +46,7 @@ export const DataManagementSection = () => {
   const [importError, setImportError] = useState<string>("");
   const [importSuccess, setImportSuccess] = useState<string>("");
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -71,10 +74,10 @@ export const DataManagementSection = () => {
   };
 
   // Handle JSON Export
-  const handleExportJson = () => {
+  const handleExportJson = async () => {
     setIsExportingJson(true);
     try {
-      const snapshot = getFullDataSnapshot();
+      const snapshot = await exportBackup();
       const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
         JSON.stringify(snapshot, null, 2),
       )}`;
@@ -99,12 +102,13 @@ export const DataManagementSection = () => {
 
   // Handle File Selection for Import
   const handleFileChange = (file: File) => {
+    if (!canImportBackup) { setImportError("Імпорт резервної копії доступний лише SUPER_ADMIN"); return; }
     setImportError("");
     setImportSuccess("");
     setImportFile(file);
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const content = e.target?.result as string;
         const parsed = JSON.parse(content);
@@ -125,11 +129,12 @@ export const DataManagementSection = () => {
           );
         }
 
+        await validateBackup(parsed);
         setParsedData(parsed as FullExportData);
         setIsImportModalOpen(true);
       } catch (err: unknown) {
         setImportError(
-          err instanceof Error ? err.message : "Помилка при читанні JSON-файлу",
+          err instanceof ApiError || err instanceof Error ? err.message : "Помилка при читанні JSON-файлу",
         );
         setParsedData(null);
       }
@@ -142,10 +147,19 @@ export const DataManagementSection = () => {
   };
 
   // Perform Import
-  const handleConfirmImport = () => {
-    if (!parsedData) return;
+  const handleConfirmImport = async () => {
+    if (!parsedData || !canImportBackup || isImporting) return;
+    if (
+      importMode === "replace" &&
+      !window.confirm(
+        "Режим Replace безповоротно замінить поточні бізнес-дані. Переконайтеся, що актуальну резервну копію вже завантажено. Продовжити?",
+      )
+    )
+      return;
 
-    const result = importFullData(parsedData, importMode);
+    setIsImporting(true);
+    const result = await importFullData(parsedData, importMode);
+    setIsImporting(false);
     if (result.success) {
       setImportSuccess(
         `${result.message}. Оновлено проєктів: ${result.counts.projects}, задач: ${result.counts.tasks}.`,
@@ -348,6 +362,7 @@ export const DataManagementSection = () => {
               проєкти, операційні задачі, беклог, довідники, відділи,
               стратегічні задачі, права доступу та кастомні поля.
             </p>
+            {!canImportBackup && <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm mb-4">Імпорт резервної копії доступний лише SUPER_ADMIN.</p>}
 
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs text-slate-600 space-y-1 mb-6">
               <div className="flex justify-between">
@@ -421,17 +436,17 @@ export const DataManagementSection = () => {
             <div
               onDragOver={(e) => {
                 e.preventDefault();
-                setIsDragging(true);
+                if (canImportBackup) setIsDragging(true);
               }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={(e) => {
                 e.preventDefault();
                 setIsDragging(false);
-                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                if (canImportBackup && e.dataTransfer.files && e.dataTransfer.files[0]) {
                   handleFileChange(e.dataTransfer.files[0]);
                 }
               }}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => canImportBackup && fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors mb-4 ${
                 isDragging
                   ? "border-indigo-500 bg-indigo-50/50"
@@ -440,6 +455,7 @@ export const DataManagementSection = () => {
             >
               <input
                 ref={fileInputRef}
+                disabled={!canImportBackup}
                 type="file"
                 accept=".json,application/json"
                 className="hidden"
@@ -460,7 +476,8 @@ export const DataManagementSection = () => {
           </div>
 
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => canImportBackup && fileInputRef.current?.click()}
+            disabled={!canImportBackup}
             className="w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 px-4 rounded-xl font-bold text-sm transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
           >
             <Upload size={16} />
@@ -612,13 +629,16 @@ export const DataManagementSection = () => {
               </button>
               <button
                 onClick={handleConfirmImport}
+                disabled={isImporting}
                 className={`px-5 py-2 rounded-xl font-bold text-sm text-white transition-all shadow-sm ${
                   importMode === "replace"
                     ? "bg-rose-600 hover:bg-rose-700 active:bg-rose-800"
                     : "bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800"
                 }`}
               >
-                {importMode === "replace"
+                {isImporting
+                  ? "Імпорт…"
+                  : importMode === "replace"
                   ? "Замінити всі дані"
                   : "Об'єднати дані"}
               </button>

@@ -20,15 +20,15 @@ export const InitiativeStatusesSection = ({
   } = useAppContext();
   const [name, setName] = useState("");
   const [color, setColor] = useState("#64748b");
-  const add = () => {
+  const add = async () => {
     if (!name.trim()) return;
-    addInitiativeStatus({
+    const result = await addInitiativeStatus({
       id: Math.random().toString(36).substring(2, 10),
       name,
       color,
       is_active: true,
     });
-    setName("");
+    if (result.success) setName("");
   };
   return (
     <section>

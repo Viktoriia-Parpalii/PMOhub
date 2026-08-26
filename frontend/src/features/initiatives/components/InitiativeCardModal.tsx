@@ -25,6 +25,7 @@ import { canEditInitiative } from "../../../domain/permissions";
 import { ScopeMergeConfirmDialog } from "../../../components/ui/ScopeMergeConfirmDialog";
 import { RichTextEditor } from "../../../components/ui/RichTextEditor";
 import styles from "./InitiativeCardModal.module.css";
+import { InitiativeHistory } from "./InitiativeHistory";
 
 type Initiative = Project | OperationalTask;
 type Kind = "project" | "task";
@@ -98,6 +99,7 @@ export const InitiativeCardModal = ({
     moveScopeItem,
     currentUser,
     rolePermissions,
+    isMutating,
   } = useAppContext();
   const records = kind === "project" ? projects : tasks;
   const year = item?.year ?? defaultYear ?? new Date().getFullYear();
@@ -173,7 +175,7 @@ export const InitiativeCardModal = ({
     setShowMove(false);
     setMovingId(null);
   };
-  const performMove = (confirmation?: ScopeMergePreview) =>
+  const performMove = async (confirmation?: ScopeMergePreview) =>
     !item
       ? undefined
       : movingId
@@ -194,12 +196,12 @@ export const InitiativeCardModal = ({
             undefined,
             confirmation,
           );
-  const requestMove = () => {
+  const requestMove = async () => {
     if (!item) {
       setError("Спочатку збережіть нову картку");
       return;
     }
-    const result = performMove();
+    const result = await performMove();
     if (!result) return;
     if (result.requiresConfirmation) {
       setPendingMerge({
@@ -214,9 +216,9 @@ export const InitiativeCardModal = ({
     }
     onClose();
   };
-  const requestContinuation = () => {
+  const requestContinuation = async () => {
     if (!item) return;
-    const result = continueCard(
+    const result = await continueCard(
       item.id,
       moveYear,
       moveQuarter,
@@ -228,8 +230,8 @@ export const InitiativeCardModal = ({
     }
     onClose();
   };
-  const confirmMerge = () => {
-    const result = performMove(pendingMerge?.preview);
+  const confirmMerge = async () => {
+    const result = await performMove(pendingMerge?.preview);
     if (!result) return;
     if (!result.success) {
       setError(result.message);
@@ -879,27 +881,7 @@ export const InitiativeCardModal = ({
                 )}
               </div>
             ) : (
-              <div className={styles.historyList}>
-                {item?.history?.length ? (
-                  item.history.map((event) => (
-                    <article
-                      key={event.id}
-                      className={styles.historyItem}
-                    >
-                      <p className={styles.historyAction}>
-                        {event.action}
-                      </p>
-                      <p className={styles.historyMeta}>
-                        {event.author} · {new Date(event.date).toLocaleString()}
-                      </p>
-                    </article>
-                  ))
-                ) : (
-                  <p className={styles.emptyHistory}>
-                    Історія змін поки порожня.
-                  </p>
-                )}
-              </div>
+              <InitiativeHistory events={item?.history} />
             )}
           </section>
           <div>
@@ -949,9 +931,10 @@ export const InitiativeCardModal = ({
             <button
               type="button"
               onClick={save}
+              disabled={isMutating}
               className={`modal-primary ${styles.footerPrimary}`}
             >
-              Зберегти
+              {isMutating ? "Збереження…" : "Зберегти"}
             </button>
           )}
         </footer>
