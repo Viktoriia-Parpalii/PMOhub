@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { calculateCardDepartmentLoads, getInitiativeSize, getInitiativeWeight, validateChecklistCapacity } from './capacity';
-import { Department, Project, TaskWeightDef } from '../shared/types';
+import { Department, InitiativeViewModel, TaskWeightDef } from '../shared/types';
 
 const weights: TaskWeightDef[] = [
   { id: 'S', name: 'S', weight: 3, is_active: true },
   { id: 'L', name: 'L', weight: 5, is_active: true },
 ];
-const card: Project = {
-  id: 'C1', backlog_id: 'B1', name: 'Card', strategic_goal: 'Goal', manager_id: 'M1', priority: 'High',
+const card: InitiativeViewModel = {
+  id: 'C1', initiative_id: 'I1', initiative_year_id: 'Y1', record_type: 'CARD', name: 'Card', strategic_goal: 'Goal', manager_id: 'M1', priority: 'High',
   implementer_dept_ids: ['D1', 'D2'], cross_functional_dept_ids: ['D3', 'D4'], year: 2026, quarter: 'Q3',
-  health_status: 'DEFAULT', is_backlog: false, checklist: [
+  health_status: 'DEFAULT', checklist: [
     { id: 'I1', text: 'One', weightId: 'S', implementer_dept_ids: ['D1'], is_completed: false },
     { id: 'I2', text: 'Two', weightId: 'L', implementer_dept_ids: ['D1', 'D2'], is_completed: true, color: 'GREEN' },
   ],

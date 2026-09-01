@@ -4,7 +4,13 @@ import { truncateText } from "../../../../shared/utils";
 import { ProtectedDelete } from "./DepartmentsSection";
 import styles from "./DictionariesSection.module.css";
 import table from "./DictionaryTable.module.css";
-import { DictionaryActivationButton, DictionaryActionGroup, DictionaryDeleteButton, DictionaryStatusBadge } from "./DictionaryControls";
+import { DictionaryTableColumns } from "./DictionaryTableColumns";
+import {
+  DictionaryActivationButton,
+  DictionaryActionGroup,
+  DictionaryDeleteButton,
+  DictionaryStatusBadge,
+} from "./DictionaryControls";
 
 export const ManagersSection = ({
   requestProtectedDelete,
@@ -68,10 +74,11 @@ export const ManagersSection = ({
       </div>
       <div className={styles.tableContainer}>
         <table className={table.table}>
+          <DictionaryTableColumns />
           <thead className={table.tableHead}>
             <tr>
-              <th className={table.headerCell}>Менеджер</th>
-              <th className={table.headerCell}>Департамент</th>
+              <th className={table.headerCell}>Назва</th>
+              <th className={table.detailHeaderCell}>Департамент</th>
               <th className={table.statusHeaderCell}>Статус</th>
               <th aria-label="Дії" className={table.actionsHeaderCell} />
             </tr>
@@ -80,34 +87,38 @@ export const ManagersSection = ({
             {managers.map((manager) => (
               <tr key={manager.id} className={table.tableRow}>
                 <td className={table.primaryCell}>{manager.name}</td>
-                <td className={table.secondaryCell}>
+                <td className={table.detailCell}>
                   {manager.department_id
                     ? departments.find(
                         (department) => department.id === manager.department_id,
                       )?.name
                     : "—"}
                 </td>
-                <td className={table.cell}>
-                  <DictionaryStatusBadge isActive={manager.is_active !== false} />
+                <td className={table.statusCell}>
+                  <DictionaryStatusBadge
+                    isActive={manager.is_active !== false}
+                  />
                 </td>
                 <td className={table.actionsCell}>
                   <DictionaryActionGroup>
                     <DictionaryActivationButton
                       onClick={() =>
-                      updateManager(manager.id, {
-                        is_active: manager.is_active === false,
-                      })
+                        updateManager(manager.id, {
+                          is_active: manager.is_active === false,
+                        })
                       }
                       isActive={manager.is_active !== false}
                     />
-                    <DictionaryDeleteButton onClick={() =>
-                      requestProtectedDelete(
-                        "менеджера",
-                        manager.name,
-                        () => checkManagerDeletion(manager.id),
-                        () => deleteManager(manager.id),
-                      )
-                    } />
+                    <DictionaryDeleteButton
+                      onClick={() =>
+                        requestProtectedDelete(
+                          "менеджера",
+                          manager.name,
+                          () => checkManagerDeletion(manager.id),
+                          () => deleteManager(manager.id),
+                        )
+                      }
+                    />
                   </DictionaryActionGroup>
                 </td>
               </tr>

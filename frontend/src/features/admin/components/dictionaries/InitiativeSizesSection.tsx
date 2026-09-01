@@ -3,7 +3,13 @@ import { useAppContext } from "../../../../app/store";
 import { MutationResult } from "../../../../shared/types";
 import styles from "./DictionariesSection.module.css";
 import table from "./DictionaryTable.module.css";
-import { DictionaryActivationButton, DictionaryActionGroup, DictionaryDeleteButton, DictionaryStatusBadge } from "./DictionaryControls";
+import { DictionaryTableColumns } from "./DictionaryTableColumns";
+import {
+  DictionaryActivationButton,
+  DictionaryActionGroup,
+  DictionaryDeleteButton,
+  DictionaryStatusBadge,
+} from "./DictionaryControls";
 
 type DeleteConfirmation = {
   title: string;
@@ -95,11 +101,12 @@ export const InitiativeSizesSection = ({
           </div>
         </div>
         <div className={table.scroll}>
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className={`${table.headerCell} w-1/3`}>Назва</th>
-                <th className={`${table.headerCell} w-1/3`}>Діапазон</th>
+          <table className={table.table}>
+            <DictionaryTableColumns />
+            <thead className={table.tableHead}>
+              <tr>
+                <th className={table.headerCell}>Назва</th>
+                <th className={table.detailHeaderCell}>Діапазон</th>
                 <th className={table.statusHeaderCell}>Статус</th>
                 <th aria-label="Дії" className={table.actionsHeaderCell} />
               </tr>
@@ -108,34 +115,40 @@ export const InitiativeSizesSection = ({
               {initiativeSizes.map((item) => (
                 <tr key={item.id} className={table.tableRow}>
                   <td className={table.primaryCell}>{item.name}</td>
-                  <td className={table.primaryCell}>
+                  <td className={table.detailCell}>
                     {item.min_score} - {item.max_score}
                   </td>
-                  <td className={table.cell}>
-                  <DictionaryStatusBadge isActive={item.is_active !== false} />
+                  <td className={table.statusCell}>
+                    <DictionaryStatusBadge
+                      isActive={item.is_active !== false}
+                    />
                   </td>
                   <td className={table.actionsCell}>
                     <DictionaryActionGroup>
                       <DictionaryActivationButton
                         onClick={async () => {
-                        const result = await updateInitiativeSize(item.id, {
-                          is_active: item.is_active === false,
-                        });
-                        if (!result.success) alert(result.message);
+                          const result = await updateInitiativeSize(item.id, {
+                            is_active: item.is_active === false,
+                          });
+                          if (!result.success) alert(result.message);
                         }}
                         isActive={item.is_active !== false}
                       />
-                      <DictionaryDeleteButton onClick={() =>
-                        openDeleteConfirm({
-                          title: "розмір ініціативи",
-                          name: item.name,
-                          onConfirm: async () => {
-                            const result = await deleteInitiativeSize(item.id);
-                            if (!result.success) alert(result.message);
-                            return result;
-                          },
-                        })
-                      } />
+                      <DictionaryDeleteButton
+                        onClick={() =>
+                          openDeleteConfirm({
+                            title: "розмір ініціативи",
+                            name: item.name,
+                            onConfirm: async () => {
+                              const result = await deleteInitiativeSize(
+                                item.id,
+                              );
+                              if (!result.success) alert(result.message);
+                              return result;
+                            },
+                          })
+                        }
+                      />
                     </DictionaryActionGroup>
                   </td>
                 </tr>

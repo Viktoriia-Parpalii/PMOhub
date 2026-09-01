@@ -1,4 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { List, ListOrdered, RemoveFormatting } from "lucide-react";
 
 interface RichTextEditorProps {
@@ -12,6 +19,7 @@ interface RichTextPreviewProps {
   value: string;
   className?: string;
   title?: string;
+  maxLines?: number;
 }
 
 const preventFocusLoss = (event: React.MouseEvent<HTMLButtonElement>) =>
@@ -74,31 +82,92 @@ export const RichTextPreview: React.FC<RichTextPreviewProps> = ({
   value,
   className,
   title,
+  maxLines = 5,
 }) => {
   const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const safeHtml = useMemo(() => sanitizeRichText(value), [value]);
   const plainText = richTextToPlainText(title ?? value);
-  const updateTooltip = (event: React.MouseEvent<HTMLDivElement>) =>
-    setTooltip({ x: event.clientX + 14, y: event.clientY + 14 });
+  const updateTooltip = (event: React.MouseEvent<HTMLDivElement>) => {
+    const content = contentRef.current;
+    if (!content || content.scrollHeight <= content.clientHeight + 1) return;
+    const rect = content.getBoundingClientRect();
+    const pointerX = Number.isFinite(event.clientX)
+      ? event.clientX
+      : rect.right;
+    const pointerY = Number.isFinite(event.clientY)
+      ? event.clientY
+      : rect.bottom;
+    setTooltip({
+      x: pointerX + 14,
+      y: pointerY + 14,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!tooltip || !tooltipRef.current) return;
+    const rect = tooltipRef.current.getBoundingClientRect();
+    const sourceX = Number.isFinite(tooltip.x) ? tooltip.x : 12;
+    const sourceY = Number.isFinite(tooltip.y) ? tooltip.y : 12;
+    const x = Math.max(
+      12,
+      Math.min(sourceX, window.innerWidth - rect.width - 12),
+    );
+    const y = Math.max(
+      12,
+      Math.min(sourceY, window.innerHeight - rect.height - 12),
+    );
+    if (x !== tooltip.x || y !== tooltip.y) setTooltip({ x, y });
+  }, [tooltip]);
+
+  useEffect(() => {
+    setTooltip(null);
+  }, [value]);
+
+  useEffect(() => {
+    if (!tooltip) return;
+    const hide = () => setTooltip(null);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") hide();
+    };
+    window.addEventListener("blur", hide);
+    window.addEventListener("scroll", hide, true);
+    window.addEventListener("pointerdown", hide);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("blur", hide);
+      window.removeEventListener("scroll", hide, true);
+      window.removeEventListener("pointerdown", hide);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [tooltip]);
 
   return (
     <div
-      onMouseEnter={updateTooltip}
-      onMouseMove={updateTooltip}
-      onMouseLeave={() => setTooltip(null)}
+      onPointerEnter={updateTooltip}
+      onPointerMove={updateTooltip}
+      onPointerLeave={() => setTooltip(null)}
     >
       <div
+        ref={contentRef}
         className={className}
-        dangerouslySetInnerHTML={{ __html: sanitizeRichText(value) }}
+        style={{ maxHeight: `${maxLines * 1.35}em`, overflow: "hidden" }}
+        dangerouslySetInnerHTML={{ __html: safeHtml }}
       />
-      {tooltip && plainText && (
-        <div
-          role="tooltip"
-          className="pointer-events-none fixed z-[100] max-w-sm rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 shadow-xl"
-          style={{ left: tooltip.x, top: tooltip.y }}
-        >
-          {plainText}
-        </div>
-      )}
+      {tooltip &&
+        plainText &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={tooltipRef}
+            role="tooltip"
+            className="rich-text-tooltip pointer-events-none fixed z-[100] w-[min(32rem,calc(100vw-1.5rem))] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 shadow-xl"
+            style={{ left: tooltip.x, top: tooltip.y }}
+            dangerouslySetInnerHTML={{ __html: safeHtml }}
+          />,
+          document.body,
+        )}
     </div>
   );
 };

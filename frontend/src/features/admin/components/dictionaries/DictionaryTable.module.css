@@ -1,9 +1,25 @@
 .table {
     width: 100%;
-    min-width: 100%;
+    min-width: 56rem;
     table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
+}
+
+.primaryColumn {
+    width: auto;
+}
+
+.detailColumn {
+    width: 15rem;
+}
+
+.statusColumn {
+    width: 11rem;
+}
+
+.actionsColumn {
+    width: 15rem;
 }
 
 .tableHead {
@@ -21,7 +37,6 @@
 }
 
 .statusHeaderCell {
-    width: 11rem;
     padding: 1rem;
     color: #64748b;
     font-size: .75rem;
@@ -32,8 +47,17 @@
 }
 
 .actionsHeaderCell {
-    width: 7rem;
     padding: 1rem .75rem 1rem .5rem;
+}
+
+.detailHeaderCell {
+    padding: 1rem 1.5rem;
+    color: #64748b;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-align: left;
+    text-transform: uppercase;
 }
 
 .tableBody {
@@ -51,10 +75,21 @@
 .cell,
 .primaryCell,
 .secondaryCell,
+.detailCell,
+.statusCell,
 .actionsCell {
     min-width: 0;
     overflow-wrap: break-word;
     padding: 1rem 1.5rem;
+}
+
+.detailCell {
+    color: #475569;
+    font-size: .875rem;
+}
+
+.statusCell {
+    padding: 1rem;
 }
 
 .primaryCell {
@@ -69,6 +104,7 @@
 }
 
 .actionsCell {
+    padding: 1rem .75rem 1rem .5rem;
     font-size: .875rem;
     text-align: right;
 }

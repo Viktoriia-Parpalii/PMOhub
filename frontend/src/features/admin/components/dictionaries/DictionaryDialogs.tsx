@@ -122,7 +122,9 @@ export const DictionaryDialogs = ({
               </button>
               <button
                 onClick={async () => {
-                  const result = await applyTaskWeightToOpenCards(bulkWeight.id);
+                  const result = await applyTaskWeightToOpenCards(
+                    bulkWeight.id,
+                  );
                   if (!result.success) return alert(result.message);
                   setBulkWeight(null);
                 }}

@@ -4,7 +4,13 @@ import { CircularColorInput } from "./CircularColorInput";
 import { ProtectedDelete } from "./DepartmentsSection";
 import styles from "./DictionariesSection.module.css";
 import table from "./DictionaryTable.module.css";
-import { DictionaryActivationButton, DictionaryActionGroup, DictionaryDeleteButton, DictionaryStatusBadge } from "./DictionaryControls";
+import { DictionaryTableColumns } from "./DictionaryTableColumns";
+import {
+  DictionaryActivationButton,
+  DictionaryActionGroup,
+  DictionaryDeleteButton,
+  DictionaryStatusBadge,
+} from "./DictionaryControls";
 
 export const PrioritiesSection = ({
   requestProtectedDelete,
@@ -53,9 +59,11 @@ export const PrioritiesSection = ({
       </div>
       <div className={styles.tableContainer}>
         <table className={table.table}>
+          <DictionaryTableColumns />
           <thead className={table.tableHead}>
             <tr>
-              <th className={table.headerCell}>Пріоритет</th>
+              <th className={table.headerCell}>Назва</th>
+              <th className={table.detailHeaderCell} aria-hidden="true" />
               <th className={table.statusHeaderCell}>Статус</th>
               <th aria-label="Дії" className={table.actionsHeaderCell} />
             </tr>
@@ -76,27 +84,32 @@ export const PrioritiesSection = ({
                     <span>{priority.name}</span>
                   </div>
                 </td>
-                <td className={table.cell}>
-                  <DictionaryStatusBadge isActive={priority.is_active !== false} />
+                <td className={table.detailCell} aria-hidden="true" />
+                <td className={table.statusCell}>
+                  <DictionaryStatusBadge
+                    isActive={priority.is_active !== false}
+                  />
                 </td>
                 <td className={table.actionsCell}>
                   <DictionaryActionGroup>
                     <DictionaryActivationButton
                       onClick={() =>
-                      updatePriority(priority.id, {
-                        is_active: priority.is_active === false,
-                      })
+                        updatePriority(priority.id, {
+                          is_active: priority.is_active === false,
+                        })
                       }
                       isActive={priority.is_active !== false}
                     />
-                    <DictionaryDeleteButton onClick={() =>
-                      requestProtectedDelete(
-                        "пріоритет",
-                        priority.name,
-                        () => checkPriorityDeletion(priority.id),
-                        () => deletePriority(priority.id),
-                      )
-                    } />
+                    <DictionaryDeleteButton
+                      onClick={() =>
+                        requestProtectedDelete(
+                          "пріоритет",
+                          priority.name,
+                          () => checkPriorityDeletion(priority.id),
+                          () => deletePriority(priority.id),
+                        )
+                      }
+                    />
                   </DictionaryActionGroup>
                 </td>
               </tr>

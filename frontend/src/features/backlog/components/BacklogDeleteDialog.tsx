@@ -4,10 +4,12 @@ import styles from "../BacklogTab.module.css";
 
 export const BacklogDeleteDialog = ({
   item,
+  hasQuarterCards,
   onCancel,
   onConfirm,
 }: {
   item: BacklogInitiative;
+  hasQuarterCards: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }) => (
@@ -22,16 +24,28 @@ export const BacklogDeleteDialog = ({
         <AlertTriangle className={styles.deleteDialogIcon} />
         <div>
           <h3 id="delete-backlog-title" className={styles.deleteDialogTitle}>
-            Видалити запис із беклогу?
+            {hasQuarterCards
+              ? "Видалення неможливе"
+              : "Видалити запис із беклогу?"}
           </h3>
           <p className={styles.deleteDialogSubtitle}>
-            Цю дію не можна скасувати.
+            {hasQuarterCards
+              ? "Спочатку видаліть квартальні картки."
+              : "Цю дію не можна скасувати."}
           </p>
         </div>
       </div>
       <div className={styles.deleteDialogBody}>
-        Ви дійсно бажаєте видалити <strong>«{item.name}»</strong>? Якщо існують
-        квартальні картки, система не дозволить видалення.
+        {hasQuarterCards ? (
+          <>
+            Запис <strong>«{item.name}»</strong> має квартальні картки, тому
+            його не можна видалити з беклогу.
+          </>
+        ) : (
+          <>
+            Ви дійсно бажаєте видалити <strong>«{item.name}»</strong>?
+          </>
+        )}
       </div>
       <div className={styles.deleteDialogFooter}>
         <button
@@ -41,13 +55,15 @@ export const BacklogDeleteDialog = ({
         >
           Скасувати
         </button>
-        <button
-          type="button"
-          onClick={onConfirm}
-          className={styles.dialogDelete}
-        >
-          Видалити
-        </button>
+        {!hasQuarterCards && (
+          <button
+            type="button"
+            onClick={onConfirm}
+            className={styles.dialogDelete}
+          >
+            Видалити
+          </button>
+        )}
       </div>
     </div>
   </div>

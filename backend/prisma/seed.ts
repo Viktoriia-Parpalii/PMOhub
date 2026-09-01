@@ -9,15 +9,41 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required');
 const prisma = new PrismaClient({ adapter: new PrismaMssql(databaseUrl, { schema: 'dbo' }) });
 
 const permissions = [
-  { role: 'SUPER_ADMIN', canCreateEditProjects: true, canDeleteProjects: true, canAccessAdmin: true, isReadOnly: false, canEditArchive: true },
-  { role: 'ADMIN', canCreateEditProjects: true, canDeleteProjects: true, canAccessAdmin: true, isReadOnly: false, canEditArchive: false },
-  { role: 'USER', canCreateEditProjects: false, canDeleteProjects: false, canAccessAdmin: false, isReadOnly: true, canEditArchive: false },
+  { role: 'SUPER_ADMIN', canCreateEditInitiatives: true, canDeleteInitiatives: true, canAccessAdmin: true, isReadOnly: false, canEditArchive: true },
+  { role: 'ADMIN', canCreateEditInitiatives: true, canDeleteInitiatives: true, canAccessAdmin: true, isReadOnly: false, canEditArchive: false },
+  { role: 'USER', canCreateEditInitiatives: false, canDeleteInitiatives: false, canAccessAdmin: false, isReadOnly: true, canEditArchive: false },
 ];
 
 async function main() {
   for (const item of permissions) {
-    await prisma.rolePermission.upsert({ where: { role: item.role }, create: item, update: {} });
+    await prisma.rolePermission.upsert({ where: { role: item.role }, create: item, update: item });
   }
+
+  await prisma.initiativeStatus.upsert({
+    where: { code: 'DEFAULT' },
+    create: {
+      id: '00000000-0000-0000-0000-000000000001',
+      code: 'DEFAULT',
+      name: 'Не визначено',
+      normalizedName: 'не визначено',
+      color: '#94a3b8',
+      isSystem: true,
+    },
+    update: { isActive: true, isSystem: true },
+  });
+
+  await prisma.taskWeight.upsert({
+    where: { normalizedName: 'не визначено' },
+    create: {
+      id: '00000000-0000-0000-0000-000000000002',
+      name: 'Не визначено',
+      normalizedName: 'не визначено',
+      weight: 0,
+      isDefault: true,
+      isSystem: true,
+    },
+    update: { weight: 0, isDefault: true, isSystem: true, isActive: true },
+  });
 
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim();
   const name = process.env.BOOTSTRAP_ADMIN_NAME?.trim();

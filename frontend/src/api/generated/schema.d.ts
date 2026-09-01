@@ -123,7 +123,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["InitiativesController_list"];
+        get?: never;
         put?: never;
         post: operations["InitiativesController_create"];
         delete?: never;
@@ -132,151 +132,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/initiatives/years/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["InitiativesController_getYear"];
-        put?: never;
-        post?: never;
-        delete: operations["InitiativesController_deleteYear"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/initiatives/cards/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["InitiativesController_getCard"];
-        put?: never;
-        post?: never;
-        delete: operations["InitiativesController_deleteCard"];
-        options?: never;
-        head?: never;
-        patch: operations["InitiativesController_updateCard"];
-        trace?: never;
-    };
-    "/api/v1/initiatives/years/{id}/cards": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["InitiativesController_createCard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/initiatives/cards/{id}/move": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["InitiativesController_moveCard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/initiatives/cards/{id}/continue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["InitiativesController_continueCard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/initiatives/cards/{cardId}/scope/{itemId}/move": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["InitiativesController_moveScope"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/initiatives/years/{id}/passport": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["InitiativesController_saveYearPassport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/initiatives/cards/{id}/passport": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["InitiativesController_saveCardPassport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/initiatives/years/extend": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["InitiativesController_extend"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/initiatives/years/{id}/preparation": {
+    "/api/v1/initiatives/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -289,7 +145,231 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["InitiativesController_updatePreparation"];
+        patch: operations["InitiativesController_update"];
+        trace?: never;
+    };
+    "/api/v1/initiative-years": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InitiativeYearsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/initiative-years/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InitiativeYearsController_counts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/initiative-years/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InitiativeYearsController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["InitiativeYearsController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["InitiativeYearsController_update"];
+        trace?: never;
+    };
+    "/api/v1/initiative-years/{id}/backlog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["InitiativeYearsController_updateBacklog"];
+        trace?: never;
+    };
+    "/api/v1/initiative-years/{id}/preparation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["InitiativeYearsController_updatePreparation"];
+        trace?: never;
+    };
+    "/api/v1/initiative-years/{id}/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InitiativeYearsController_createCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/initiative-years/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InitiativeYearsController_extend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quarter-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["QuarterCardsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quarter-cards/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["QuarterCardsController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["QuarterCardsController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["QuarterCardsController_update"];
+        trace?: never;
+    };
+    "/api/v1/quarter-cards/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["QuarterCardsController_updateArchive"];
+        trace?: never;
+    };
+    "/api/v1/quarter-cards/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["QuarterCardsController_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quarter-cards/{id}/continue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["QuarterCardsController_continueCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quarter-cards/{cardId}/scope/{itemId}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["QuarterCardsController_moveScope"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quarter-cards/{cardId}/scope/{itemId}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["QuarterCardsController_copyScope"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/users": {
@@ -484,14 +564,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/analytics": {
+    "/api/v1/analytics/quarterly/summary": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["AnalyticsController_get"];
+        get: operations["AnalyticsController_quarterly"];
         put?: never;
         post?: never;
         delete?: never;
@@ -500,14 +580,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/backups/export": {
+    "/api/v1/analytics/annual/summary": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["DataManagementController_export"];
+        get: operations["AnalyticsController_annual"];
         put?: never;
         post?: never;
         delete?: never;
@@ -516,32 +596,16 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/backups/validate": {
+    "/api/v1/analytics/drilldown": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["AnalyticsController_drilldown"];
         put?: never;
-        post: operations["DataManagementController_validate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/backups/import": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["DataManagementController_import"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -564,6 +628,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/exports/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ExportsController_availability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ExportsController_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Завантажити Excel-звіт за ініціативами */
+        post: operations["ExportsController_excel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/json/ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Завантажити приватний JSON для AI */
+        post: operations["ExportsController_aiJson"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/json/full": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Завантажити санітизований snapshot усієї БД */
+        post: operations["ExportsController_fullJson"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -574,7 +721,7 @@ export interface components {
             password: string;
         };
         ChangePasswordDto: {
-            current_password: string;
+            current_password?: string;
             new_password: string;
         };
         ApiSuccessDto: {
@@ -589,108 +736,230 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        PassportDto: {
-            name: string;
-            strategic_goal?: string;
-            /** Format: uuid */
+        PreparationInputDto: {
             manager_id?: string;
-            /** Format: uuid */
-            priority?: string;
+            priority_id?: string;
+            /** @default [] */
+            department_ids: string[];
+        };
+        CreateScopeItemDto: {
+            lineage_id?: string;
+            text: string;
+            /** @enum {string} */
+            status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
+            weight_definition_id: string;
+            /** @default [] */
+            executor_department_ids: string[];
+        };
+        InitialQuarterCardDto: {
+            manager_id?: string;
+            priority_id?: string;
+            /** @default [] */
+            department_ids: string[];
+            /** @enum {string} */
+            quarter: "Q1" | "Q2" | "Q3" | "Q4";
+            status_id?: string;
             notes?: string;
-            /** @default [] */
-            implementer_dept_ids: string[];
-            /** @default [] */
-            cross_functional_dept_ids: string[];
             custom_fields?: {
                 [key: string]: unknown;
             };
-        };
-        ChecklistItemDto: {
-            /** Format: uuid */
-            id?: string;
-            text: string;
-            is_completed?: boolean;
-            color?: string;
-            /** Format: uuid */
-            weightId?: string;
-            weightSnapshot?: {
-                definitionId?: string;
-                name: string;
-                value: number;
-            };
-            assigneeIds?: string[];
             /** @default [] */
-            implementer_dept_ids: string[];
+            scope: components["schemas"]["CreateScopeItemDto"][];
         };
         CreateInitiativeDto: {
             /** @enum {string} */
-            kind: "project" | "task" | "PROJECT" | "TASK";
+            kind: "PROJECT" | "OPERATIONAL_TASK";
+            name: string;
             year: number;
-            passport: components["schemas"]["PassportDto"];
-            quarters: ("Q1" | "Q2" | "Q3" | "Q4")[];
-            initial_scope?: components["schemas"]["ChecklistItemDto"][];
+            strategic_goal?: string;
+            preparation: components["schemas"]["PreparationInputDto"];
+            initial_card?: components["schemas"]["InitialQuarterCardDto"];
+        };
+        UpdateInitiativeDto: {
+            name: string;
+            revision: number;
+        };
+        PreparationStageReadModelDto: {
+            initiative_year_id: string;
+            manager_id: string | null;
+            manager: Record<string, never> | null;
+            priority_id: string | null;
+            priority: Record<string, never> | null;
+            department_ids: string[];
+            departments: Record<string, never>[];
+            revision: number;
+        };
+        QuarterCardSummaryDto: {
+            id: string;
+            /** @enum {string} */
+            quarter: "Q1" | "Q2" | "Q3" | "Q4";
+            status_id: string;
+            status_code: string;
+            revision: number;
+            total_weight: number;
+            is_locked: boolean;
+            locked_at: string;
+        };
+        InitiativeYearReadModelDto: {
+            id: string;
+            initiative_id: string;
+            /** @enum {string} */
+            kind: "PROJECT" | "OPERATIONAL_TASK";
+            name: string;
+            initiative_revision: number;
+            year: number;
+            strategic_goal: string | null;
+            revision: number;
+            preparation: components["schemas"]["PreparationStageReadModelDto"] | null;
+            cards: components["schemas"]["QuarterCardSummaryDto"][];
+            is_locked: boolean;
+            locked_at: string;
+        };
+        InitiativeYearsResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message: string;
+            data: components["schemas"]["InitiativeYearReadModelDto"][];
+        };
+        InitiativeYearResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message: string;
+            data: components["schemas"]["InitiativeYearReadModelDto"];
+        };
+        UpdateInitiativeYearDto: {
+            strategic_goal?: string;
+            revision: number;
+        };
+        UpdateBacklogDto: {
+            name: string;
+            strategic_goal?: string;
+            initiative_revision: number;
+            year_revision: number;
+        };
+        UpdatePreparationDto: {
+            manager_id?: string;
+            priority_id?: string;
+            /** @default [] */
+            department_ids: string[];
+            revision: number;
         };
         CreateQuarterCardDto: {
             /** @enum {string} */
             quarter: "Q1" | "Q2" | "Q3" | "Q4";
-            passport: components["schemas"]["PassportDto"];
-            initial_scope?: components["schemas"]["ChecklistItemDto"][];
+        };
+        RevisionTargetDto: {
+            id: string;
+            revision: number;
+        };
+        ExtendYearsDto: {
+            source_years: components["schemas"]["RevisionTargetDto"][];
+            target_year: number;
+        };
+        ScopeItemReadModelDto: {
+            id: string;
+            lineage_id: string;
+            copied_from_item_id: string | null;
+            text: string;
+            /** @enum {string} */
+            status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
+            weight_definition_id: string;
+            weight_snapshot: Record<string, never>;
+            executor_department_ids: string[];
+            executors: Record<string, never>[];
+            moved_from_card_id: string | null;
+            revision: number;
+        };
+        QuarterCardReadModelDto: {
+            id: string;
+            initiative_year_id: string;
+            initiative_id: string;
+            /** @enum {string} */
+            kind: "PROJECT" | "OPERATIONAL_TASK";
+            name: string;
+            strategic_goal: string | null;
+            year: number;
+            /** @enum {string} */
+            quarter: "Q1" | "Q2" | "Q3" | "Q4";
+            manager_id: string | null;
+            manager: Record<string, never> | null;
+            priority_id: string | null;
+            priority: Record<string, never> | null;
+            department_ids: string[];
+            effective_involved_department_ids: string[];
+            status_id: string;
+            status_code: string;
+            status: Record<string, never>;
+            notes: string | null;
+            total_weight: number;
+            size_snapshot: {
+                [key: string]: unknown;
+            };
+            custom_fields: {
+                [key: string]: unknown;
+            };
+            scope: components["schemas"]["ScopeItemReadModelDto"][];
+            moved_from: Record<string, never> | null;
+            revision: number;
+            is_locked: boolean;
+            locked_at: string;
+        };
+        QuarterCardsResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message: string;
+            data: components["schemas"]["QuarterCardReadModelDto"][];
+        };
+        QuarterCardResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message: string;
+            data: components["schemas"]["QuarterCardReadModelDto"];
+        };
+        ScopeItemDto: {
+            lineage_id?: string;
+            text: string;
+            /** @enum {string} */
+            status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
+            weight_definition_id: string;
+            /** @default [] */
+            executor_department_ids: string[];
+            id?: string;
+            revision?: number;
         };
         UpdateCardDto: {
             revision: number;
-            passport?: components["schemas"]["PassportDto"];
-            /** Format: uuid */
-            health_status?: string;
-            checklist?: components["schemas"]["ChecklistItemDto"][];
+            manager_id?: string;
+            priority_id?: string;
+            /** @default [] */
+            department_ids: string[];
+            status_id: string;
+            notes?: string;
+            custom_fields?: {
+                [key: string]: unknown;
+            };
+            /** @default [] */
+            scope: components["schemas"]["ScopeItemDto"][];
+        };
+        ArchiveScopeStatusDto: {
+            id: string;
+            revision: number;
+            /** @enum {string} */
+            status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
+        };
+        UpdateArchivedCardDto: {
+            revision: number;
+            notes?: string;
+            status_id?: string;
+            /** @default [] */
+            scope_status_updates: components["schemas"]["ArchiveScopeStatusDto"][];
         };
         PeriodCommandDto: {
             revision: number;
             to_year: number;
             /** @enum {string} */
             to_quarter: "Q1" | "Q2" | "Q3" | "Q4";
-            reason?: string;
-            confirmation_token?: string;
-        };
-        RevisionTargetDto: {
-            /** Format: uuid */
-            id: string;
-            revision: number;
-        };
-        SourceCardPatchDto: {
-            /** Format: uuid */
-            health_status?: string;
-            checklist?: components["schemas"]["ChecklistItemDto"][];
-        };
-        SavePassportDto: {
-            revision: number;
-            passport: components["schemas"]["PassportDto"];
-            /** @default [] */
-            target_years: components["schemas"]["RevisionTargetDto"][];
-            /** @default [] */
-            target_cards: components["schemas"]["RevisionTargetDto"][];
-            /** @description Changes to the source card that must commit atomically with passport propagation. */
-            source_card_patch?: components["schemas"]["SourceCardPatchDto"];
-        };
-        ExtendYearsDto: {
-            source_year_ids: string[];
-            target_year: number;
-        };
-        UpdatePreparationDto: {
-            name: string;
-            strategic_goal?: string;
-            /** Format: uuid */
-            manager_id?: string;
-            /** Format: uuid */
-            priority?: string;
-            notes?: string;
-            /** @default [] */
-            implementer_dept_ids: string[];
-            /** @default [] */
-            cross_functional_dept_ids: string[];
-            custom_fields?: {
-                [key: string]: unknown;
-            };
-            revision: number;
+            target_revision?: number;
         };
         CreateUserDto: {
             name: string;
@@ -712,8 +981,8 @@ export interface components {
             is_active?: boolean;
         };
         UpdatePermissionDto: {
-            canCreateEditProjects?: boolean;
-            canDeleteProjects?: boolean;
+            canCreateEditInitiatives?: boolean;
+            canDeleteInitiatives?: boolean;
             canAccessAdmin?: boolean;
             isReadOnly?: boolean;
             canEditArchive?: boolean;
@@ -742,11 +1011,163 @@ export interface components {
             showInCards?: boolean;
             isActive?: boolean;
         };
-        BackupImportRequestDto: {
-            backup: {
+        CardStatusMetricDto: {
+            /** Format: uuid */
+            status_id: string;
+            code: string;
+            name: string;
+            color: string;
+            count: number;
+            card_ids: string[];
+        };
+        StatusCountsDto: {
+            GREEN: number;
+            YELLOW: number;
+            RED: number;
+            DEFAULT: number;
+        };
+        AnalyticsSummaryDataDto: {
+            /** @enum {string} */
+            mode: "QUARTERLY" | "ANNUAL";
+            available_years: number[];
+            summary: Record<string, never>;
+            status_distribution: components["schemas"]["CardStatusMetricDto"][];
+            scope_status_counts: components["schemas"]["StatusCountsDto"];
+            size_breakdown: Record<string, never>[];
+            priority_breakdown: Record<string, never>[];
+            priority_status_breakdown: Record<string, never>[];
+            department_capacity: Record<string, never>[];
+            capacity_by_quarter: Record<string, never>[];
+            manager_loads: Record<string, never>[];
+            risks: Record<string, never>[];
+            quarter_trend: Record<string, never>[];
+            volume_trend: Record<string, never>[];
+            period_comparison: Record<string, never>[];
+            history: Record<string, never>[];
+            preparation: Record<string, never>;
+        };
+        AnalyticsSummaryResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message?: string;
+            data: components["schemas"]["AnalyticsSummaryDataDto"];
+        };
+        AnalyticsRecordDto: {
+            id: string;
+            initiative_id: string;
+            /** @enum {string} */
+            kind: "PROJECT" | "OPERATIONAL_TASK";
+            name: string;
+            year: number;
+            /** @enum {string} */
+            quarter: "Q1" | "Q2" | "Q3" | "Q4";
+            manager_id: string | null;
+            manager_name: string | null;
+            priority_id: string | null;
+            priority_name: string | null;
+            department_ids: string[];
+            /** Format: uuid */
+            status_id: string;
+            status_code: string;
+            status_name: string;
+            status_color: string;
+            total_weight: number;
+            size_name: string;
+            progress: number;
+            scope_items: number;
+            risks: string[];
+        };
+        AnalyticsDrilldownDataDto: {
+            records: components["schemas"]["AnalyticsRecordDto"][];
+            page: number;
+            page_size: number;
+            total: number;
+        };
+        AnalyticsDrilldownResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message?: string;
+            data: components["schemas"]["AnalyticsDrilldownDataDto"];
+        };
+        ExportCustomFieldDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            entity_type: "project" | "task";
+            /** @enum {string} */
+            field_type: "TEXT" | "NUMBER" | "SELECT" | "CHECKBOX" | "RICHTEXT";
+            is_active: boolean;
+        };
+        ExportAvailabilityDto: {
+            years: number[];
+            counts: {
                 [key: string]: unknown;
             };
-            validation_token: string;
+            custom_fields: components["schemas"]["ExportCustomFieldDto"][];
+        };
+        ExportAvailabilityResponseDto: {
+            /** @example true */
+            success: boolean;
+            data: components["schemas"]["ExportAvailabilityDto"];
+        };
+        ExportYearRangeDto: {
+            /** @example 2026 */
+            from: number;
+            /** @example 2027 */
+            to: number;
+        };
+        InitiativeExportFilterDto: {
+            years: components["schemas"]["ExportYearRangeDto"];
+            periods: ("BACKLOG" | "Q1" | "Q2" | "Q3" | "Q4")[];
+            kinds: ("PROJECT" | "OPERATIONAL_TASK")[];
+        };
+        ExportPreviewMatrixCellDto: {
+            year: number;
+            /** @enum {string} */
+            period: "BACKLOG" | "Q1" | "Q2" | "Q3" | "Q4";
+            /** @enum {string} */
+            kind: "PROJECT" | "OPERATIONAL_TASK";
+            count: number;
+        };
+        ExportPreviewDto: {
+            total: number;
+            backlog_records: number;
+            quarter_cards: number;
+            by_year: {
+                [key: string]: unknown;
+            };
+            by_period: {
+                [key: string]: unknown;
+            };
+            by_kind: {
+                [key: string]: unknown;
+            };
+            matrix: components["schemas"]["ExportPreviewMatrixCellDto"][];
+        };
+        ExportPreviewResponseDto: {
+            /** @example true */
+            success: boolean;
+            data: components["schemas"]["ExportPreviewDto"];
+        };
+        AiExportPrivacyDto: {
+            /** @default true */
+            include_name: boolean;
+            /** @default false */
+            include_strategic_goal: boolean;
+            /** @default true */
+            include_manager: boolean;
+            /** @default true */
+            include_departments: boolean;
+            /** @default false */
+            include_notes: boolean;
+            /** @default [] */
+            selected_custom_field_ids: string[];
+        };
+        AiJsonExportDto: {
+            years: components["schemas"]["ExportYearRangeDto"];
+            periods: ("BACKLOG" | "Q1" | "Q2" | "Q3" | "Q4")[];
+            kinds: ("PROJECT" | "OPERATIONAL_TASK")[];
+            privacy: components["schemas"]["AiExportPrivacyDto"];
         };
     };
     responses: never;
@@ -886,28 +1307,6 @@ export interface operations {
             };
         };
     };
-    InitiativesController_list: {
-        parameters: {
-            query?: {
-                kind?: string;
-                year?: string;
-                quarter?: string;
-                is_backlog?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     InitiativesController_create: {
         parameters: {
             query?: never;
@@ -937,87 +1336,7 @@ export interface operations {
             };
         };
     };
-    InitiativesController_getYear: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InitiativesController_deleteYear: {
-        parameters: {
-            query: {
-                revision: number;
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InitiativesController_getCard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InitiativesController_deleteCard: {
-        parameters: {
-            query: {
-                revision: number;
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InitiativesController_updateCard: {
+    InitiativesController_update: {
         parameters: {
             query?: never;
             header?: never;
@@ -1028,7 +1347,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateCardDto"];
+                "application/json": components["schemas"]["UpdateInitiativeDto"];
             };
         };
         responses: {
@@ -1040,7 +1359,159 @@ export interface operations {
             };
         };
     };
-    InitiativesController_createCard: {
+    InitiativeYearsController_list: {
+        parameters: {
+            query?: {
+                kind?: string;
+                year?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InitiativeYearsResponseDto"];
+                };
+            };
+        };
+    };
+    InitiativeYearsController_counts: {
+        parameters: {
+            query: {
+                year: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InitiativeYearsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InitiativeYearResponseDto"];
+                };
+            };
+        };
+    };
+    InitiativeYearsController_remove: {
+        parameters: {
+            query: {
+                revision: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InitiativeYearsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInitiativeYearDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InitiativeYearsController_updateBacklog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBacklogDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InitiativeYearsController_updatePreparation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePreparationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InitiativeYearsController_createCard: {
         parameters: {
             query?: never;
             header?: never;
@@ -1071,165 +1542,7 @@ export interface operations {
             };
         };
     };
-    InitiativesController_moveCard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PeriodCommandDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiSuccessDto"];
-                };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InitiativesController_continueCard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PeriodCommandDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiSuccessDto"];
-                };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InitiativesController_moveScope: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                cardId: string;
-                itemId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PeriodCommandDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiSuccessDto"];
-                };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-        };
-    };
-    InitiativesController_saveYearPassport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SavePassportDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiSuccessDto"];
-                };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InitiativesController_saveCardPassport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SavePassportDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiSuccessDto"];
-                };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InitiativesController_extend: {
+    InitiativeYearsController_extend: {
         parameters: {
             query?: never;
             header?: never;
@@ -1258,7 +1571,72 @@ export interface operations {
             };
         };
     };
-    InitiativesController_updatePreparation: {
+    QuarterCardsController_list: {
+        parameters: {
+            query?: {
+                kind?: string;
+                year?: string;
+                quarter?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuarterCardsResponseDto"];
+                };
+            };
+        };
+    };
+    QuarterCardsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuarterCardResponseDto"];
+                };
+            };
+        };
+    };
+    QuarterCardsController_remove: {
+        parameters: {
+            query: {
+                revision: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    QuarterCardsController_update: {
         parameters: {
             query?: never;
             header?: never;
@@ -1269,11 +1647,160 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdatePreparationDto"];
+                "application/json": components["schemas"]["UpdateCardDto"];
             };
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    QuarterCardsController_updateArchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateArchivedCardDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    QuarterCardsController_move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodCommandDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiSuccessDto"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    QuarterCardsController_continueCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodCommandDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiSuccessDto"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    QuarterCardsController_moveScope: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cardId: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodCommandDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiSuccessDto"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    QuarterCardsController_copyScope: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cardId: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodCommandDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiSuccessDto"];
+                };
+            };
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1441,7 +1968,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                type: "departments" | "sizes" | "managers" | "priorities" | "statuses" | "weights";
+                type: "departments" | "managers" | "priorities" | "statuses" | "weights" | "sizes";
             };
             cookie?: never;
         };
@@ -1460,7 +1987,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                type: "departments" | "sizes" | "managers" | "priorities" | "statuses" | "weights";
+                type: "departments" | "managers" | "priorities" | "statuses" | "weights" | "sizes";
             };
             cookie?: never;
         };
@@ -1491,7 +2018,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                type: "departments" | "sizes" | "managers" | "priorities" | "statuses" | "weights";
+                type: "departments" | "managers" | "priorities" | "statuses" | "weights" | "sizes";
                 id: string;
             };
             cookie?: never;
@@ -1511,7 +2038,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                type: "departments" | "sizes" | "managers" | "priorities" | "statuses" | "weights";
+                type: "departments" | "managers" | "priorities" | "statuses" | "weights" | "sizes";
                 id: string;
             };
             cookie?: never;
@@ -1687,82 +2214,82 @@ export interface operations {
             };
         };
     };
-    AnalyticsController_get: {
-        parameters: {
-            query?: {
-                year?: string;
-                quarter?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DataManagementController_export: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DataManagementController_validate: {
-        parameters: {
-            query?: {
-                mode?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    DataManagementController_import: {
+    AnalyticsController_quarterly: {
         parameters: {
             query: {
-                mode: string;
+                quarter: "Q1" | "Q2" | "Q3" | "Q4";
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
             };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BackupImportRequestDto"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AnalyticsSummaryResponseDto"];
+                };
+            };
+        };
+    };
+    AnalyticsController_annual: {
+        parameters: {
+            query: {
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsSummaryResponseDto"];
+                };
+            };
+        };
+    };
+    AnalyticsController_drilldown: {
+        parameters: {
+            query: {
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
+                mode: "quarterly" | "annual";
+                quarter?: "Q1" | "Q2" | "Q3" | "Q4";
+                card_ids?: string;
+                status_id?: string;
+                page: number;
+                page_size: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsDrilldownResponseDto"];
+                };
             };
         };
     };
@@ -1785,6 +2312,116 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    ExportsController_availability: {
+        parameters: {
+            query?: {
+                kinds?: ("PROJECT" | "OPERATIONAL_TASK")[];
+                include_custom_fields?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportAvailabilityResponseDto"];
+                };
+            };
+        };
+    };
+    ExportsController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InitiativeExportFilterDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportPreviewResponseDto"];
+                };
+            };
+        };
+    };
+    ExportsController_excel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InitiativeExportFilterDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+        };
+    };
+    ExportsController_aiJson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiJsonExportDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+        };
+    };
+    ExportsController_fullJson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
             };
         };
     };

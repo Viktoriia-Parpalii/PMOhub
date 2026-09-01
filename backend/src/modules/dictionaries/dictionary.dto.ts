@@ -1,4 +1,13 @@
-import { IsBoolean, IsHexColor, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsHexColor,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+} from "class-validator";
 
 export class DictionaryDto {
   @IsOptional() @IsString() @MaxLength(200) name?: string;

@@ -1,732 +1,1413 @@
-import React, { useState } from 'react';
-import { useAppContext } from '../../app/store';
-import { Project, OperationalTask, Quarter } from '../../shared/types';
-import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
-import { getComputedTotalWeight, truncateText, getAvailableYears, getCurrentQuarter } from '../../shared/utils';
-import { getInitiativeStatus } from '../../domain/health';
-import { averageInitiativeDuration, capacityByQuarter, healthCounts, averageScopeProgress, scopeStatusCounts, sizeBreakdown, AnalyticsCard, normalizeHealthStatus } from '../../domain/analytics';
-import { getYearSnapshot } from '../../domain/initiatives';
+import React, { CSSProperties, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { X } from "lucide-react";
+import { useAppContext } from "../../app/store";
+import { useAnalyticsDrilldownQuery, useAnalyticsQuery } from "../../api/hooks";
+import { getCurrentQuarter } from "../../shared/utils";
+import { Quarter } from "../../shared/types";
+import {
+  analyticsKindLabels,
+  analyticsQueryParams,
+  analyticsStatusLabel,
+  quarterlyDepartmentReserve,
+} from "./analyticsSelectors";
+import {
+  AnalyticsFilters,
+  AnalyticsMode,
+  AnalyticsRecord,
+  AnalyticsResponse,
+  CardStatusMetric,
+  StatusCounts,
+} from "./analyticsTypes";
+import styles from "./Dashboard.module.css";
+import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
+import { AppLoader } from "../../components/ui/AppLoader";
+import { notify } from "../../components/ui/ToastNotifications";
+import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
+
+const statusOrder = ["DEFAULT", "YELLOW", "GREEN", "RED"] as const;
+const statusColors: Record<keyof StatusCounts, string> = {
+  DEFAULT: "#94a3b8",
+  YELLOW: "#f59e0b",
+  GREEN: "#10b981",
+  RED: "#f43f5e",
+};
+const sizeColors = ["#c4b5fd", "#a78bfa", "#8b5cf6", "#7c3aed", "#6d28d9"];
+const riskLabels: Record<string, string> = {
+  NO_MANAGER: "Без менеджера",
+  NO_PRIORITY: "Без пріоритету",
+  NO_SCOPE: "Без scope",
+  NO_EXECUTOR: "Без виконавця",
+  INCOMPLETE_PREPARATION: "Підготовчий етап заповнений не повністю",
+};
+
+type DepartmentCapacity = AnalyticsResponse["department_capacity"][number];
+type Drilldown =
+  | {
+      type: "records";
+      title: string;
+      ids?: string[];
+      statusId?: string;
+      localRecords?: AnalyticsRecord[];
+    }
+  | { type: "departments"; title: string; departments: DepartmentCapacity[] }
+  | null;
 
 export const Dashboard = () => {
-  const { projects, tasks, departments, managers, priorities, initiativeStatuses, taskWeights, initiativeSizes } = useAppContext();
-  
-  const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [quarter, setQuarter] = useState<Quarter | 'ALL'>(getCurrentQuarter());
-  const [deptFilter, setDeptFilter] = useState<string>('ALL');
-  const [managerFilter, setManagerFilter] = useState<string>('ALL');
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'PROJECTS' | 'TASKS'>('ALL');
-
-  const isVisibleForUser = (item: Project | OperationalTask, departmentId?: string) => !departmentId
-    || (item.implementer_dept_ids || []).includes(departmentId)
-    || (item.cross_functional_dept_ids || []).includes(departmentId);
-
-  // One selector for every chart that describes quarterly portfolio cards.
-  const getFilteredItems = (targetYear: number, targetQuarter: Quarter | 'ALL'): AnalyticsCard[] => {
-    let p = projects
-      .filter(proj => !proj.is_backlog && proj.year === targetYear && (targetQuarter === 'ALL' ? true : proj.quarter === targetQuarter))
-      .map(proj => ({ ...proj, type: 'PROJECT' as const }));
-
-    let t = tasks
-      .filter(task => !task.is_backlog && task.year === targetYear && (targetQuarter === 'ALL' ? true : task.quarter === targetQuarter))
-      .map(task => ({ ...task, type: 'TASK' as const }));
-
-    if (typeFilter === 'PROJECTS') t = [];
-    if (typeFilter === 'TASKS') p = [];
-
-    if (deptFilter !== 'ALL') {
-      p = p.filter(proj => (proj.implementer_dept_ids || []).includes(deptFilter) || (proj.cross_functional_dept_ids || []).includes(deptFilter));
-      t = t.filter(task => (task.implementer_dept_ids || []).includes(deptFilter) || (task.cross_functional_dept_ids || []).includes(deptFilter));
-    }
-    if (managerFilter !== 'ALL') {
-      p = p.filter(proj => proj.manager_id === managerFilter);
-      t = t.filter(task => task.manager_id === managerFilter);
-    }
-    return [...p, ...t];
-  };
-
-  const activeItems = getFilteredItems(year, quarter);
-  const getFilteredBacklog = (targetYear: number) => {
-    const matches = (record: Project | OperationalTask, type: 'PROJECT' | 'TASK') => {
-      if (!record.is_backlog || record.year !== targetYear) return false;
-      if (typeFilter === 'PROJECTS' && type !== 'PROJECT') return false;
-      if (typeFilter === 'TASKS' && type !== 'TASK') return false;
-      const snapshot = getYearSnapshot(record, targetYear);
-      const stage = snapshot?.preparationStage;
-      const managerId = stage?.manager_id ?? snapshot?.manager_id ?? record.manager_id;
-      const involved = stage?.cross_functional_dept_ids ?? snapshot?.cross_functional_dept_ids ?? record.cross_functional_dept_ids;
-      const visibleRecord = { ...record, manager_id: managerId, cross_functional_dept_ids: involved, implementer_dept_ids: [] };
-      if (deptFilter !== 'ALL' && !isVisibleForUser(visibleRecord, deptFilter)) return false;
-      return managerFilter === 'ALL' || managerId === managerFilter;
-    };
-    return [
-      ...projects.filter(record => matches(record, 'PROJECT')),
-      ...tasks.filter(record => matches(record, 'TASK')),
-    ];
-  };
-  const filteredBacklog = getFilteredBacklog(year);
-  const allBacklogCount = filteredBacklog.length;
-  const allQuarterCards = [...projects, ...tasks].filter(item => !item.is_backlog);
-  const preparationItems = filteredBacklog.filter(record => !allQuarterCards.some(card => card.backlog_id === record.id));
-  const preparationReadiness = preparationItems.map(record => {
-    const snapshot = getYearSnapshot(record, year);
-    const stage = snapshot?.preparationStage;
-    const managerId = stage?.manager_id ?? snapshot?.manager_id ?? record.manager_id;
-    const priority = stage?.priority ?? snapshot?.priority ?? record.priority;
-    const involved = stage?.cross_functional_dept_ids ?? snapshot?.cross_functional_dept_ids ?? record.cross_functional_dept_ids;
-    const filled = Number(Boolean(managerId)) + Number(Boolean(priority)) + Number(involved.length > 0);
-    return { id: record.id, name: record.name, filled, managerId, priority, involved };
+  const { departments, managers, setInitiativeDataScope } = useAppContext();
+  useEffect(() => {
+    setInitiativeDataScope({ mode: "dashboard" });
+  }, [setInitiativeDataScope]);
+  const now = new Date();
+  const [mode, setMode] = useState<AnalyticsMode>("quarterly");
+  const [filters, setFilters] = useState<AnalyticsFilters>({
+    year: now.getFullYear(),
+    quarter: getCurrentQuarter(),
+    kind: "ALL",
+    departmentId: "",
+    managerId: "",
   });
-  const readyPreparationCount = preparationReadiness.filter(item => item.filled === 3).length;
-
-  const entityLabelGenitive = typeFilter === 'PROJECTS'
-    ? 'проєктів'
-    : typeFilter === 'TASKS'
-      ? 'операційних задач'
-      : 'ініціатив';
-
-  // KPIs
-  const avgProgress = averageScopeProgress(activeItems);
-  const averageDuration = averageInitiativeDuration(getFilteredItems(year, 'ALL'));
-  const cardHealth = healthCounts(activeItems);
-  const greenCount = cardHealth.GREEN;
-  const yellowCount = cardHealth.YELLOW;
-  const redCount = cardHealth.RED;
-  const defaultCount = cardHealth.DEFAULT;
-
-  // Scope Statuses
-  const scopeHealth = scopeStatusCounts(activeItems);
-  const scopeTotal = Object.values(scopeHealth).reduce((sum, value) => sum + value, 0);
-  const scopeGreen = scopeHealth.GREEN;
-  const scopeYellow = scopeHealth.YELLOW;
-  const scopeRed = scopeHealth.RED;
-  const scopeDefault = scopeHealth.DEFAULT;
-  
-  const scopeGreenPct = scopeTotal ? Math.round((scopeGreen / scopeTotal) * 100) : 0;
-  const scopeYellowPct = scopeTotal ? Math.round((scopeYellow / scopeTotal) * 100) : 0;
-  const scopeRedPct = scopeTotal ? Math.round((scopeRed / scopeTotal) * 100) : 0;
-  const scopeDefaultPct = scopeTotal ? Math.round((scopeDefault / scopeTotal) * 100) : 0;
-
-  // Donut Data
-  const donutData = ([
-    ['GREEN', greenCount], ['YELLOW', yellowCount], ['RED', redCount], ['DEFAULT', defaultCount],
-  ] as Array<[string, number]>).map(([id, value]) => { const definition = getInitiativeStatus(id, initiativeStatuses); return { name: definition.name, value, color: definition.color }; }).filter(d => d.value > 0);
-  const totalStatusItems = activeItems.length;
-
-  // History Stacked Data (All Years)
-  const currentCalendarYear = new Date().getFullYear();
-  const allYears = Array.from(new Set([...projects, ...tasks]
-    .filter(item => !item.is_backlog && item.year <= currentCalendarYear)
-    .map(item => item.year)))
-    .sort();
-  const historyData = allYears.map(y => {
-    const items = getFilteredItems(y, 'ALL');
-    const counts = healthCounts(items);
-    const green = counts.GREEN;
-    const yellow = counts.YELLOW;
-    const red = counts.RED;
-    const def = counts.DEFAULT;
-    const total = green + yellow + red + def;
-    return { year: y.toString(), Виконано: green, 'В процесі': yellow, 'На паузі / блоковано': red, 'Без статусу': def, total };
-  }).filter(d => d.total > 0);
-
-  const HistoryTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const total = payload[0].payload.total;
-      return (
-        <div className="bg-white p-3 border border-slate-200 shadow-lg rounded-xl text-sm min-w-[180px]">
-          <p className="font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2">Рік {label}</p>
-          {payload.map((entry: any) => {
-            const pct = total > 0 ? Math.round((entry.value / total) * 100) : 0;
-            if (entry.value === 0) return null;
-            return (
-              <div key={entry.dataKey} className="flex justify-between items-center gap-4 mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }}></div>
-                  <span className="font-medium text-slate-600">{entry.name}</span>
-                </div>
-                <span className="font-bold text-slate-800">{entry.value} <span className="text-slate-400 font-normal text-xs ml-1">({pct}%)</span></span>
-              </div>
-            );
-          })}
-          <div className="border-t border-slate-100 mt-2 pt-2 flex justify-between">
-            <span className="text-slate-500 font-medium">Всього карток:</span>
-            <span className="font-bold text-slate-800">{total}</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
+  const [drilldown, setDrilldown] = useState<Drilldown>(null);
+  const params = useMemo(() => {
+    const result = analyticsQueryParams(filters);
+    if (mode === "quarterly") result.set("quarter", filters.quarter);
+    return result;
+  }, [filters, mode]);
+  const analytics = useAnalyticsQuery(mode, params);
+  useEffect(() => {
+    if (analytics.isError)
+      notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.loading.analyticsFailed);
+  }, [analytics.isError]);
+  const data = analytics.data;
+  const kindLabels = analyticsKindLabels(filters.kind);
+  const statusColor = (code: keyof StatusCounts) => statusColors[code];
+  const openRecords = (title: string, ids?: string[], statusId?: string) =>
+    setDrilldown({ type: "records", title, ids, statusId });
+  const drilldownParams = useMemo(() => {
+    const value = analyticsQueryParams(filters);
+    value.set("mode", mode);
+    value.set("page", "1");
+    value.set("page_size", "100");
+    if (mode === "quarterly") value.set("quarter", filters.quarter);
+    if (drilldown?.type === "records" && drilldown.ids?.length)
+      value.set("card_ids", drilldown.ids.join(","));
+    if (drilldown?.type === "records" && drilldown.statusId)
+      value.set("status_id", drilldown.statusId);
+    return value;
+  }, [drilldown, filters, mode]);
+  const drilldownQuery = useAnalyticsDrilldownQuery(
+    drilldownParams,
+    drilldown?.type === "records" && !drilldown.localRecords,
+  );
+  const update = <K extends keyof AnalyticsFilters>(
+    key: K,
+    value: AnalyticsFilters[K],
+  ) => setFilters((current) => ({ ...current, [key]: value }));
+  const years = Array.from(
+    new Set([
+      ...(data?.available_years ?? []),
+      filters.year,
+      now.getFullYear(),
+    ]),
+  ).sort((a, b) => a - b);
+  const statusData = data?.status_distribution ?? [];
+  const summary = data?.summary ?? {
+    cards: 0,
+    initiatives: 0,
+    total_weight: 0,
+    average_progress: 0,
+    average_duration: 0,
+    overloaded_departments: 0,
   };
-
-  const quarterCapacity = capacityByQuarter(activeItems, departments || [], taskWeights);
-  // The heatmap is an annual planning view, so it always shows every quarter
-  // of the selected year while retaining the initiative, manager and department filters.
-  const annualCapacity = capacityByQuarter(getFilteredItems(year, 'ALL'), departments || [], taskWeights);
-  const activeQuarterCapacity = quarter === 'ALL' ? quarterCapacity : quarterCapacity.filter(item => item.quarter === quarter);
-  const deptWorkloadData = (quarter === 'ALL'
-    ? departments.map(department => ({ departmentId: department.id, load: Math.max(...quarterCapacity.map(period => period.loads.find(load => load.departmentId === department.id)?.load ?? 0)), limit: department.capacity_limit_points, isOverCapacity: quarterCapacity.some(period => period.loads.find(load => load.departmentId === department.id)?.isOverCapacity) }))
-    : activeQuarterCapacity[0]?.loads ?? []).map(metric => ({
-    name: departments.find(department => department.id === metric.departmentId)?.name ?? metric.departmentId,
-    load: metric.load,
-    limit: metric.limit,
-    isOver: metric.isOverCapacity,
-  })).filter(d => d.load > 0).sort((a, b) => b.load - a.load);
-
-  const planningRisks = activeItems.flatMap(item => {
-    const issues: string[] = [];
-    if (!item.manager_id) issues.push('без менеджера');
-    if (!item.priority) issues.push('без пріоритету');
-    if (!item.checklist.length) issues.push('без завдань');
-    if (item.checklist.some(scope => !scope.weightId || !scope.implementer_dept_ids?.length)) issues.push('неповний обсяг робіт');
-    return issues.length ? [{ id: item.id, name: item.name, issues }] : [];
-  });
-  const capacityTone = (load: number, limit: number) => {
-    if (load > limit) return 'border-rose-200 bg-rose-50 text-rose-700';
-    if (limit > 0 && load / limit >= 0.8) return 'border-amber-200 bg-amber-50 text-amber-800';
-    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-  };
-  const capacityDepartments = (departments || []).filter(department => deptFilter === 'ALL' || department.id === deptFilter);
-  const heatmapDepartments = capacityDepartments.filter(department => department.is_active !== false || annualCapacity.some(period => (period.loads.find(load => load.departmentId === department.id)?.load ?? 0) > 0));
-  const reserveDepartments = capacityDepartments.filter(department => department.is_active !== false);
-  const capacityReserveData = reserveDepartments
-    .map(department => {
-      const loads = annualCapacity.map(period => period.loads.find(item => item.departmentId === department.id)?.load ?? 0);
-      const isAnnualView = quarter === 'ALL';
-      const load = isAnnualView
-        ? loads.reduce((sum, value) => sum + value, 0)
-        : loads[(['Q1', 'Q2', 'Q3', 'Q4'] as Quarter[]).indexOf(quarter as Quarter)] ?? 0;
-      const limit = department.capacity_limit_points * (isAnnualView ? 4 : 1);
-      const reserve = limit - load;
-      return { id: department.id, name: department.name, load, limit, reserve };
-    })
-    .sort((left, right) => left.reserve - right.reserve || right.load - left.load);
-  const overloadedDepartmentCount = capacityReserveData.filter(department => department.reserve < 0).length;
-
-  // New Graph: Size Breakdown Data
-  const sizeData = sizeBreakdown(activeItems, taskWeights, initiativeSizes || []);
-
-  // Priority Distribution Data
-  const priorityData = ((priorities || [])).map(pr => {
-    const items = activeItems.filter(i => i.priority === pr.id);
-    const weightsByHealth = items.reduce<Record<string, number>>((totals, item) => {
-      totals[normalizeHealthStatus(item.health_status)] += getComputedTotalWeight(item.checklist, taskWeights, item.year, item.quarter);
-      return totals;
-    }, { GREEN: 0, YELLOW: 0, RED: 0, DEFAULT: 0 });
-    const green = weightsByHealth.GREEN;
-    const yellow = weightsByHealth.YELLOW;
-    const red = weightsByHealth.RED;
-    const def = weightsByHealth.DEFAULT;
-    const total = green + yellow + red + def;
-    return { name: pr.name.split(' (')[0], green, yellow, red, default: def, total }; 
-  }).filter(d => d.total > 0).sort((a, b) => b.total - a.total);
-
-  // Top Loaded Managers
-  const managerData = ((managers || [])).map(m => {
-    let load = 0;
-    const mgrItems = activeItems.filter(i => i.manager_id === m.id);
-    mgrItems.forEach(i => load += getComputedTotalWeight(i.checklist, taskWeights, i.year, i.quarter));
-    const projects = mgrItems.filter(i => i.type === 'PROJECT');
-    const tasks = mgrItems.filter(i => i.type === 'TASK');
-    return {
-      id: m.id,
-      name: m.name,
-      load,
-      projectCount: projects.length,
-      taskCount: tasks.length,
-      items: mgrItems,
-      projects,
-      tasks
-    };
-  }).filter(m => m.load > 0).sort((a, b) => b.load - a.load).slice(0, 5);
-
-  // YoY Trends Data
-  const getCardCountForPeriod = (targetYear: number, q: Quarter) => getFilteredItems(targetYear, q).length;
-
-  const quartersList = ['Q1', 'Q2', 'Q3', 'Q4'];
-  const trendData = quartersList.map(q => ({
-    name: q,
-    [year.toString()]: getCardCountForPeriod(year, q as Quarter),
-    [(year - 1).toString()]: getCardCountForPeriod(year - 1, q as Quarter)
-  }));
+  const activeDepartments = departments.filter(
+    (department) =>
+      department.is_active !== false &&
+      (!filters.departmentId || department.id === filters.departmentId),
+  );
+  const overloadedDepartments =
+    data?.department_capacity.filter((item) => item.is_over_capacity) ?? [];
+  const preparationDrilldown = () =>
+    data &&
+    setDrilldown({
+      type: "records",
+      title: "Підготовчі етапи без квартальної картки",
+      localRecords: data.preparation.records.map((item) => ({
+        id: item.id,
+        initiative_id: item.initiative_id,
+        kind: item.kind as AnalyticsRecord["kind"],
+        name: item.name,
+        year: item.year,
+        quarter: "Q1",
+        manager_id: item.manager_id,
+        manager_name:
+          managers.find((manager) => manager.id === item.manager_id)?.name ??
+          null,
+        priority_id: item.priority_id,
+        priority_name: null,
+        department_ids: item.department_ids,
+        status_id: "PREPARATION",
+        status_code: "DEFAULT",
+        status_name: "Підготовчий етап",
+        status_color: "#94a3b8",
+        total_weight: 0,
+        size_name: "Підготовчий етап",
+        progress: item.ready ? 100 : 0,
+        scope_items: 0,
+        risks: item.ready ? [] : ["INCOMPLETE_PREPARATION"],
+      })),
+    });
 
   return (
-    <div className="flex flex-col gap-6 pb-12">
-      {/* Filters Bar */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex flex-wrap gap-2.5 sm:gap-4 items-center w-full">
-          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as any)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-bold text-slate-700 w-full sm:w-auto truncate">
-            <option value="ALL">Всі разом (Проєкти + Задачі)</option>
-            <option value="PROJECTS">Тільки Проєкти</option>
-            <option value="TASKS">Тільки Операційні задачі</option>
-          </select>
-          <div className="hidden sm:block w-px h-6 bg-slate-200 mx-1"></div>
-          <div className="flex gap-2 w-full sm:w-auto">
-            <select value={year} onChange={e => setYear(Number(e.target.value))} className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium flex-1 sm:flex-initial truncate">
-              {getAvailableYears().map(y => (
-                <option key={y} value={y}>{y}</option>
+    <div className={styles.dashboard}>
+      <section className={styles.toolbar}>
+        <div className={styles.toolbarRow}>
+          <div className={styles.filters}>
+            <select
+              value={filters.kind}
+              onChange={(event) =>
+                update("kind", event.target.value as AnalyticsFilters["kind"])
+              }
+              className={`${styles.select} ${styles.kindSelect}`}
+              aria-label="Тип записів"
+            >
+              <option value="ALL">Проєкти + операційні задачі</option>
+              <option value="PROJECT">Тільки проєкти</option>
+              <option value="OPERATIONAL_TASK">Тільки операційні задачі</option>
+            </select>
+            <select
+              value={filters.year}
+              onChange={(event) => update("year", Number(event.target.value))}
+              className={styles.select}
+              aria-label="Рік"
+            >
+              {years.map((year) => (
+                <option key={year}>{year}</option>
               ))}
             </select>
-            <select value={quarter} onChange={e => setQuarter(e.target.value as any)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium flex-1 sm:flex-initial truncate">
-              <option value="Q1">Q1</option>
-              <option value="Q2">Q2</option>
-              <option value="Q3">Q3</option>
-              <option value="Q4">Q4</option>
-              <option value="ALL">Весь рік</option>
+            {mode === "quarterly" && (
+              <select
+                value={filters.quarter}
+                onChange={(event) =>
+                  update("quarter", event.target.value as Quarter)
+                }
+                className={styles.select}
+                aria-label="Квартал"
+              >
+                {(["Q1", "Q2", "Q3", "Q4"] as Quarter[]).map((quarter) => (
+                  <option key={quarter}>{quarter}</option>
+                ))}
+              </select>
+            )}
+            <select
+              value={filters.departmentId}
+              onChange={(event) => update("departmentId", event.target.value)}
+              className={styles.select}
+              aria-label="Підрозділ"
+            >
+              <option value="">Всі підрозділи</option>
+              {departments.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filters.managerId}
+              onChange={(event) => update("managerId", event.target.value)}
+              className={styles.select}
+              aria-label="Менеджер"
+            >
+              <option value="">Всі менеджери</option>
+              {managers.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
             </select>
           </div>
-          <div className="hidden sm:block w-px h-6 bg-slate-200 mx-1"></div>
-          <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium w-full sm:w-auto sm:max-w-[200px] truncate">
-            <option value="ALL">Всі відділи</option>
-            {((departments || [])).map(d => <option key={d.id} value={d.id} title={d.name}>{truncateText(d.name, 70)}</option>)}
-          </select>
-          <select value={managerFilter} onChange={e => setManagerFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium w-full sm:w-auto sm:max-w-[200px] truncate">
-            <option value="ALL">Всі менеджери</option>
-            {((managers || [])).map(m => <option key={m.id} value={m.id} title={m.name}>{truncateText(m.name, 70)}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* KPI Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Загальний прогрес {entityLabelGenitive}</div>
-            <div className="flex items-baseline gap-2">
-              <div className="text-4xl font-bold text-indigo-600">{avgProgress}%</div>
-              <div className="text-xs text-slate-400 font-medium">середній за обсягом робіт</div>
-            </div>
-          </div>
-          <div className="w-full bg-slate-100 rounded-full h-1.5 mt-3">
-            <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${avgProgress}%` }}></div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Статус завдань {entityLabelGenitive}</div>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getInitiativeStatus('GREEN', initiativeStatuses).color }}></div>
-                  <span className="text-xs text-slate-500 font-medium uppercase">Виконано</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-bold text-slate-700">{scopeGreen}</span>
-                  <span className="text-xs text-slate-400 font-medium ml-1">({scopeGreenPct}%)</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getInitiativeStatus('YELLOW', initiativeStatuses).color }}></div>
-                  <span className="text-xs text-slate-500 font-medium uppercase">В процесі</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-bold text-slate-700">{scopeYellow}</span>
-                  <span className="text-xs text-slate-400 font-medium ml-1">({scopeYellowPct}%)</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-rose-500"></div>
-                  <span className="text-xs text-slate-500 font-medium uppercase">На паузі / блоковано</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-bold text-slate-700">{scopeRed}</span>
-                  <span className="text-xs text-slate-400 font-medium ml-1">({scopeRedPct}%)</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getInitiativeStatus('DEFAULT', initiativeStatuses).color }}></div>
-                  <span className="text-xs text-slate-500 font-medium uppercase">Без статусу</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-bold text-slate-700">{scopeDefault}</span>
-                  <span className="text-xs text-slate-400 font-medium ml-1">({scopeDefaultPct}%)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          {scopeTotal > 0 && (
-            <div className="w-full bg-slate-100 rounded-full h-1.5 mt-4 flex overflow-hidden">
-              {scopeGreenPct > 0 && <div className="h-full" style={{ width: `${scopeGreenPct}%`, backgroundColor: getInitiativeStatus('GREEN', initiativeStatuses).color }} title={`Виконано: ${scopeGreenPct}%`}></div>}
-              {scopeYellowPct > 0 && <div className="h-full" style={{ width: `${scopeYellowPct}%`, backgroundColor: getInitiativeStatus('YELLOW', initiativeStatuses).color }} title={`В процесі: ${scopeYellowPct}%`}></div>}
-              {scopeRedPct > 0 && <div className="bg-rose-500 h-full" style={{ width: `${scopeRedPct}%` }} title={`На паузі / блоковано: ${scopeRedPct}%`}></div>}
-              {scopeDefaultPct > 0 && <div className="h-full" style={{ width: `${scopeDefaultPct}%`, backgroundColor: getInitiativeStatus('DEFAULT', initiativeStatuses).color }} title={`Без статусу: ${scopeDefaultPct}%`}></div>}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Об'єм {entityLabelGenitive}</div>
-            <div className="flex items-baseline gap-2">
-              <div className="text-4xl font-bold text-slate-800">{activeItems.length}</div>
-              <div className="text-xs text-slate-400 font-medium">у вибраному зрізі</div>
-            </div>
-          </div>
-          <div className="text-sm text-slate-500 font-medium border-t border-slate-100 pt-2 flex justify-between">
-            <span>В беклозі на {year} рік:</span>
-            <span className="font-bold text-slate-700">{allBacklogCount}</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Середня тривалість {entityLabelGenitive}</div>
-            <div className="flex items-baseline gap-2">
-              <div className="text-4xl font-bold text-violet-600">{averageDuration}</div>
-              <div className="text-xs text-slate-400 font-medium">кварталів</div>
-            </div>
-          </div>
-          <p className="border-t border-slate-100 pt-2 text-xs font-medium text-slate-500">За всіма наявними квартальними картками {year} року</p>
-        </div>
-
-      </div>
-
-      {/* Row 3: Status Analysis */}
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 lg:col-span-4 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col">
-          <h3 className="font-bold text-slate-500 uppercase text-xs tracking-widest mb-4">Статус {entityLabelGenitive}</h3>
-          
-          <div className="flex-1 flex flex-col items-center justify-center min-h-[220px]">
-            {donutData.length === 0 ? (
-              <div className="text-slate-400 text-sm font-medium">Немає даних</div>
-            ) : (
-              <>
-                <div className="w-full h-[180px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={donutData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={55}
-                        outerRadius={75}
-                        paddingAngle={4}
-                        dataKey="value"
-                        className="outline-none"
-                      >
-                        {donutData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip formatter={(value) => [value, 'Кількість']} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="w-full mt-4 space-y-2 px-2">
-                  {donutData.map(d => {
-                    const pct = totalStatusItems > 0 ? Math.round((d.value / totalStatusItems) * 100) : 0;
-                    return (
-                      <div key={d.name} className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{backgroundColor: d.color}}></div>
-                          <span className="text-slate-600 font-medium">{d.name}</span>
-                        </div>
-                        <div className="font-bold text-slate-800 text-right min-w-[50px]">{pct}% <span className="text-slate-400 font-normal text-xs ml-1">({d.value})</span></div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="col-span-12 lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col">
-          <h3 className="font-bold text-slate-500 uppercase text-xs tracking-widest mb-4">Історична динаміка статусів {entityLabelGenitive}</h3>
-          <div className="flex-1 min-h-[250px]">
-             {historyData.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-slate-400 text-sm font-medium">Немає даних</div>
-             ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={historyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                    <RechartsTooltip content={<HistoryTooltip />} cursor={{ fill: '#f8fafc' }} />
-                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                    <Bar name={getInitiativeStatus('GREEN', initiativeStatuses).name} dataKey="Виконано" stackId="a" fill={getInitiativeStatus('GREEN', initiativeStatuses).color} radius={[0, 0, 0, 0]} maxBarSize={60} />
-                    <Bar name={getInitiativeStatus('YELLOW', initiativeStatuses).name} dataKey="В процесі" stackId="a" fill={getInitiativeStatus('YELLOW', initiativeStatuses).color} radius={[0, 0, 0, 0]} maxBarSize={60} />
-                    <Bar name={getInitiativeStatus('RED', initiativeStatuses).name} dataKey="На паузі / блоковано" stackId="a" fill={getInitiativeStatus('RED', initiativeStatuses).color} radius={[0, 0, 0, 0]} maxBarSize={60} />
-                    <Bar name={getInitiativeStatus('DEFAULT', initiativeStatuses).name} dataKey="Без статусу" stackId="a" fill={getInitiativeStatus('DEFAULT', initiativeStatuses).color} radius={[4, 4, 0, 0]} maxBarSize={60} />
-                  </BarChart>
-                </ResponsiveContainer>
-             )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid w-full self-start gap-6 xl:grid-cols-12">
-        <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-6">
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Теплова карта завантаження за кварталами</h3>
-              <p className="mt-1 text-xs text-slate-500">Зелений — норма, жовтий — від 80%, червоний — перевищення.</p>
-            </div>
-            <span className="shrink-0 text-xs font-bold text-slate-500">вага / ліміт</span>
-          </div>
-          <div className="min-w-[470px] max-h-[300px] space-y-2 overflow-y-auto pr-1 custom-scrollbar">
-            <div className="grid grid-cols-[minmax(126px,1fr)_repeat(4,64px)] gap-2 px-1 text-center text-[11px] font-bold uppercase tracking-wide text-slate-400">
-              <span className="text-left">Відділ</span>{(['Q1', 'Q2', 'Q3', 'Q4'] as Quarter[]).map(item => <span key={item}>{item}</span>)}
-            </div>
-            {heatmapDepartments.map(department => (
-              <div key={department.id} className="grid grid-cols-[minmax(126px,1fr)_repeat(4,64px)] items-center gap-2">
-                <span className="truncate px-1 text-sm font-bold text-slate-700" title={department.name}>{department.name}</span>
-                {annualCapacity.map(period => {
-                  const load = period.loads.find(item => item.departmentId === department.id)?.load ?? 0;
-                  return <span key={period.quarter} className={`rounded-lg border px-1 py-2 text-center text-xs font-extrabold ${capacityTone(load, department.capacity_limit_points)}`}>{load}/{department.capacity_limit_points}</span>;
-                })}
-              </div>
+          <div className={styles.switch} aria-label="Період аналітики">
+            {(
+              [
+                ["quarterly", "Квартальний"],
+                ["annual", "Річний"],
+              ] as const
+            ).map(([id, title]) => (
+              <button
+                type="button"
+                key={id}
+                onClick={() => {
+                  setMode(id);
+                  setDrilldown(null);
+                }}
+                className={`${styles.switchButton} ${mode === id ? styles.switchActive : ""}`}
+              >
+                {title}
+              </button>
             ))}
           </div>
-        </section>
-
-        <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-6">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Резерв завантаження</h3>
-              <p className="mt-1 text-xs text-slate-500">Вільні бали до {quarter === 'ALL' ? 'суми річних лімітів' : `ліміту ${quarter}`}.</p>
-            </div>
-            <span className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold ${overloadedDepartmentCount ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
-              Перевантажено: {overloadedDepartmentCount}
-            </span>
-          </div>
-          {capacityReserveData.length === 0 ? (
-            <p className="mt-6 text-sm font-medium text-slate-400">Немає даних для розрахунку.</p>
-          ) : (
-            <div className="mt-5 grid max-h-[300px] gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2 custom-scrollbar">
-              {capacityReserveData.map(department => {
-                const isOverloaded = department.reserve < 0;
-                const reserveLabel = isOverloaded ? `Перевищення ${Math.abs(department.reserve)}` : `Резерв ${department.reserve}`;
-                const tone = isOverloaded
-                  ? 'border-rose-200 bg-rose-50 text-rose-700'
-                  : department.limit > 0 && department.load / department.limit >= 0.8
-                    ? 'border-amber-200 bg-amber-50 text-amber-800'
-                    : 'border-emerald-200 bg-emerald-50 text-emerald-700';
-                return (
-                  <div key={department.id} className="rounded-xl border border-slate-100 bg-slate-50 p-2.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="truncate text-sm font-bold text-slate-700" title={department.name}>{department.name}</span>
-                      <span className={`shrink-0 rounded-lg border px-2 py-1 text-xs font-extrabold ${tone}`}>{reserveLabel}</span>
-                    </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
-                      <div className={isOverloaded ? 'h-full bg-rose-500' : 'h-full bg-indigo-500'} style={{ width: `${Math.min((department.load / Math.max(department.limit, 1)) * 100, 100)}%` }} />
-                    </div>
-                    <p className="mt-1.5 text-right text-[11px] font-medium text-slate-500">{department.load} з {department.limit} балів</p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </aside>
-      </div>
-
-      {/* Row 4: Workload & Size Breakdown */}
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col">
-          <h3 className="font-bold text-slate-500 uppercase text-xs tracking-widest mb-4">{quarter === 'ALL' ? 'Пікова завантаженість відділів за кварталами' : `Завантаженість відділів за вагою ${entityLabelGenitive}`}</h3>
-          <div className="flex-1 min-h-[250px]">
-             {deptWorkloadData.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-slate-400 text-sm font-medium">Немає даних</div>
-             ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={deptWorkloadData} margin={{ top: 0, right: 0, left: -20, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="name" interval={0} angle={-35} textAnchor="end" height={68} minTickGap={0} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                    <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }} />
-                    <Bar dataKey="load" name="Сумарна вага" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={40} />
-                  </BarChart>
-                </ResponsiveContainer>
-             )}
-          </div>
         </div>
+        <p className={styles.filterNote}>
+          {mode === "quarterly"
+            ? `Усі показники розраховано для ${filters.quarter} ${filters.year} року.`
+            : "Річні показники розраховано за всіма квартальними картками Q1–Q4."}
+        </p>
+      </section>
 
-        <div className="col-span-12 lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col">
-          <h3 className="font-bold text-slate-500 uppercase text-xs tracking-widest mb-4">Структура {entityLabelGenitive} за розміром</h3>
-          <p className="text-xs text-slate-500 mb-4">Розміри визначено діапазоном ваги.</p>
-          <div className="flex-1 min-h-[200px]">
-             {sizeData.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-slate-400 text-sm font-medium">Немає даних</div>
-             ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sizeData} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" width={30} tick={{ fontSize: 12, fill: '#475569', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                    <RechartsTooltip cursor={{ fill: '#f8fafc' }} formatter={(value) => [value, 'Кількість карток']} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }} />
-                    <Bar dataKey="count" name="Кількість карток" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={28}>
-                      {sizeData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={['#c4b5fd', '#a78bfa', '#8b5cf6', '#7c3aed', '#6d28d9'][index % 5]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-             )}
+      {analytics.isPending && <AppLoader label="Завантаження аналітики…" />}
+      {data && (
+        <>
+          <div className={styles.kpiGrid}>
+            <Kpi
+              title={`Карток ${kindLabels.genitive} у вибраному періоді`}
+              value={summary.cards}
+              accent="#0f766e"
+              onClick={() => openRecords("Картки у вибраному періоді")}
+            />
+            <Kpi
+              title={`Унікальних ${kindLabels.genitive}`}
+              value={summary.initiatives}
+              accent="#4f46e5"
+              onClick={() => openRecords(kindLabels.nominativeTitle)}
+            />
+            <Kpi
+              title={`Сумарна вага ${kindLabels.genitive}`}
+              value={`${summary.total_weight} бал.`}
+              accent="#7c3aed"
+              onClick={() => openRecords("Картки, що формують сумарну вагу")}
+            />
+            <Kpi
+              title={`${mode === "annual" ? "Загальне виконання scope" : "Середній прогрес"} ${kindLabels.genitive}`}
+              value={`${summary.average_progress}%`}
+              accent="#6366f1"
+              progress={summary.average_progress}
+              onClick={() =>
+                openRecords(
+                  mode === "annual"
+                    ? "Картки, що формують загальне виконання scope"
+                    : "Картки, що формують середній прогрес",
+                )
+              }
+            />
+            {mode === "annual" && (
+              <Kpi
+                title={`Середня тривалість ${kindLabels.genitive}`}
+                value={`${summary.average_duration} кв.`}
+                accent="#8b5cf6"
+              />
+            )}
+            <Kpi
+              title="Підрозділів понад ліміт"
+              value={summary.overloaded_departments}
+              accent={summary.overloaded_departments ? "#e11d48" : "#059669"}
+              danger={summary.overloaded_departments > 0}
+              onClick={() =>
+                setDrilldown({
+                  type: "departments",
+                  title: "Підрозділи з перевищенням ліміту",
+                  departments: overloadedDepartments,
+                })
+              }
+            />
           </div>
-        </div>
-      </div>
 
-      {/* Row 5: Priorities & Trends */}
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col">
-          <h3 className="font-bold text-slate-500 uppercase text-xs tracking-widest mb-4">Пріоритети та статус {entityLabelGenitive}</h3>
-          <div className="flex-1 min-h-[250px]">
-             {priorityData.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-slate-400 text-sm font-medium">Немає даних</div>
-             ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={priorityData} layout="vertical" margin={{ top: 0, right: 30, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                    <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }} />
-                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                    <Bar name={getInitiativeStatus('GREEN', initiativeStatuses).name} dataKey="green" stackId="a" fill={getInitiativeStatus('GREEN', initiativeStatuses).color} radius={[0, 0, 0, 0]} barSize={32} />
-                    <Bar name={getInitiativeStatus('YELLOW', initiativeStatuses).name} dataKey="yellow" stackId="a" fill={getInitiativeStatus('YELLOW', initiativeStatuses).color} radius={[0, 0, 0, 0]} />
-                    <Bar name={getInitiativeStatus('RED', initiativeStatuses).name} dataKey="red" stackId="a" fill={getInitiativeStatus('RED', initiativeStatuses).color} radius={[0, 0, 0, 0]} />
-                    <Bar name={getInitiativeStatus('DEFAULT', initiativeStatuses).name} dataKey="default" stackId="a" fill={getInitiativeStatus('DEFAULT', initiativeStatuses).color} radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-             )}
-          </div>
-        </div>
-
-        <div className="col-span-12 lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col">
-          <h3 className="font-bold text-slate-500 uppercase text-xs tracking-widest mb-4">Динаміка обсягу {entityLabelGenitive}: {year} порівняно з {year - 1}</h3>
-          <div className="flex-1 min-h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData} margin={{ top: 5, right: 15, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                <RechartsTooltip formatter={(value) => [value, 'Кількість карток']} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }} />
-                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '5px' }} />
-                <Line name={`Рік ${year}`} type="monotone" dataKey={year.toString()} stroke="#6366f1" strokeWidth={3} dot={{ r: 4, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
-                <Line name={`Рік ${year - 1}`} type="monotone" dataKey={(year - 1).toString()} stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3, fill: '#94a3b8', strokeWidth: 2, stroke: '#fff' }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 6: Top Managers Cards */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <h3 className="font-bold text-slate-500 uppercase text-xs tracking-widest mb-4">ТОП-завантажених менеджерів за вагою {entityLabelGenitive}</h3>
-        {managerData.length === 0 ? (
-          <div className="flex items-center justify-center text-slate-400 text-sm font-medium py-8">Немає даних</div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-            {managerData.map((d, i) => {
-              const displayItems = typeFilter === 'PROJECTS' ? d.projects : typeFilter === 'TASKS' ? d.tasks : d.items;
-              
-              const tooltipPosClass = 
-                i === 0 
-                  ? 'left-0 translate-x-0' 
-                  : i === managerData.length - 1 
-                  ? 'right-0 left-auto translate-x-0' 
-                  : 'left-1/2 -translate-x-1/2';
-
-              const arrowPosClass = 
-                i === 0 
-                  ? 'left-6 translate-x-0' 
-                  : i === managerData.length - 1 
-                  ? 'right-6 left-auto translate-x-0' 
-                  : 'left-1/2 -translate-x-1/2';
-
-              return (
-                <div 
-                  key={d.id || i} 
-                  className="group relative flex flex-col items-center p-4 rounded-2xl border border-slate-200/80 bg-slate-50/70 hover:bg-white hover:border-indigo-300 hover:shadow-md hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+          {mode === "quarterly" ? (
+            <>
+              <div className={styles.grid2}>
+                <Chart title={`Статус ${kindLabels.genitive}`}>
+                  {statusData.length ? (
+                    <StatusDonut
+                      data={statusData}
+                      onSelect={(item) =>
+                        openRecords(
+                          `Статус: ${item.name}`,
+                          item.card_ids,
+                          item.status_id,
+                        )
+                      }
+                    />
+                  ) : (
+                    <Empty />
+                  )}
+                </Chart>
+                <Chart title={`Пріоритети та статуси ${kindLabels.genitive}`}>
+                  <PriorityStatusChart data={data} onOpen={openRecords} />
+                </Chart>
+              </div>
+              <div className={styles.grid2}>
+                <Chart title="Виконання скоупу">
+                  <ScopeProgressChart data={data} statusColor={statusColor} />
+                </Chart>
+                <Chart
+                  title={`Структура ${kindLabels.genitive} за розміром`}
+                  description="Розмір визначено діапазоном сумарної ваги."
                 >
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm mb-3 shadow-sm border border-indigo-200 group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
-                    #{i + 1}
-                  </div>
-                  <div className="font-bold text-slate-800 text-sm mb-1 w-full truncate px-2 group-hover:text-indigo-600 transition-colors text-center">{d.name}</div>
-                  <div className="text-lg font-bold text-indigo-600 group-hover:scale-105 transition-transform">{d.load} <span className="text-[10px] text-slate-400 uppercase tracking-wide">бал.</span></div>
-
-                  {/* Rich Floating Tooltip on Hover */}
-                  <div className={`absolute bottom-full mb-3 ${tooltipPosClass} w-64 sm:w-72 max-w-[85vw] p-3.5 bg-slate-900/95 backdrop-blur-md text-white text-xs rounded-2xl shadow-2xl border border-slate-700/60 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-50 text-left`}>
-                    <div className="font-bold text-slate-100 border-b border-slate-700/80 pb-2 mb-2 flex justify-between items-center">
-                      <span className="truncate pr-2">{d.name}</span>
-                      <span className="text-indigo-300 font-extrabold shrink-0 bg-indigo-950/80 px-2 py-0.5 rounded-full border border-indigo-500/30 text-[11px]">{d.load} бал.</span>
-                    </div>
-
-                    <div className="text-[11px] text-slate-300 font-medium mb-2 flex items-center justify-between">
-                      <span>{typeFilter === 'PROJECTS' ? 'Проєкти' : typeFilter === 'TASKS' ? 'Задачі' : 'Ініціативи'}:</span>
-                      <span className="font-bold text-indigo-300">
-                        {displayItems.length} шт. {typeFilter === 'ALL' && `(${d.projectCount} пр. / ${d.taskCount} заді.)`}
-                      </span>
-                    </div>
-
-                    <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                      {displayItems.length === 0 ? (
-                        <div className="text-slate-400 italic text-[11px]">Немає закріплених записів</div>
-                      ) : (
-                        displayItems.slice(0, 10).map((item, idx) => (
-                          <div key={item.id || idx} className="flex items-start gap-1.5 text-[11px] text-slate-200 leading-tight">
-                            <span className={`text-[9px] font-bold px-1 py-0.2 rounded shrink-0 mt-0.5 ${item.type === 'PROJECT' ? 'bg-indigo-900 text-indigo-300 border border-indigo-700' : 'bg-emerald-900 text-emerald-300 border border-emerald-700'}`}>
-                              {item.type === 'PROJECT' ? 'П' : 'З'}
-                            </span>
-                            <span className="line-clamp-2 break-words">{item.name}</span>
-                          </div>
-                        ))
-                      )}
-                      {displayItems.length > 10 && (
-                        <div className="text-[10px] text-indigo-300 font-semibold italic pt-1 text-center">
-                          + ще {displayItems.length - 10} {typeFilter === 'PROJECTS' ? 'проєктів' : typeFilter === 'TASKS' ? 'задач' : 'записів'}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Arrow down */}
-                    <div className={`absolute top-full ${arrowPosClass} -mt-1 border-4 border-transparent border-t-slate-900/95`}></div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Planning follow-up widgets */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Готовність підготовчого етапу</h3>
-              <p className="mt-1 text-xs text-slate-500">Лише річні записи без квартальної картки.</p>
-            </div>
-            <span className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-1 text-sm font-extrabold text-indigo-700">{readyPreparationCount}/{preparationReadiness.length}</span>
-          </div>
-          {preparationReadiness.length === 0 ? (
-            <p className="mt-5 text-sm text-slate-400">Немає ініціатив на підготовчому етапі.</p>
+                  <SizeChart data={data} onOpen={openRecords} />
+                </Chart>
+              </div>
+              <div className={styles.grid2}>
+                <Chart
+                  title={`Завантаженість підрозділів за вагою ${kindLabels.genitive}`}
+                >
+                  <DepartmentLoadChart data={data} />
+                </Chart>
+                <Chart
+                  title="Резерв завантаження"
+                  description={`Вільна вага до ліміту ${filters.quarter}.`}
+                  badge={
+                    summary.overloaded_departments
+                      ? `Перевантажено: ${summary.overloaded_departments}`
+                      : undefined
+                  }
+                  dangerBadge={summary.overloaded_departments > 0}
+                >
+                  <ReserveWidget
+                    data={data}
+                    mode={mode}
+                    quarter={filters.quarter}
+                    departments={activeDepartments}
+                  />
+                </Chart>
+              </div>
+              <div className={styles.grid2}>
+                <Chart
+                  title={`Динаміка обсягу ${kindLabels.genitive}: поточний і попередній квартал`}
+                >
+                  <QuarterComparisonChart data={data} />
+                </Chart>
+                <Chart
+                  title={`Топ завантажених менеджерів за вагою ${kindLabels.genitive}`}
+                >
+                  <ManagerCards data={data} onOpen={openRecords} compact />
+                </Chart>
+              </div>
+            </>
           ) : (
-            <div className="mt-4 max-h-52 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
-              {preparationReadiness.map(item => (
-                <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
-                  <span className="truncate text-sm font-bold text-slate-700" title={item.name}>{item.name}</span>
-                  <span className={`shrink-0 rounded-lg px-2 py-1 text-xs font-bold ${item.filled === 3 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>{item.filled}/3 полів</span>
-                </div>
-              ))}
+            <>
+              <div className={styles.grid12}>
+                <Chart
+                  title={`Статуси квартальних карток ${kindLabels.genitive} за рік`}
+                  className={styles.span5}
+                >
+                  {statusData.length ? (
+                    <StatusDonut
+                      data={statusData}
+                      onSelect={(item) =>
+                        openRecords(
+                          `Статус: ${item.name}`,
+                          item.card_ids,
+                          item.status_id,
+                        )
+                      }
+                    />
+                  ) : (
+                    <Empty />
+                  )}
+                </Chart>
+                <Chart
+                  title={`Структура ${kindLabels.genitive} за розміром`}
+                  description="Розмір визначено діапазоном сумарної ваги."
+                  className={styles.span7}
+                >
+                  <SizeChart data={data} onOpen={openRecords} />
+                </Chart>
+              </div>
+              <div className={styles.grid2}>
+                <Chart
+                  title={`Історична динаміка статусів ${kindLabels.genitive}`}
+                >
+                  <HistoryChart data={data} />
+                </Chart>
+                <Chart
+                  title={`Динаміка обсягу ${kindLabels.genitive}: ${filters.year} порівняно з ${filters.year - 1}`}
+                >
+                  <AnnualVolumeChart data={data} year={filters.year} />
+                </Chart>
+              </div>
+              <div className={styles.grid2}>
+                <Chart
+                  title={`Завантаженість підрозділів за вагою ${kindLabels.genitive}`}
+                >
+                  <DepartmentLoadChart data={data} />
+                </Chart>
+                <Chart title={`Пріоритети та статуси ${kindLabels.genitive}`}>
+                  <PriorityStatusChart data={data} onOpen={openRecords} />
+                </Chart>
+              </div>
+              <div className={styles.grid2}>
+                <Chart
+                  title="Теплова карта завантаження за кварталами"
+                  description="Зелений — норма, жовтий — від 80%, червоний — перевищення."
+                  badge="вага / ліміт"
+                >
+                  <CapacityTable
+                    data={data.capacity_by_quarter}
+                    departments={activeDepartments}
+                  />
+                </Chart>
+                <Chart
+                  title="Резерв завантаження"
+                  description="Вільна вага до річного ліміту."
+                  badge={
+                    summary.overloaded_departments
+                      ? `Перевантажено: ${summary.overloaded_departments}`
+                      : undefined
+                  }
+                  dangerBadge={summary.overloaded_departments > 0}
+                >
+                  <ReserveWidget
+                    data={data}
+                    mode={mode}
+                    quarter={filters.quarter}
+                    departments={activeDepartments}
+                  />
+                </Chart>
+              </div>
+              <Chart
+                title={`Топ завантажених менеджерів за вагою ${kindLabels.genitive}`}
+              >
+                <ManagerCards data={data} onOpen={openRecords} />
+              </Chart>
+            </>
+          )}
+
+          {mode === "annual" && (
+            <div className={styles.grid12}>
+              <Chart
+                title="Готовність підготовчого етапу"
+                className={styles.span4}
+              >
+                <button
+                  type="button"
+                  onClick={preparationDrilldown}
+                  className={styles.preparation}
+                >
+                  <div className={styles.preparationValue}>
+                    {data.preparation.ready}/{data.preparation.total}
+                  </div>
+                  <p className={styles.preparationText}>
+                    готових етапів без квартальної картки
+                  </p>
+                  <span className={styles.link}>Переглянути записи →</span>
+                </button>
+              </Chart>
+              <Chart
+                title="Контроль плану"
+                badge={String(data.risks.length)}
+                className={styles.span8}
+              >
+                <RiskList data={data} onOpen={openRecords} />
+              </Chart>
             </div>
           )}
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-3">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Контроль плану</h3>
-              <p className="mt-1 text-xs text-slate-500">Поля, що потребують уточнення у вибраних квартальних картках.</p>
-            </div>
-            <span className={`rounded-xl px-3 py-1 text-sm font-extrabold ${planningRisks.length ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-700'}`}>{planningRisks.length}</span>
-          </div>
-          {planningRisks.length === 0 ? <p className="mt-4 text-sm text-emerald-700">Усі картки мають базові дані для планування.</p> : <div className="mt-4 grid max-h-52 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 custom-scrollbar">{planningRisks.map(item => <div key={item.id} className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5"><p className="truncate text-sm font-bold text-slate-700" title={item.name}>{item.name}</p><p className="mt-1 text-xs text-amber-800">{item.issues.join(' · ')}</p></div>)}</div>}
-        </section>
-      </div>
-
+        </>
+      )}
+      {drilldown && (
+        <DrilldownModal
+          value={drilldown}
+          records={
+            drilldown.type === "records"
+              ? (drilldown.localRecords ?? drilldownQuery.data?.records ?? [])
+              : []
+          }
+          loading={
+            drilldown.type === "records" &&
+            !drilldown.localRecords &&
+            drilldownQuery.isPending
+          }
+          onClose={() => setDrilldown(null)}
+        />
+      )}
     </div>
   );
 };
+
+const Kpi = ({
+  title,
+  value,
+  accent,
+  progress,
+  danger = false,
+  onClick,
+}: {
+  title: string;
+  value: string | number;
+  accent: string;
+  progress?: number;
+  danger?: boolean;
+  onClick?: () => void;
+}) => {
+  const Tag = onClick ? "button" : "div";
+  return (
+    <Tag
+      onClick={onClick}
+      className={`${styles.kpi} ${danger ? styles.kpiDanger : ""}`}
+      style={{ "--accent": accent } as CSSProperties}
+    >
+      <div className={styles.kpiLabel}>{title}</div>
+      <div className={styles.kpiValue}>{value}</div>
+      {progress !== undefined && (
+        <div className={styles.kpiTrack}>
+          <div
+            className={styles.kpiTrackFill}
+            style={{ width: `${Math.min(progress, 100)}%` }}
+          />
+        </div>
+      )}
+      {onClick && <span className={styles.kpiHint}>Переглянути деталі →</span>}
+    </Tag>
+  );
+};
+const Chart = ({
+  title,
+  description,
+  badge,
+  dangerBadge = false,
+  children,
+  className = "",
+}: React.PropsWithChildren<{
+  title: string;
+  description?: string;
+  badge?: string;
+  dangerBadge?: boolean;
+  className?: string;
+}>) => (
+  <section className={`${styles.panel} ${className}`}>
+    <header className={styles.panelHeader}>
+      <div>
+        <h3 className={styles.panelTitle}>{title}</h3>
+        {description && (
+          <p className={styles.panelDescription}>{description}</p>
+        )}
+      </div>
+      {badge && (
+        <span
+          className={`${styles.badge} ${dangerBadge ? styles.badgeDanger : ""}`}
+        >
+          {badge}
+        </span>
+      )}
+    </header>
+    {children}
+  </section>
+);
+const Empty = () => <div className={styles.empty}>Немає даних</div>;
+
+const SizeChart = ({
+  data,
+  onOpen,
+}: {
+  data: AnalyticsResponse;
+  onOpen: (title: string, ids?: string[]) => void;
+}) => {
+  const height = Math.max(280, data.size_breakdown.length * 52);
+  return (
+    <div className={styles.verticalChartScroll}>
+      <div style={{ height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data.size_breakdown}
+            layout="vertical"
+            margin={{ left: 8, right: 30 }}
+          >
+            <CartesianGrid
+              strokeDasharray="4 4"
+              horizontal={false}
+              stroke="#dbe5f0"
+            />
+            <XAxis
+              type="number"
+              allowDecimals={false}
+              tick={{ fontSize: 11, fill: "#71829d" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              dataKey="name"
+              type="category"
+              width={62}
+              tick={{ fontSize: 12, fill: "#475569", fontWeight: 750 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              content={<SimpleTooltip valueLabel="Кількість карток" />}
+              cursor={{ fill: "#f6f8fb" }}
+            />
+            <Bar
+              dataKey="count"
+              name="Кількість карток"
+              radius={[0, 6, 6, 0]}
+              onClick={(entry: any) =>
+                onOpen(
+                  `Розмір: ${entry.name ?? entry.payload?.name}`,
+                  entry.card_ids ?? entry.payload?.card_ids,
+                )
+              }
+            >
+              {data.size_breakdown.map((item, index) => (
+                <Cell
+                  key={item.name}
+                  fill={sizeColors[index % sizeColors.length]}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+const DepartmentLoadChart = ({ data }: { data: AnalyticsResponse }) => {
+  const width = Math.max(620, data.department_capacity.length * 105);
+  return (
+    <div className={styles.chartScroll}>
+      <div style={{ width, height: 315 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data.department_capacity}
+            margin={{ top: 8, right: 20, left: 2, bottom: 76 }}
+          >
+            <CartesianGrid
+              strokeDasharray="4 4"
+              vertical={false}
+              stroke="#dbe5f0"
+            />
+            <XAxis
+              dataKey="name"
+              angle={-34}
+              textAnchor="end"
+              interval={0}
+              tick={{ fontSize: 11, fill: "#61738f" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 11, fill: "#61738f" }}
+            />
+            <Tooltip
+              content={<SimpleTooltip valueLabel="Сумарна вага" />}
+              cursor={{ fill: "#f6f8fb" }}
+            />
+            <Bar
+              dataKey="load"
+              name="Сумарна вага"
+              fill="#6366f1"
+              radius={[6, 6, 0, 0]}
+              maxBarSize={54}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+const PriorityStatusChart = ({
+  data,
+  onOpen,
+}: {
+  data: AnalyticsResponse;
+  onOpen: (title: string, ids?: string[]) => void;
+}) => {
+  const height = Math.max(265, data.priority_status_breakdown.length * 54);
+  return (
+    <>
+      <div className={styles.verticalChartScroll}>
+        <div style={{ height }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={data.priority_status_breakdown}
+              layout="vertical"
+              margin={{ top: 6, right: 22, left: 4, bottom: 2 }}
+            >
+              <CartesianGrid
+                strokeDasharray="4 4"
+                horizontal={false}
+                stroke="#dbe5f0"
+              />
+              <XAxis
+                type="number"
+                allowDecimals={false}
+                tick={{ fontSize: 11, fill: "#71829d" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                dataKey="name"
+                type="category"
+                width={105}
+                tick={{ fontSize: 11, fill: "#61738f" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                content={<StatusTooltip />}
+                cursor={{ fill: "#f6f8fb" }}
+              />
+              {data.status_distribution.map((status) => (
+                <Bar
+                  key={status.status_id}
+                  dataKey={(entry) =>
+                    entry.status_counts[status.status_id] ?? 0
+                  }
+                  name={status.name}
+                  stackId="priority"
+                  fill={status.color}
+                  onClick={(entry: any) =>
+                    onOpen(
+                      `Пріоритет: ${entry.name ?? entry.payload?.name}`,
+                      entry.card_ids ?? entry.payload?.card_ids,
+                    )
+                  }
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <CardStatusKey statuses={data.status_distribution} />
+    </>
+  );
+};
+
+const ScopeProgressChart = ({
+  data,
+  statusColor,
+}: {
+  data: AnalyticsResponse;
+  statusColor: (code: keyof StatusCounts) => string;
+}) => {
+  const rows = statusOrder.map((code) => ({
+    code,
+    name: analyticsStatusLabel(code),
+    value: data.scope_status_counts[code],
+    color: statusColor(code),
+  }));
+  return (
+    <>
+      <ResponsiveContainer width="100%" height={265}>
+        <BarChart
+          data={rows}
+          layout="vertical"
+          margin={{ top: 6, right: 20, left: 2, bottom: 2 }}
+        >
+          <CartesianGrid
+            strokeDasharray="4 4"
+            horizontal={false}
+            stroke="#dbe5f0"
+          />
+          <XAxis
+            type="number"
+            allowDecimals={false}
+            tick={{ fontSize: 11, fill: "#71829d" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            dataKey="name"
+            type="category"
+            width={112}
+            tick={{ fontSize: 11, fill: "#61738f" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            content={<SimpleTooltip valueLabel="Завдань" />}
+            cursor={{ fill: "#f6f8fb" }}
+          />
+          <Bar dataKey="value" name="Завдань" radius={[0, 5, 5, 0]}>
+            {rows.map((item) => (
+              <Cell key={item.code} fill={item.color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <StatusKey />
+    </>
+  );
+};
+
+const HistoryChart = ({ data }: { data: AnalyticsResponse }) => {
+  const width = Math.max(600, data.history.length * 130);
+  const statuses = Array.from(
+    new Map(
+      data.history
+        .flatMap((period) => period.status_distribution)
+        .map((status) => [status.status_id, status]),
+    ).values(),
+  );
+  const chartData = data.history.map((period) => ({
+    ...period,
+    status_counts: Object.fromEntries(
+      period.status_distribution.map((status) => [
+        status.status_id,
+        status.count,
+      ]),
+    ),
+  }));
+  return (
+    <>
+      <div className={styles.chartScroll}>
+        <div style={{ width, height: 285 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 10, right: 18, left: 4, bottom: 4 }}
+            >
+              <CartesianGrid
+                strokeDasharray="4 4"
+                vertical={false}
+                stroke="#dbe5f0"
+              />
+              <XAxis
+                dataKey="year"
+                tick={{ fontSize: 12, fill: "#61738f", fontWeight: 700 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 11, fill: "#61738f" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                content={<StatusTooltip />}
+                cursor={{ fill: "#f6f8fb" }}
+              />
+              {statuses.map((status) => (
+                <Bar
+                  key={status.status_id}
+                  dataKey={(entry) =>
+                    entry.status_counts[status.status_id] ?? 0
+                  }
+                  name={status.name}
+                  stackId="status"
+                  fill={status.color}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <CardStatusKey statuses={statuses} />
+    </>
+  );
+};
+
+const AnnualVolumeChart = ({
+  data,
+  year,
+}: {
+  data: AnalyticsResponse;
+  year: number;
+}) => (
+  <>
+    <ResponsiveContainer width="100%" height={285}>
+      <LineChart
+        data={data.volume_trend}
+        margin={{ top: 8, right: 20, left: 2, bottom: 4 }}
+      >
+        <CartesianGrid
+          strokeDasharray="4 4"
+          vertical={false}
+          stroke="#dbe5f0"
+        />
+        <XAxis
+          dataKey="quarter"
+          tick={{ fontSize: 12, fill: "#61738f" }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis
+          allowDecimals={false}
+          tick={{ fontSize: 11, fill: "#61738f" }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip content={<VolumeTooltip currentYear={year} />} />
+        <Line
+          type="monotone"
+          dataKey="previous"
+          name={`Рік ${year - 1}`}
+          stroke="#94a3b8"
+          strokeWidth={2.5}
+          strokeDasharray="7 6"
+          dot={{ r: 4, fill: "#94a3b8", stroke: "#fff", strokeWidth: 2 }}
+        />
+        <Line
+          type="monotone"
+          dataKey="current"
+          name={`Рік ${year}`}
+          stroke="#6366f1"
+          strokeWidth={3.5}
+          dot={{ r: 5, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+    <div className={styles.chartLegend}>
+      <LegendItem color="#94a3b8" label={`Рік ${year - 1}`} line dashed />
+      <LegendItem color="#6366f1" label={`Рік ${year}`} line />
+    </div>
+  </>
+);
+
+const QuarterComparisonChart = ({ data }: { data: AnalyticsResponse }) => (
+  <ResponsiveContainer width="100%" height={285}>
+    <LineChart
+      data={data.period_comparison}
+      margin={{ top: 12, right: 26, left: 2, bottom: 8 }}
+    >
+      <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#dbe5f0" />
+      <XAxis
+        dataKey="label"
+        tick={{ fontSize: 12, fill: "#61738f", fontWeight: 700 }}
+        axisLine={false}
+        tickLine={false}
+      />
+      <YAxis
+        allowDecimals={false}
+        tick={{ fontSize: 11, fill: "#61738f" }}
+        axisLine={false}
+        tickLine={false}
+      />
+      <Tooltip content={<SimpleTooltip valueLabel="Кількість карток" />} />
+      <Line
+        type="monotone"
+        dataKey="cards"
+        name="Кількість карток"
+        stroke="#6366f1"
+        strokeWidth={3.5}
+        dot={{ r: 6, fill: "#6366f1", stroke: "#fff", strokeWidth: 2 }}
+      />
+    </LineChart>
+  </ResponsiveContainer>
+);
+
+const StatusDonut = ({
+  data,
+  onSelect,
+}: {
+  data: CardStatusMetric[];
+  onSelect: (item: CardStatusMetric) => void;
+}) => {
+  const total = data.reduce((sum, item) => sum + item.count, 0);
+  return (
+    <div className={styles.donutLayout}>
+      <ResponsiveContainer width="100%" height={235}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="count"
+            nameKey="name"
+            innerRadius={70}
+            outerRadius={103}
+            paddingAngle={3}
+            stroke="#fff"
+            strokeWidth={3}
+            onClick={(entry: any) => onSelect(entry.payload ?? entry)}
+          >
+            {data.map((item) => (
+              <Cell key={item.status_id} fill={item.color} />
+            ))}
+          </Pie>
+          <Tooltip content={<SimpleTooltip valueLabel="Кількість" />} />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className={styles.statusLegend}>
+        {data.map((item) => (
+          <button
+            type="button"
+            key={item.status_id}
+            className={styles.statusLegendRow}
+            onClick={() => onSelect(item)}
+          >
+            <span
+              className={styles.legendDot}
+              style={{ background: item.color }}
+            />
+            <span className={styles.legendLabel}>{item.name}</span>
+            <strong>
+              {total ? Math.round((item.count / total) * 100) : 0}%
+            </strong>
+            <span className={styles.legendCount}>({item.count})</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const StatusKey = () => (
+  <div className={styles.chartLegend}>
+    {statusOrder.map((code) => (
+      <LegendItem
+        key={code}
+        color={statusColors[code]}
+        label={analyticsStatusLabel(code)}
+      />
+    ))}
+  </div>
+);
+const CardStatusKey = ({ statuses }: { statuses: CardStatusMetric[] }) => (
+  <div className={styles.chartLegend}>
+    {statuses.map((status) => (
+      <LegendItem
+        key={status.status_id}
+        color={status.color}
+        label={status.name}
+      />
+    ))}
+  </div>
+);
+const LegendItem = ({
+  color,
+  label,
+  line = false,
+  dashed = false,
+}: {
+  color: string;
+  label: string;
+  line?: boolean;
+  dashed?: boolean;
+}) => (
+  <span className={styles.legendItem}>
+    <i
+      className={`${line ? styles.legendLine : styles.legendSquare} ${dashed ? styles.legendDashed : ""}`}
+      style={{ "--legend-color": color } as CSSProperties}
+    />
+    {label}
+  </span>
+);
+const SimpleTooltip = ({ active, payload, label, valueLabel }: any) =>
+  active && payload?.length ? (
+    <div className={styles.tooltip}>
+      <strong>{label ?? payload[0]?.payload?.name}</strong>
+      <span className={styles.tooltipValue}>
+        {valueLabel}: {payload[0]?.value}
+      </span>
+    </div>
+  ) : null;
+const StatusTooltip = ({ active, payload, label }: any) =>
+  active && payload?.length ? (
+    <div className={styles.tooltip}>
+      <strong>{label ?? payload[0]?.payload?.name}</strong>
+      {payload.map((item: any) => (
+        <span key={item.name} style={{ color: item.color }}>
+          {item.name}: {item.value ?? 0}
+        </span>
+      ))}
+    </div>
+  ) : null;
+const VolumeTooltip = ({ active, payload, label, currentYear }: any) =>
+  active && payload?.length ? (
+    <div className={styles.tooltip}>
+      <strong>{label}</strong>
+      <span style={{ color: "#94a3b8" }}>
+        Карток {currentYear - 1}:{" "}
+        {payload.find((item: any) => item.dataKey === "previous")?.value ?? 0}
+      </span>
+      <span style={{ color: "#6366f1" }}>
+        Карток {currentYear}:{" "}
+        {payload.find((item: any) => item.dataKey === "current")?.value ?? 0}
+      </span>
+    </div>
+  ) : null;
+
+const ManagerCards = ({
+  data,
+  onOpen,
+  compact = false,
+}: {
+  data: AnalyticsResponse;
+  onOpen: (title: string, ids?: string[]) => void;
+  compact?: boolean;
+}) =>
+  data.manager_loads.length ? (
+    <div
+      className={`${styles.managerGrid} ${compact ? styles.managerGridCompact : ""}`}
+    >
+      {data.manager_loads.slice(0, 5).map((manager, index) => (
+        <button
+          type="button"
+          key={manager.manager_id}
+          className={styles.managerCard}
+          onClick={() => onOpen(`Менеджер: ${manager.name}`, manager.card_ids)}
+        >
+          <span
+            className={`${styles.managerRank} ${index === 0 ? styles.managerRankTop : ""}`}
+          >
+            #{index + 1}
+          </span>
+          <div className={styles.managerName} title={manager.name}>
+            {manager.name}
+          </div>
+          <div className={styles.managerLoad}>
+            {manager.load} <span className={styles.managerUnit}>бал.</span>
+          </div>
+        </button>
+      ))}
+    </div>
+  ) : (
+    <Empty />
+  );
+
+const reserveTone = (load: number, limit: number) =>
+  load > limit
+    ? styles.danger
+    : limit > 0 && load / limit >= 0.8
+      ? styles.warning
+      : styles.good;
+const ReserveWidget = ({
+  data,
+  mode,
+  quarter,
+  departments,
+}: {
+  data: AnalyticsResponse;
+  mode: AnalyticsMode;
+  quarter: Quarter;
+  departments: Array<{ id: string; name: string }>;
+}) => {
+  if (!departments.length) return <Empty />;
+  const metrics =
+    mode === "annual"
+      ? data.department_capacity
+          .filter((item) =>
+            departments.some(
+              (department) => department.id === item.department_id,
+            ),
+          )
+          .map((item) => ({
+            id: item.department_id,
+            name: item.name,
+            load: item.load,
+            limit: item.limit,
+            reserve: item.reserve,
+            isOverCapacity: item.is_over_capacity,
+          }))
+      : quarterlyDepartmentReserve(data, quarter, departments);
+  return (
+    <div className={styles.reserveGrid}>
+      {metrics.map((department) => {
+        const percent = department.limit
+          ? Math.min((department.load / department.limit) * 100, 100)
+          : 0;
+        return (
+          <article key={department.id} className={styles.reserveCard}>
+            <div className={styles.reserveTop}>
+              <span className={styles.departmentName} title={department.name}>
+                {department.name}
+              </span>
+              <span
+                className={`${styles.reserveValue} ${reserveTone(department.load, department.limit)}`}
+              >
+                {department.reserve < 0
+                  ? `Перевищення ${Math.abs(department.reserve)}`
+                  : `Резерв ${department.reserve}`}
+              </span>
+            </div>
+            <div className={styles.progressTrack}>
+              <div
+                className={`${styles.progressFill} ${department.isOverCapacity ? styles.progressDanger : ""}`}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+            <div className={styles.loadMeta}>
+              <span>
+                {department.load} з {department.limit} балів
+              </span>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+};
+
+const CapacityTable = ({
+  data,
+  departments,
+}: {
+  data: AnalyticsResponse["capacity_by_quarter"];
+  departments: Array<{ id: string; name: string }>;
+}) => (
+  <div className={styles.heatmapScroll}>
+    <div className={styles.heatmapGrid}>
+      <span className={styles.heatmapHeading}>Підрозділ</span>
+      {data.map((item) => (
+        <span key={item.quarter} className={styles.quarterHeader}>
+          {item.quarter}
+        </span>
+      ))}
+      {departments.flatMap((department) => [
+        <span key={`${department.id}-name`} className={styles.departmentName}>
+          {department.name}
+        </span>,
+        ...data.map((period) => {
+          const item = period.departments.find(
+            (entry) => entry.department_id === department.id,
+          );
+          const load = item?.load ?? 0;
+          const limit = item?.limit ?? 0;
+          return (
+            <span
+              key={`${department.id}-${period.quarter}`}
+              className={`${styles.heatmapCell} ${reserveTone(load, limit)}`}
+            >
+              {load}/{limit}
+            </span>
+          );
+        }),
+      ])}
+    </div>
+  </div>
+);
+const RiskList = ({
+  data,
+  onOpen,
+}: {
+  data: AnalyticsResponse;
+  onOpen: (title: string, ids?: string[]) => void;
+}) => (
+  <div className={styles.riskList}>
+    {data.risks.length ? (
+      data.risks.map((risk) => (
+        <button
+          type="button"
+          key={risk.id}
+          onClick={() => onOpen("Планувальний ризик", [risk.id])}
+          className={styles.risk}
+        >
+          <span className={styles.riskName}>{risk.name}</span>
+          <span className={styles.riskText}>
+            {risk.risks.map((item) => riskLabels[item] ?? item).join(" · ")}
+          </span>
+        </button>
+      ))
+    ) : (
+      <Empty />
+    )}
+  </div>
+);
+
+const DrilldownModal = ({
+  value,
+  records,
+  loading,
+  onClose,
+}: {
+  value: NonNullable<Drilldown>;
+  records: AnalyticsRecord[];
+  loading: boolean;
+  onClose: () => void;
+}) =>
+  createPortal(
+    <div
+      className={styles.modalBackdrop}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className={styles.modal}>
+        <header className={styles.modalHeader}>
+          <div>
+            <h2 className={styles.modalTitle}>{value.title}</h2>
+            <p className={styles.modalCount}>
+              {value.type === "records"
+                ? `Записів: ${records.length}`
+                : `Підрозділів: ${value.departments.length}`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className={styles.close}
+            aria-label="Закрити"
+          >
+            <X />
+          </button>
+        </header>
+        <div className={styles.modalBody}>
+          {value.type === "records" ? (
+            loading ? (
+              <AppLoader label="Завантаження записів…" />
+            ) : (
+              <div className={styles.recordList}>
+                {records.map((record) => (
+                  <article key={record.id} className={styles.record}>
+                    <div className={styles.recordTop}>
+                      <div>
+                        <div className={styles.recordName}>{record.name}</div>
+                        <div className={styles.recordMeta}>
+                          {record.kind === "PROJECT"
+                            ? "Проєкт"
+                            : "Операційна задача"}{" "}
+                          · {record.year} · {record.quarter} ·{" "}
+                          {record.manager_name ?? "Без менеджера"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className={styles.recordWeight}>
+                          {record.total_weight} бал.
+                        </div>
+                        <div className={styles.recordDetail}>
+                          {record.size_name} · прогрес {record.progress}%
+                        </div>
+                      </div>
+                    </div>
+                    {record.risks.length > 0 && (
+                      <div className={styles.recordRisk}>
+                        {record.risks
+                          .map((item) => riskLabels[item] ?? item)
+                          .join(" · ")}
+                      </div>
+                    )}
+                  </article>
+                ))}
+                {!records.length && <Empty />}
+              </div>
+            )
+          ) : (
+            <div className={styles.recordList}>
+              {value.departments.map((department) => (
+                <article
+                  key={department.department_id}
+                  className={`${styles.record} ${styles.overloadRecord}`}
+                >
+                  <div>
+                    <div className={styles.recordName}>{department.name}</div>
+                    <div className={styles.recordMeta}>
+                      Навантаження {department.load} · ліміт {department.limit}
+                    </div>
+                  </div>
+                  <div className={styles.overloadValue}>
+                    +{Math.abs(department.reserve)} бал.
+                  </div>
+                </article>
+              ))}
+              {!value.departments.length && <Empty />}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );

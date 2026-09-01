@@ -1,10 +1,10 @@
 import React from "react";
-import { Project } from "../../../shared/types";
+import { InitiativeViewModel } from "../../../shared/types";
 import { InitiativeCard } from "../components/shared/InitiativeCard";
 
 /** Backwards-compatible project-specific entry point for existing portfolio views. */
 export const ProjectCard: React.FC<{
-  project: Project;
+  project: InitiativeViewModel;
   onClick?: () => void;
   hideColorPicker?: boolean;
   isBacklogView?: boolean;

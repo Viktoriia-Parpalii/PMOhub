@@ -3,7 +3,13 @@ import { useAppContext } from "../../../../app/store";
 import { MutationResult } from "../../../../shared/types";
 import styles from "./DictionariesSection.module.css";
 import table from "./DictionaryTable.module.css";
-import { DictionaryActivationButton, DictionaryActionGroup, DictionaryDeleteButton, DictionaryStatusBadge } from "./DictionaryControls";
+import { DictionaryTableColumns } from "./DictionaryTableColumns";
+import {
+  DictionaryActivationButton,
+  DictionaryActionGroup,
+  DictionaryDeleteButton,
+  DictionaryStatusBadge,
+} from "./DictionaryControls";
 
 export type ProtectedDelete = (
   title: string,
@@ -61,10 +67,11 @@ export const DepartmentsSection = ({
       </div>
       <div className={styles.tableContainer}>
         <table className={table.table}>
+          <DictionaryTableColumns />
           <thead className={table.tableHead}>
             <tr>
-              <th className={table.headerCell}>Відділ</th>
-              <th className={`${table.headerCell} w-32`}>Ліміт capacity</th>
+              <th className={table.headerCell}>Назва</th>
+              <th className={table.detailHeaderCell}>Ліміт</th>
               <th className={table.statusHeaderCell}>Статус</th>
               <th aria-label="Дії" className={table.actionsHeaderCell} />
             </tr>
@@ -73,30 +80,34 @@ export const DepartmentsSection = ({
             {departments.map((department) => (
               <tr key={department.id} className={table.tableRow}>
                 <td className={table.primaryCell}>{department.name}</td>
-                <td className={table.secondaryCell}>
+                <td className={table.detailCell}>
                   {department.capacity_limit_points}
                 </td>
-                <td className={table.cell}>
-                  <DictionaryStatusBadge isActive={department.is_active !== false} />
+                <td className={table.statusCell}>
+                  <DictionaryStatusBadge
+                    isActive={department.is_active !== false}
+                  />
                 </td>
                 <td className={table.actionsCell}>
                   <DictionaryActionGroup>
                     <DictionaryActivationButton
                       onClick={() =>
-                      updateDepartment(department.id, {
-                        is_active: department.is_active === false,
-                      })
+                        updateDepartment(department.id, {
+                          is_active: department.is_active === false,
+                        })
                       }
                       isActive={department.is_active !== false}
                     />
-                    <DictionaryDeleteButton onClick={() =>
-                      requestProtectedDelete(
-                        "відділ",
-                        department.name,
-                        () => checkDepartmentDeletion(department.id),
-                        () => deleteDepartment(department.id),
-                      )
-                    } />
+                    <DictionaryDeleteButton
+                      onClick={() =>
+                        requestProtectedDelete(
+                          "відділ",
+                          department.name,
+                          () => checkDepartmentDeletion(department.id),
+                          () => deleteDepartment(department.id),
+                        )
+                      }
+                    />
                   </DictionaryActionGroup>
                 </td>
               </tr>

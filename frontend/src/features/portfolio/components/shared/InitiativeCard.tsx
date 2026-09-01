@@ -1,5 +1,5 @@
 import React from "react";
-import { OperationalTask, Project } from "../../../../shared/types";
+import { InitiativeViewModel } from "../../../../shared/types";
 import { calculateProgress, stripHtml } from "../../../../shared/utils";
 import { useAppContext } from "../../../../app/store";
 import {
@@ -14,7 +14,7 @@ import { getInitiativeStatus } from "../../../../domain/health";
 import { RichTextPreview } from "../../../../components/ui/RichTextEditor";
 import styles from "./InitiativeCard.module.css";
 
-type Initiative = Project | OperationalTask;
+type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
 
 export interface InitiativeCardProps {
@@ -59,9 +59,8 @@ export const InitiativeCard: React.FC<InitiativeCardProps> = ({
   const cardFields = customFields.filter(
     (field) => field.entityType === kind && field.showInCards,
   );
-  const effectiveStatus = initiative.is_backlog
-    ? "DEFAULT"
-    : initiative.health_status;
+  const effectiveStatus =
+    initiative.record_type === "YEAR" ? "DEFAULT" : initiative.health_status;
   const statusDefinition = getInitiativeStatus(
     effectiveStatus,
     initiativeStatuses,
@@ -102,7 +101,7 @@ export const InitiativeCard: React.FC<InitiativeCardProps> = ({
         className={styles.statusStripe}
         style={{ backgroundColor: statusDefinition.color }}
       />
-      {!hideColorPicker && !initiative.is_backlog && (
+      {!hideColorPicker && initiative.record_type === "CARD" && (
         <div className={styles.statusPicker}>
           <div className={styles.statusPickerLabel}>СТАТУС</div>
           <div className={styles.statusPickerOptions}>

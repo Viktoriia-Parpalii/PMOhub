@@ -1,12 +1,23 @@
 @import "tailwindcss";
 
 @layer base {
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none;
+  }
+
+  input[type="password"]::-webkit-credentials-auto-fill-button {
+    position: absolute;
+    right: 0;
+    visibility: hidden;
+  }
+
   select {
     padding-right: 3rem !important;
   }
 
   table thead th {
-    text-align: left !important;
+    text-align: left;
   }
 
   table thead th.portfolio-header-center {
@@ -15,28 +26,39 @@
 
   .rich-text-card-preview {
     overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 5;
     line-height: 1.35;
     overflow-wrap: anywhere;
   }
 
   .rich-text-card-preview p,
-  .rich-text-card-preview div {
+  .rich-text-card-preview div,
+  .rich-text-tooltip p,
+  .rich-text-tooltip div,
+  .rich-text-content p,
+  .rich-text-content div {
     margin: 0;
   }
 
   .rich-text-card-preview ul,
-  .rich-text-card-preview ol {
-    margin: 0;
-    padding-left: 1.15rem;
+  .rich-text-tooltip ul,
+  .rich-text-content ul {
+    margin: .25rem 0;
+    padding-left: 1.4rem;
+    list-style: disc outside;
   }
 
-  .rich-text-card-preview:hover {
-    display: block;
-    overflow: visible;
-    -webkit-line-clamp: unset;
+  .rich-text-card-preview ol,
+  .rich-text-tooltip ol,
+  .rich-text-content ol {
+    margin: .25rem 0;
+    padding-left: 1.4rem;
+    list-style: decimal outside;
+  }
+
+  .rich-text-card-preview li,
+  .rich-text-tooltip li,
+  .rich-text-content li {
+    display: list-item;
   }
 
   .custom-scrollbar {

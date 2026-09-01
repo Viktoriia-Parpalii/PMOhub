@@ -117,16 +117,9 @@
   outline: none;
 }
 
-.error {
-  margin: 0;
-  color: #e11d48;
-  font-size: .875rem;
-  font-weight: 500;
-}
-
 .submitButton {
   width: 100%;
-  margin-top: .5rem;
+  margin-top: 30px;
   border: 0;
   border-radius: .5rem;
   background: #6366f1;
@@ -138,6 +131,11 @@
 
 .submitButton:hover {
   background: #4f46e5;
+}
+
+.submitButton:disabled {
+  cursor: wait;
+  opacity: .7;
 }
 
 .changePassword {

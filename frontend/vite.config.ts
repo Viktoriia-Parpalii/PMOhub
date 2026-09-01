@@ -9,8 +9,8 @@ export default defineConfig(({ mode }) => {
     throw new Error('Production build requires a non-local VITE_API_URL');
   }
   return {
-    // GitHub Pages publishes this repository at /pmohub/.
-    base: env.VITE_BASE_PATH || '/pmohub/',
+    // GitHub Pages publishes this repository at /PMOhub/.
+    base: env.VITE_BASE_PATH || '/PMOhub/',
 
     plugins: [
       react(),

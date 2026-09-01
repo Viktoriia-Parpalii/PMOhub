@@ -34,7 +34,6 @@ jobs:
       DATABASE_URL: sqlserver://localhost:1433;database=pmohub;schema=dbo;user=sa;password=CiOnly_Strong_123;encrypt=true;trustServerCertificate=true
       JWT_ACCESS_SECRET: ci-only-access-secret-at-least-32-characters
       JWT_REFRESH_SECRET: ci-only-refresh-secret-at-least-32-characters
-      MERGE_TOKEN_SECRET: ci-only-merge-secret-at-least-32-characters
       RUN_DB_TESTS: 'true'
     steps:
       - uses: actions/checkout@v4

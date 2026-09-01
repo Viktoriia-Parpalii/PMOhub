@@ -1,5 +1,5 @@
 import { TaskModal } from "./TaskModal";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   getAvailableYears,
   truncateText,
@@ -7,10 +7,14 @@ import {
 } from "../../../shared/utils";
 import { useAppContext } from "../../../app/store";
 import { TaskCard } from "./TaskCard";
-import { OperationalTask } from "../../../shared/types";
-import { passportFrom } from "../../../domain/initiatives";
+import { InitiativeViewModel } from "../../../shared/types";
 import styles from "../components/shared/PortfolioTab.module.css";
 import { PortfolioTable } from "../components/shared/PortfolioTable";
+import {
+  loadInitiativeCardModel,
+  toQuarterCardViewModel,
+} from "../../../api/apiClient";
+import { AppLoader } from "../../../components/ui/AppLoader";
 
 export const TasksTab = () => {
   const {
@@ -23,12 +27,15 @@ export const TasksTab = () => {
     priorities,
     deleteTask,
     rolePermissions,
-    savePassport,
     createBacklogWithCards,
+    setInitiativeDataScope,
   } = useAppContext();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<OperationalTask | null>(null);
+  const [editingTask, setEditingTask] = useState<InitiativeViewModel | null>(
+    null,
+  );
+  const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -44,6 +51,13 @@ export const TasksTab = () => {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedQuarter, setSelectedQuarter] =
     useState<import("../../../shared/types").Quarter>(currentQuarter);
+  useEffect(() => {
+    setInitiativeDataScope({
+      mode: "tasks",
+      year: selectedYear,
+      quarter: selectedQuarter,
+    });
+  }, [selectedQuarter, selectedYear, setInitiativeDataScope]);
   const isArchive = isPeriodLocked(selectedYear, selectedQuarter);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
 
@@ -54,7 +68,9 @@ export const TasksTab = () => {
 
   let portfolioTasks = tasks.filter(
     (t) =>
-      !t.is_backlog && t.year === selectedYear && t.quarter === selectedQuarter,
+      t.record_type === "CARD" &&
+      t.year === selectedYear &&
+      t.quarter === selectedQuarter,
   );
   if (filterManager) {
     portfolioTasks = portfolioTasks.filter(
@@ -85,18 +101,24 @@ export const TasksTab = () => {
   const canEditArchive =
     userRolePerm?.canEditArchive ?? currentUser?.role === "SUPER_ADMIN";
   const canEditNormal = userRolePerm
-    ? userRolePerm.canCreateEditProjects && !userRolePerm.isReadOnly
+    ? userRolePerm.canCreateEditInitiatives && !userRolePerm.isReadOnly
     : currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN";
-  const canEdit = isArchive ? canEditArchive : canEditNormal;
+  const canEdit = isArchive ? canEditNormal && canEditArchive : canEditNormal;
 
   const taskCustomFields = (customFields || []).filter(
     (cf) => cf.entityType === "task" && cf.showInTable,
   );
 
-  const openEditModal = (task: OperationalTask) => {
-    setEditingTask(task);
-    setIsReadOnlyModal(!canEdit);
-    setIsModalOpen(true);
+  const openEditModal = async (task: InitiativeViewModel) => {
+    setIsLoadingCard(true);
+    try {
+      const response = await loadInitiativeCardModel(task.id);
+      setEditingTask(toQuarterCardViewModel(response.data));
+      setIsReadOnlyModal(!canEdit);
+      setIsModalOpen(true);
+    } finally {
+      setIsLoadingCard(false);
+    }
   };
   const openCreateModal = () => {
     setEditingTask(null);
@@ -106,6 +128,7 @@ export const TasksTab = () => {
 
   return (
     <div className={styles.portfolioTab}>
+      {isLoadingCard && <AppLoader label="Завантаження картки…" />}
       {isArchive && (
         <div className={styles.archiveBanner}>
           <div className={styles.archiveInfo}>
@@ -133,22 +156,16 @@ export const TasksTab = () => {
             }}
             className={styles.returnButton}
           >
-            <span className={styles.returnArrow}>
-              ←
-            </span>{" "}
-            Повернутись на поточний період
+            <span className={styles.returnArrow}>←</span> Повернутись на
+            поточний період
           </button>
         </div>
       )}
 
       <div className={styles.pageHeader}>
         <div>
-          <h2 className={styles.title}>
-            Портфель Операційних задач
-          </h2>
-          <p className={styles.subtitle}>
-            Всі задачі обраного періоду.
-          </p>
+          <h2 className={styles.title}>Портфель Операційних задач</h2>
+          <p className={styles.subtitle}>Всі задачі обраного періоду.</p>
         </div>
         <div className={styles.headerActions}>
           <div className={styles.periodSelectors}>
@@ -189,10 +206,7 @@ export const TasksTab = () => {
             </button>
           </div>
           {canEdit && (
-            <button
-              onClick={openCreateModal}
-              className={styles.addButton}
-            >
+            <button onClick={openCreateModal} className={styles.addButton}>
               + Додати задачу
             </button>
           )}
@@ -233,9 +247,13 @@ export const TasksTab = () => {
             className={`${styles.filterSelect} ${styles.priorityFilter}`}
           >
             <option value="">Всі пріоритети</option>
-            <option value="High">Високий</option>
-            <option value="Medium">Середній</option>
-            <option value="Low">Низький</option>
+            {(priorities || [])
+              .filter((priority) => priority.is_active !== false)
+              .map((priority) => (
+                <option key={priority.id} value={priority.id}>
+                  {priority.name}
+                </option>
+              ))}
           </select>
           {(filterManager || filterPriority || searchQuery || searchGoal) && (
             <button
@@ -285,44 +303,23 @@ export const TasksTab = () => {
           defaultQuarter={selectedQuarter}
           isReadOnly={isReadOnlyModal}
           onClose={() => setIsModalOpen(false)}
-          onSave={async (t, syncTargets) => {
+          onSave={async (t) => {
             if (editingTask) {
-              const backlogYears = (syncTargets ?? [])
-                .filter((id) => id.startsWith("BACKLOG_YEAR:"))
-                .map((id) => Number(id.split(":")[1]));
-              if ((syncTargets ?? []).includes(editingTask.backlog_id ?? ""))
-                backlogYears.push(editingTask.year);
-              const cardIds = (syncTargets ?? []).filter((id) =>
-                tasks.some((card) => !card.is_backlog && card.id === id),
-              );
-              const result = await savePassport({
-                kind: "task",
-                source: { type: "card", cardId: editingTask.id },
-                passportPatch: passportFrom(t),
-                sourceCardPatch: {
-                  checklist: t.checklist,
-                  health_status: t.health_status,
-                },
-                targets: { backlogYears, cardIds },
-              });
+              const result = await updateTask(editingTask.id, t);
               if (!result.success) {
                 alert(result.message);
-                return;
+                return result;
               }
+              setIsModalOpen(false);
+              return result;
             } else {
               const master = {
                 ...t,
-                is_backlog: true,
-                backlog_id: undefined,
+                record_type: "YEAR" as const,
+                initiative_id: t.initiative_id ?? t.id,
+                initiative_year_id: undefined,
                 checklist: [],
                 quarter: "Q1" as const,
-                yearSnapshots: {
-                  [String(t.year)]: {
-                    ...passportFrom(t),
-                    year: t.year,
-                    history: [],
-                  },
-                },
               };
               const result = await createBacklogWithCards(
                 "task",
@@ -332,10 +329,11 @@ export const TasksTab = () => {
               );
               if (!result.success) {
                 alert(result.message);
-                return;
+                return result;
               }
+              setIsModalOpen(false);
+              return result;
             }
-            setIsModalOpen(false);
           }}
           onDelete={async (id) => {
             const result = await deleteTask(id);

@@ -31,4 +31,6 @@ npm run build
 npm run preview
 ```
 
-У backend-режимі JSON backup використовує формат `6.0` без паролів, хешів і сесій. API також може імпортувати legacy формат `5.0`. ExcelJS завантажується окремо лише після натискання кнопки Excel export.
+Backup/recovery та Excel export не входять до поточного релізу. Майбутній Excel export буде спроєктовано окремо на основі актуальних server-side read models.
+
+Проєкт використовує npm і `package-lock.json` як єдиний package manager contract. `npm run test:e2e` запускає Playwright smoke-тести; `npm run check:bundle` перевіряє бюджет initial JS у 500 KB.

@@ -1,20 +1,24 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { useAppContext } from "../../../app/store";
-import { OperationalTask, Project } from "../../../shared/types";
+import { InitiativeViewModel } from "../../../shared/types";
 import { getYearSnapshot } from "../../../domain/initiatives";
 import styles from "./BacklogModals.module.css";
+import { notify } from "../../../components/ui/ToastNotifications";
+import { NOTIFICATION_KINDS } from "../../../shared/constants/notificationConstants";
 
 export const PreparationStageModal = ({
   item,
   type,
   onClose,
+  isReadOnly = false,
 }: {
-  item: Project | OperationalTask;
+  item: InitiativeViewModel;
   type: "project" | "task";
   onClose: () => void;
+  isReadOnly?: boolean;
 }) => {
-  const { departments, managers, priorities, updatePreparationStage, isMutating } =
+  const { departments, managers, priorities, updatePreparationStage } =
     useAppContext();
   const stage = getYearSnapshot(item, item.year)?.preparationStage;
   const [managerId, setManagerId] = useState(stage?.manager_id ?? "");
@@ -22,7 +26,9 @@ export const PreparationStageModal = ({
   const [departmentIds, setDepartmentIds] = useState(
     stage?.cross_functional_dept_ids ?? [],
   );
-  const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasRevisionConflict, setHasRevisionConflict] = useState(false);
+  const [isViewing, setIsViewing] = useState(isReadOnly);
   const toggle = (id: string) =>
     setDepartmentIds((current) =>
       current.includes(id)
@@ -30,16 +36,24 @@ export const PreparationStageModal = ({
         : [...current, id],
     );
   const save = async () => {
-    const result = await updatePreparationStage(type, item.id, {
-      manager_id: managerId || undefined,
-      priority: priority || undefined,
-      cross_functional_dept_ids: departmentIds,
-    });
-    if (!result.success) {
-      setError(result.message);
-      return;
+    if (isSaving || hasRevisionConflict) return;
+    setIsSaving(true);
+    try {
+      const result = await updatePreparationStage(type, item.id, {
+        manager_id: managerId || undefined,
+        priority: priority || undefined,
+        cross_functional_dept_ids: departmentIds,
+      });
+      if (!result.success) {
+        notify(NOTIFICATION_KINDS.error, result.message);
+        if (result.errorCode === "REVISION_CONFLICT")
+          setHasRevisionConflict(true);
+        return;
+      }
+      onClose();
+    } finally {
+      setIsSaving(false);
     }
-    onClose();
   };
   return createPortal(
     <div className={styles.preparationBackdrop}>
@@ -47,29 +61,23 @@ export const PreparationStageModal = ({
         <div className={styles.preparationHeader}>
           <div>
             <h2 className={styles.preparationTitle}>
-              Підготовчий етап · {item.year}
+              {isViewing ? "Перегляд" : "Редагування"} підготовчого етапу ·{" "}
+              {item.year}
             </h2>
             <p className={styles.preparationDescription}>
               Нульовий квартал: дані використаються для першої картки року.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className={styles.plainCloseButton}
-          >
+          <button onClick={onClose} className={styles.plainCloseButton}>
             ×
           </button>
         </div>
         <div className={styles.preparationBody}>
-          {error && (
-            <div className={styles.error}>
-              {error}
-            </div>
-          )}
           <div className={styles.twoColumnFields}>
             <label className={styles.selectLabel}>
               Менеджер
               <select
+                disabled={isViewing}
                 value={managerId}
                 onChange={(event) => setManagerId(event.target.value)}
                 className={styles.selectField}
@@ -90,6 +98,7 @@ export const PreparationStageModal = ({
             <label className={styles.selectLabel}>
               Пріоритет
               <select
+                disabled={isViewing}
                 value={priority}
                 onChange={(event) => setPriority(event.target.value)}
                 className={styles.selectField}
@@ -109,9 +118,7 @@ export const PreparationStageModal = ({
             </label>
           </div>
           <div>
-            <p className={styles.departmentLabel}>
-              Залучені підрозділи
-            </p>
+            <p className={styles.departmentLabel}>Залучені підрозділи</p>
             <div className={styles.departmentPicker}>
               {departments
                 .filter(
@@ -122,6 +129,7 @@ export const PreparationStageModal = ({
                 .map((department) => (
                   <button
                     type="button"
+                    disabled={isViewing}
                     key={department.id}
                     onClick={() => toggle(department.id)}
                     className={`${styles.departmentChip} ${departmentIds.includes(department.id) ? styles.departmentChipSelected : ""}`}
@@ -134,19 +142,31 @@ export const PreparationStageModal = ({
           </div>
         </div>
         <div className={styles.preparationFooter}>
-          <button
-            onClick={onClose}
-            className={styles.preparationCancel}
-          >
-            Скасувати
+          <button onClick={onClose} className={styles.preparationCancel}>
+            {isViewing ? "Закрити" : "Скасувати"}
           </button>
-          <button
-            onClick={save}
-            disabled={isMutating}
-            className={styles.preparationSave}
-          >
-            {isMutating ? "Збереження…" : "Зберегти"}
-          </button>
+          {isViewing && !isReadOnly && (
+            <button
+              type="button"
+              onClick={() => setIsViewing(false)}
+              className={styles.preparationSave}
+            >
+              Редагувати
+            </button>
+          )}
+          {!isViewing && (
+            <button
+              onClick={save}
+              disabled={isSaving || hasRevisionConflict}
+              className={styles.preparationSave}
+            >
+              {isSaving
+                ? "Збереження…"
+                : hasRevisionConflict
+                  ? "Оновіть запис"
+                  : "Зберегти"}
+            </button>
+          )}
         </div>
       </div>
     </div>,

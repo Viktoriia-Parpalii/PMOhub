@@ -85,8 +85,13 @@
 }
 
 .row {
+    background: var(--row-background, #fff);
     color: #1e293b;
     transition: background-color .15s;
+}
+
+.row:hover {
+    background: var(--row-hover-background, #f8fafc);
 }
 
 .rowDefault {
@@ -365,6 +370,12 @@
     text-align: right;
     white-space: nowrap;
     box-shadow: -4px 0 6px -2px rgb(0 0 0 / .05);
+    background: var(--row-background, #fff);
+    transition: background-color .15s;
+}
+
+.row:hover .actionsCell {
+    background: var(--row-hover-background, #f8fafc);
 }
 
 .stickyDefault {

@@ -25,7 +25,7 @@ HTTP_BODY_LIMIT=10mb
 EXPOSE_ERROR_DETAILS=true
 ```
 
-Задайте у цьому ж файлі унікальні значення довжиною щонайменше 32 символи для `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` і `MERGE_TOKEN_SECRET`. За потреби задайте `BOOTSTRAP_ADMIN_*`, щоб створити першого адміністратора під час seed.
+Задайте у цьому ж файлі унікальні значення довжиною щонайменше 32 символи для `JWT_ACCESS_SECRET` і `JWT_REFRESH_SECRET`. За потреби задайте `BOOTSTRAP_ADMIN_*`, щоб створити першого адміністратора під час seed.
 
 Далі, у новому терміналі:
 
@@ -61,7 +61,7 @@ VITE_API_URL=http://localhost:4000/api/v1
 
 Після зміни `VITE_*` змінних перезапустіть `npm run dev`. Якщо змінюєте порт або домен frontend, одночасно змініть `FRONTEND_ORIGIN` у `backend/.env` на точний origin (наприклад, `http://localhost:5173`) і перезапустіть API.
 
-`HTTP_BODY_LIMIT` обмежує розмір JSON-запитів, зокрема backup import; `10mb` достатньо для звичайного портфеля. `EXPOSE_ERROR_DETAILS=true` додає технічний текст і stack trace лише у JSON-відповідь для Network tab — frontend показує користувачу тільки локалізоване повідомлення. У production встановіть `EXPOSE_ERROR_DETAILS=false`.
+`HTTP_BODY_LIMIT` обмежує розмір JSON-запитів. `EXPOSE_ERROR_DETAILS=true` додає технічний текст і stack trace лише у JSON-відповідь для Network tab — frontend показує користувачу тільки локалізоване повідомлення. У production встановіть `EXPOSE_ERROR_DETAILS=false`.
 
 ### Docker-запуск API
 

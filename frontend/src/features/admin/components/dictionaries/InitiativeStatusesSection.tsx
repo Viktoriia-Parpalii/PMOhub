@@ -4,7 +4,13 @@ import { CircularColorInput } from "./CircularColorInput";
 import { ProtectedDelete } from "./DepartmentsSection";
 import styles from "./DictionariesSection.module.css";
 import table from "./DictionaryTable.module.css";
-import { DictionaryActivationButton, DictionaryActionGroup, DictionaryDeleteButton, DictionaryStatusBadge } from "./DictionaryControls";
+import { DictionaryTableColumns } from "./DictionaryTableColumns";
+import {
+  DictionaryActivationButton,
+  DictionaryActionGroup,
+  DictionaryDeleteButton,
+  DictionaryStatusBadge,
+} from "./DictionaryControls";
 
 export const InitiativeStatusesSection = ({
   requestProtectedDelete,
@@ -59,10 +65,12 @@ export const InitiativeStatusesSection = ({
       </div>
       <div className={styles.tableContainer}>
         <table className={table.table}>
+          <DictionaryTableColumns />
           <thead className={table.tableHead}>
             <tr>
-              <th className={table.headerCell}>Статус</th>
-              <th className={`${table.headerCell} w-32`}>Активність</th>
+              <th className={table.headerCell}>Назва</th>
+              <th className={table.detailHeaderCell} aria-hidden="true" />
+              <th className={table.statusHeaderCell}>Статус</th>
               <th aria-label="Дії" className={table.actionsHeaderCell} />
             </tr>
           </thead>
@@ -82,27 +90,30 @@ export const InitiativeStatusesSection = ({
                     <span>{status.name}</span>
                   </div>
                 </td>
-                <td className={table.cell}>
+                <td className={table.detailCell} aria-hidden="true" />
+                <td className={table.statusCell}>
                   <DictionaryStatusBadge isActive={status.is_active} />
                 </td>
                 <td className={table.actionsCell}>
                   <DictionaryActionGroup>
                     <DictionaryActivationButton
                       onClick={() =>
-                      updateInitiativeStatus(status.id, {
-                        is_active: !status.is_active,
-                      })
+                        updateInitiativeStatus(status.id, {
+                          is_active: !status.is_active,
+                        })
                       }
                       isActive={status.is_active}
                     />
-                    <DictionaryDeleteButton onClick={() =>
-                      requestProtectedDelete(
-                        "статус ініціативи",
-                        status.name,
-                        () => checkInitiativeStatusDeletion(status.id),
-                        () => deleteInitiativeStatus(status.id),
-                      )
-                    } />
+                    <DictionaryDeleteButton
+                      onClick={() =>
+                        requestProtectedDelete(
+                          "статус ініціативи",
+                          status.name,
+                          () => checkInitiativeStatusDeletion(status.id),
+                          () => deleteInitiativeStatus(status.id),
+                        )
+                      }
+                    />
                   </DictionaryActionGroup>
                 </td>
               </tr>

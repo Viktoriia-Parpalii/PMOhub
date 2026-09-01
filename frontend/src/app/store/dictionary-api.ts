@@ -45,7 +45,9 @@ export const dictionaryApiType = (key: DictionaryStateKey): DictionaryApiType =>
   routes[key];
 
 /** The API DTO uses the same snake_case fields as the frontend definitions. */
-export const dictionaryPayload = <T extends DictionaryItem>(item: T): Omit<T, "id"> => {
+export const dictionaryPayload = <T extends DictionaryItem>(
+  item: T,
+): Omit<T, "id"> => {
   const { id: _id, ...payload } = item;
   return payload;
 };

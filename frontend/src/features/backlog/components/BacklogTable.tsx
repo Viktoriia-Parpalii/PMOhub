@@ -120,7 +120,7 @@ export const BacklogTable = (props: BacklogTableProps) => {
                       ) : (
                         <span
                           className={styles.continuedBadge}
-                          title={`Snapshot ${props.selectedYear + 1} вже існує`}
+                          title={`Запис за ${props.selectedYear + 1} рік уже існує`}
                         >
                           Продовжено
                         </span>
@@ -136,7 +136,7 @@ export const BacklogTable = (props: BacklogTableProps) => {
                       {master.name}
                     </button>
                     <div className={styles.snapshotId}>
-                      {master.id} · snapshot {props.selectedYear}
+                      {master.id} · запис за {props.selectedYear} рік
                     </div>
                   </td>
                   <td className={styles.goalCell}>
@@ -313,7 +313,7 @@ const QuarterCard = ({
       type="button"
       onClick={() => onOpen(card)}
       className={styles.periodCard}
-      aria-label={`Редагувати ${card.quarter} ${card.year}`}
+      aria-label={`Переглянути ${card.quarter} ${card.year}`}
     >
       <div className={styles.periodTop}>
         <span className={styles.periodTitle}>
@@ -370,7 +370,7 @@ const PreparationCard = ({
   departments: Department[];
   onOpen: (item: BacklogInitiative) => void;
 }) => {
-  const stage = item.yearSnapshots?.[String(item.year)]?.preparationStage;
+  const stage = item.preparation_stage;
   return (
     <button
       type="button"

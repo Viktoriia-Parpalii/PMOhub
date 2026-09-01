@@ -1,5 +1,5 @@
 import { ProjectModal } from "./ProjectModal";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   getAvailableYears,
   truncateText,
@@ -7,10 +7,14 @@ import {
 } from "../../../shared/utils";
 import { useAppContext } from "../../../app/store";
 import { ProjectCard } from "./ProjectCard";
-import { Project } from "../../../shared/types";
-import { passportFrom } from "../../../domain/initiatives";
+import { InitiativeViewModel } from "../../../shared/types";
 import styles from "../components/shared/PortfolioTab.module.css";
 import { PortfolioTable } from "../components/shared/PortfolioTable";
+import {
+  loadInitiativeCardModel,
+  toQuarterCardViewModel,
+} from "../../../api/apiClient";
+import { AppLoader } from "../../../components/ui/AppLoader";
 
 export const ProjectsTab = () => {
   const {
@@ -23,12 +27,14 @@ export const ProjectsTab = () => {
     priorities,
     deleteProject,
     rolePermissions,
-    savePassport,
     createBacklogWithCards,
+    setInitiativeDataScope,
   } = useAppContext();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingProject, setEditingProject] =
+    useState<InitiativeViewModel | null>(null);
+  const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -44,6 +50,13 @@ export const ProjectsTab = () => {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedQuarter, setSelectedQuarter] =
     useState<import("../../../shared/types").Quarter>(currentQuarter);
+  useEffect(() => {
+    setInitiativeDataScope({
+      mode: "projects",
+      year: selectedYear,
+      quarter: selectedQuarter,
+    });
+  }, [selectedQuarter, selectedYear, setInitiativeDataScope]);
   const isArchive = isPeriodLocked(selectedYear, selectedQuarter);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
 
@@ -54,7 +67,9 @@ export const ProjectsTab = () => {
 
   let portfolioProjects = projects.filter(
     (p) =>
-      !p.is_backlog && p.year === selectedYear && p.quarter === selectedQuarter,
+      p.record_type === "CARD" &&
+      p.year === selectedYear &&
+      p.quarter === selectedQuarter,
   );
   if (filterManager) {
     portfolioProjects = portfolioProjects.filter(
@@ -85,18 +100,24 @@ export const ProjectsTab = () => {
   const canEditArchive =
     userRolePerm?.canEditArchive ?? currentUser?.role === "SUPER_ADMIN";
   const canEditNormal = userRolePerm
-    ? userRolePerm.canCreateEditProjects && !userRolePerm.isReadOnly
+    ? userRolePerm.canCreateEditInitiatives && !userRolePerm.isReadOnly
     : currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN";
-  const canEdit = isArchive ? canEditArchive : canEditNormal;
+  const canEdit = isArchive ? canEditNormal && canEditArchive : canEditNormal;
 
   const projCustomFields = (customFields || []).filter(
     (cf) => cf.entityType === "project" && cf.showInTable,
   );
 
-  const openEditModal = (proj: Project) => {
-    setEditingProject(proj);
-    setIsReadOnlyModal(!canEdit);
-    setIsModalOpen(true);
+  const openEditModal = async (proj: InitiativeViewModel) => {
+    setIsLoadingCard(true);
+    try {
+      const response = await loadInitiativeCardModel(proj.id);
+      setEditingProject(toQuarterCardViewModel(response.data));
+      setIsReadOnlyModal(!canEdit);
+      setIsModalOpen(true);
+    } finally {
+      setIsLoadingCard(false);
+    }
   };
   const openCreateModal = () => {
     setEditingProject(null);
@@ -106,6 +127,7 @@ export const ProjectsTab = () => {
 
   return (
     <div className={styles.portfolioTab}>
+      {isLoadingCard && <AppLoader label="Завантаження картки…" />}
       {isArchive && (
         <div className={styles.archiveBanner}>
           <div className={styles.archiveInfo}>
@@ -133,22 +155,16 @@ export const ProjectsTab = () => {
             }}
             className={styles.returnButton}
           >
-            <span className={styles.returnArrow}>
-              ←
-            </span>{" "}
-            Повернутись на поточний період
+            <span className={styles.returnArrow}>←</span> Повернутись на
+            поточний період
           </button>
         </div>
       )}
 
       <div className={styles.pageHeader}>
         <div>
-          <h2 className={styles.title}>
-            Портфель Проєктів
-          </h2>
-          <p className={styles.subtitle}>
-            Всі проєкти обраного періоду.
-          </p>
+          <h2 className={styles.title}>Портфель Проєктів</h2>
+          <p className={styles.subtitle}>Всі проєкти обраного періоду.</p>
         </div>
         <div className={styles.headerActions}>
           <div className={styles.periodSelectors}>
@@ -189,10 +205,7 @@ export const ProjectsTab = () => {
             </button>
           </div>
           {canEdit && (
-            <button
-              onClick={openCreateModal}
-              className={styles.addButton}
-            >
+            <button onClick={openCreateModal} className={styles.addButton}>
               + Додати проєкт
             </button>
           )}
@@ -233,9 +246,13 @@ export const ProjectsTab = () => {
             className={`${styles.filterSelect} ${styles.priorityFilter}`}
           >
             <option value="">Всі пріоритети</option>
-            <option value="High">Високий</option>
-            <option value="Medium">Середній</option>
-            <option value="Low">Низький</option>
+            {(priorities || [])
+              .filter((priority) => priority.is_active !== false)
+              .map((priority) => (
+                <option key={priority.id} value={priority.id}>
+                  {priority.name}
+                </option>
+              ))}
           </select>
           {(filterManager || filterPriority || searchQuery || searchGoal) && (
             <button
@@ -285,44 +302,23 @@ export const ProjectsTab = () => {
           defaultQuarter={selectedQuarter}
           isReadOnly={isReadOnlyModal}
           onClose={() => setIsModalOpen(false)}
-          onSave={async (proj, syncTargets) => {
+          onSave={async (proj) => {
             if (editingProject) {
-              const backlogYears = (syncTargets ?? [])
-                .filter((id) => id.startsWith("BACKLOG_YEAR:"))
-                .map((id) => Number(id.split(":")[1]));
-              if ((syncTargets ?? []).includes(editingProject.backlog_id ?? ""))
-                backlogYears.push(editingProject.year);
-              const cardIds = (syncTargets ?? []).filter((id) =>
-                projects.some((card) => !card.is_backlog && card.id === id),
-              );
-              const result = await savePassport({
-                kind: "project",
-                source: { type: "card", cardId: editingProject.id },
-                passportPatch: passportFrom(proj),
-                sourceCardPatch: {
-                  checklist: proj.checklist,
-                  health_status: proj.health_status,
-                },
-                targets: { backlogYears, cardIds },
-              });
+              const result = await updateProject(editingProject.id, proj);
               if (!result.success) {
                 alert(result.message);
-                return;
+                return result;
               }
+              setIsModalOpen(false);
+              return result;
             } else {
               const master = {
                 ...proj,
-                is_backlog: true,
-                backlog_id: undefined,
+                record_type: "YEAR" as const,
+                initiative_id: proj.initiative_id ?? proj.id,
+                initiative_year_id: undefined,
                 checklist: [],
                 quarter: "Q1" as const,
-                yearSnapshots: {
-                  [String(proj.year)]: {
-                    ...passportFrom(proj),
-                    year: proj.year,
-                    history: [],
-                  },
-                },
               };
               const result = await createBacklogWithCards(
                 "project",
@@ -332,10 +328,11 @@ export const ProjectsTab = () => {
               );
               if (!result.success) {
                 alert(result.message);
-                return;
+                return result;
               }
+              setIsModalOpen(false);
+              return result;
             }
-            setIsModalOpen(false);
           }}
           onDelete={async (id) => {
             const result = await deleteProject(id);

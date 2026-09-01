@@ -81,6 +81,7 @@ export const AppSidebar = ({
       <div className={styles.profileSummary}>
         <button
           type="button"
+          aria-label="Відкрити профіль"
           onClick={onToggleProfileMenu}
           className={styles.avatarButton}
         >

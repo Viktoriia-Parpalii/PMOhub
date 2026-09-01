@@ -1,17 +1,19 @@
 import React from "react";
-import { OperationalTask, Quarter } from "../../../shared/types";
+import {
+  InitiativeViewModel,
+  MutationResult,
+  Quarter,
+} from "../../../shared/types";
 import { InitiativeCardModal } from "../../initiatives/components/InitiativeCardModal";
 
 interface Props {
-  task: OperationalTask | null;
+  task: InitiativeViewModel | null;
   onClose: () => void;
   onSave: (
-    task: OperationalTask,
-    syncTargets?: string[],
-    initialQuarters?: Quarter[],
-  ) => void;
+    task: InitiativeViewModel,
+  ) => void | MutationResult | Promise<void | MutationResult>;
   isReadOnly?: boolean;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string) => void | Promise<void>;
   defaultYear?: number;
   defaultQuarter?: Quarter;
   defaultIsBacklog?: boolean;
@@ -22,7 +24,7 @@ export const TaskModal = (props: Props) => (
     kind="task"
     item={props.task}
     onClose={props.onClose}
-    onSave={(item, targets) => props.onSave(item as OperationalTask, targets)}
+    onSave={props.onSave}
     onDelete={props.onDelete}
     isReadOnly={props.isReadOnly}
     defaultYear={props.defaultYear}

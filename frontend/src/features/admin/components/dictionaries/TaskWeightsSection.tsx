@@ -4,7 +4,14 @@ import { useAppContext } from "../../../../app/store";
 import { MutationResult } from "../../../../shared/types";
 import styles from "./DictionariesSection.module.css";
 import table from "./DictionaryTable.module.css";
-import { DictionaryActionButton, DictionaryActionGroup, DictionaryActivationButton, DictionaryDeleteButton, DictionaryStatusBadge } from "./DictionaryControls";
+import { DictionaryTableColumns } from "./DictionaryTableColumns";
+import {
+  DictionaryActionButton,
+  DictionaryActionGroup,
+  DictionaryActivationButton,
+  DictionaryDeleteButton,
+  DictionaryStatusBadge,
+} from "./DictionaryControls";
 
 export type WeightEditor = { id: string; name: string; weight: number } | null;
 export type BulkWeight = { id: string; name: string } | null;
@@ -64,20 +71,21 @@ export const TaskWeightsSection = ({
       </div>
       <div className={styles.tableContainer}>
         <table className={table.table}>
+          <DictionaryTableColumns />
           <thead className={table.tableHead}>
             <tr>
-              <th className={`${table.headerCell} w-[44%]`}>Розмір</th>
-              <th className={`${table.headerCell} w-24`}>Вага</th>
-              <th className={`${table.headerCell} w-40 px-3`}>Статус</th>
-              <th aria-label="Дії" className="w-60 py-4 pl-2 pr-4" />
+              <th className={table.headerCell}>Назва</th>
+              <th className={table.detailHeaderCell}>Вага</th>
+              <th className={table.statusHeaderCell}>Статус</th>
+              <th aria-label="Дії" className={table.actionsHeaderCell} />
             </tr>
           </thead>
           <tbody className={table.tableBody}>
             {taskWeights.map((item) => (
               <tr key={item.id} className={table.tableRow}>
                 <td className={table.primaryCell}>{item.name}</td>
-                <td className={table.primaryCell}>{item.weight}</td>
-                <td className={table.cell}>
+                <td className={table.detailCell}>{item.weight}</td>
+                <td className={table.statusCell}>
                   <DictionaryStatusBadge isActive={item.is_active !== false} />
                 </td>
                 <td className={table.actionsCell}>

@@ -1,6 +1,19 @@
-import { Module } from '@nestjs/common';
-import { InitiativesController } from './api/initiatives.controller';
-import { InitiativesService } from './application/initiatives.service';
+import { Module } from "@nestjs/common";
+import {
+  InitiativesController,
+  InitiativeYearsController,
+  QuarterCardsController,
+} from "./api/initiatives.controller";
+import { InitiativesService } from "./application/initiatives.service";
+import { InitiativeQueryService } from "./application/initiative-query.service";
 
-@Module({ controllers: [InitiativesController], providers: [InitiativesService], exports: [InitiativesService] })
+@Module({
+  controllers: [
+    InitiativesController,
+    InitiativeYearsController,
+    QuarterCardsController,
+  ],
+  providers: [InitiativesService, InitiativeQueryService],
+  exports: [InitiativesService, InitiativeQueryService],
+})
 export class InitiativesModule {}

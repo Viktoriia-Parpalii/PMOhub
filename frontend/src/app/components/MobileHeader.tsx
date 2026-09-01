@@ -18,7 +18,7 @@ export const MobileHeader = ({
         type="button"
         onClick={onOpenMenu}
         className={styles.mobileMenuButton}
-        aria-label="Toggle menu"
+        aria-label="Відкрити або закрити меню"
       >
         <Menu size={22} />
       </button>

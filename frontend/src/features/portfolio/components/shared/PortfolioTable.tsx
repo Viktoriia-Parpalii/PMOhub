@@ -1,11 +1,7 @@
 import React from "react";
 import { Edit2, Eye } from "lucide-react";
 import { useAppContext } from "../../../../app/store";
-import {
-  CustomFieldDef,
-  OperationalTask,
-  Project,
-} from "../../../../shared/types";
+import { CustomFieldDef, InitiativeViewModel } from "../../../../shared/types";
 import { stripHtml } from "../../../../shared/utils";
 import {
   colorWithAlpha,
@@ -18,7 +14,7 @@ import {
 import { RichTextPreview } from "../../../../components/ui/RichTextEditor";
 import styles from "./PortfolioTable.module.css";
 
-type Initiative = Project | OperationalTask;
+type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
 
 type PortfolioTableProps = {
@@ -39,32 +35,6 @@ const getScopeClasses = (color?: string) => {
       return { dot: styles.scopeDotRed, text: styles.scopeTextRed };
     default:
       return { dot: styles.scopeDotDefault, text: styles.scopeTextDefault };
-  }
-};
-
-const getRowClass = (status?: string) => {
-  switch (status) {
-    case "GREEN":
-      return styles.rowGreen;
-    case "YELLOW":
-      return styles.rowYellow;
-    case "RED":
-      return styles.rowRed;
-    default:
-      return styles.rowDefault;
-  }
-};
-
-const getStickyClass = (status?: string) => {
-  switch (status) {
-    case "GREEN":
-      return styles.stickyGreen;
-    case "YELLOW":
-      return styles.stickyYellow;
-    case "RED":
-      return styles.stickyRed;
-    default:
-      return styles.stickyDefault;
   }
 };
 
@@ -161,13 +131,19 @@ export const PortfolioTable = ({
             return (
               <tr
                 key={initiative.id}
-                className={`${styles.row} ${getRowClass(status)}`}
-                style={{
-                  backgroundColor: colorWithAlpha(
-                    statusPresentation.color,
-                    0.07,
-                  ),
-                }}
+                className={styles.row}
+                style={
+                  {
+                    "--row-background": colorWithAlpha(
+                      statusPresentation.color,
+                      0.07,
+                    ),
+                    "--row-hover-background": colorWithAlpha(
+                      statusPresentation.color,
+                      0.13,
+                    ),
+                  } as React.CSSProperties
+                }
               >
                 <td className={`${styles.cell} ${styles.managerCell}`}>
                   <span className={styles.clampedTwo} title={managerName}>
@@ -322,25 +298,26 @@ export const PortfolioTable = ({
                 </td>
                 {customFields.map((field) => {
                   const value = initiative.custom_fields?.[field.id];
+                  const displayValue =
+                    field.type === "CHECKBOX"
+                      ? value === true
+                        ? "Так"
+                        : "Ні"
+                      : value !== undefined && value !== null && value !== ""
+                        ? String(value)
+                        : "—";
                   return (
                     <td
                       key={field.id}
                       className={`${styles.cell} ${styles.customCell}`}
                     >
-                      <span
-                        className={styles.clampedTwo}
-                        title={String(value ?? "")}
-                      >
-                        {value !== undefined && value !== null && value !== ""
-                          ? String(value)
-                          : "—"}
+                      <span className={styles.clampedTwo} title={displayValue}>
+                        {displayValue}
                       </span>
                     </td>
                   );
                 })}
-                <td
-                  className={`${styles.actionsCell} ${getStickyClass(status)} `}
-                >
+                <td className={styles.actionsCell}>
                   <button
                     onClick={() => onOpen(initiative)}
                     className={styles.openButton}

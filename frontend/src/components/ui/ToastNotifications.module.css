@@ -1,8 +1,8 @@
 .region {
     position: fixed;
-    top: 1rem;
+    top: 1.75rem;
     right: 1rem;
-    z-index: 200;
+    z-index: 2100;
     display: flex;
     width: min(24rem, calc(100vw - 2rem));
     flex-direction: column;
@@ -66,10 +66,21 @@
 }
 
 @keyframes enter {
-    from { opacity: 0; transform: translateY(-.5rem) translateX(.5rem); }
-    to { opacity: 1; transform: translateY(0) translateX(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-.5rem) translateX(.5rem);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) translateX(0);
+    }
 }
 
 @media (max-width: 640px) {
-    .region { top: .75rem; right: .75rem; width: calc(100vw - 1.5rem); }
+    .region {
+        top: 1.25rem;
+        right: .75rem;
+        width: calc(100vw - 1.5rem);
+    }
 }

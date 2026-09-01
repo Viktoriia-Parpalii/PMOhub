@@ -39,11 +39,11 @@ CREATE TABLE [dbo].[refresh_tokens] (
 -- CreateTable
 CREATE TABLE [dbo].[role_permissions] (
     [role] VARCHAR(32) NOT NULL,
-    [can_create_edit_projects] BIT NOT NULL,
-    [can_delete_projects] BIT NOT NULL,
-    [can_access_admin] BIT NOT NULL,
-    [is_read_only] BIT NOT NULL,
-    [can_edit_archive] BIT NOT NULL,
+    [can_create_edit_initiatives] BIT NOT NULL CONSTRAINT [role_permissions_can_create_edit_initiatives_df] DEFAULT 0,
+    [can_delete_initiatives] BIT NOT NULL CONSTRAINT [role_permissions_can_delete_initiatives_df] DEFAULT 0,
+    [can_access_admin] BIT NOT NULL CONSTRAINT [role_permissions_can_access_admin_df] DEFAULT 0,
+    [is_read_only] BIT NOT NULL CONSTRAINT [role_permissions_is_read_only_df] DEFAULT 0,
+    [can_edit_archive] BIT NOT NULL CONSTRAINT [role_permissions_can_edit_archive_df] DEFAULT 0,
     CONSTRAINT [role_permissions_pkey] PRIMARY KEY CLUSTERED ([role])
 );
 
@@ -52,7 +52,7 @@ CREATE TABLE [dbo].[departments] (
     [id] UNIQUEIDENTIFIER NOT NULL,
     [name] NVARCHAR(200) NOT NULL,
     [normalized_name] NVARCHAR(200) NOT NULL,
-    [capacity_limit_points] DECIMAL(12,2) NOT NULL,
+    [capacity_limit_points] DECIMAL(12,2) NOT NULL CONSTRAINT [departments_capacity_limit_points_df] DEFAULT 0,
     [is_active] BIT NOT NULL CONSTRAINT [departments_is_active_df] DEFAULT 1,
     [created_at] DATETIME2 NOT NULL CONSTRAINT [departments_created_at_df] DEFAULT CURRENT_TIMESTAMP,
     [updated_at] DATETIME2 NOT NULL,
@@ -87,62 +87,65 @@ CREATE TABLE [dbo].[priorities] (
 );
 
 -- CreateTable
-CREATE TABLE [dbo].[initiative_statuses] (
+CREATE TABLE [dbo].[card_status_definitions] (
     [id] UNIQUEIDENTIFIER NOT NULL,
-    [code] VARCHAR(64) NOT NULL,
+    [code] VARCHAR(32) NOT NULL,
     [name] NVARCHAR(100) NOT NULL,
     [normalized_name] NVARCHAR(100) NOT NULL,
-    [color] VARCHAR(7) NOT NULL,
-    [is_active] BIT NOT NULL CONSTRAINT [initiative_statuses_is_active_df] DEFAULT 1,
-    [created_at] DATETIME2 NOT NULL CONSTRAINT [initiative_statuses_created_at_df] DEFAULT CURRENT_TIMESTAMP,
+    [color] VARCHAR(20) NOT NULL,
+    [is_active] BIT NOT NULL CONSTRAINT [card_status_definitions_is_active_df] DEFAULT 1,
+    [is_system] BIT NOT NULL CONSTRAINT [card_status_definitions_is_system_df] DEFAULT 0,
+    [created_at] DATETIME2 NOT NULL CONSTRAINT [card_status_definitions_created_at_df] DEFAULT CURRENT_TIMESTAMP,
     [updated_at] DATETIME2 NOT NULL,
-    CONSTRAINT [initiative_statuses_pkey] PRIMARY KEY CLUSTERED ([id]),
-    CONSTRAINT [UX_initiative_statuses_code] UNIQUE NONCLUSTERED ([code]),
-    CONSTRAINT [UX_initiative_statuses_normalized_name] UNIQUE NONCLUSTERED ([normalized_name])
+    CONSTRAINT [card_status_definitions_pkey] PRIMARY KEY CLUSTERED ([id]),
+    CONSTRAINT [UX_card_status_definitions_code] UNIQUE NONCLUSTERED ([code]),
+    CONSTRAINT [UX_card_status_definitions_normalized_name] UNIQUE NONCLUSTERED ([normalized_name])
 );
 
 -- CreateTable
-CREATE TABLE [dbo].[task_weights] (
+CREATE TABLE [dbo].[task_weight_definitions] (
     [id] UNIQUEIDENTIFIER NOT NULL,
     [name] NVARCHAR(100) NOT NULL,
     [normalized_name] NVARCHAR(100) NOT NULL,
     [weight] DECIMAL(12,2) NOT NULL,
-    [is_active] BIT NOT NULL CONSTRAINT [task_weights_is_active_df] DEFAULT 1,
-    [created_at] DATETIME2 NOT NULL CONSTRAINT [task_weights_created_at_df] DEFAULT CURRENT_TIMESTAMP,
+    [is_default] BIT NOT NULL CONSTRAINT [task_weight_definitions_is_default_df] DEFAULT 0,
+    [is_system] BIT NOT NULL CONSTRAINT [task_weight_definitions_is_system_df] DEFAULT 0,
+    [is_active] BIT NOT NULL CONSTRAINT [task_weight_definitions_is_active_df] DEFAULT 1,
+    [created_at] DATETIME2 NOT NULL CONSTRAINT [task_weight_definitions_created_at_df] DEFAULT CURRENT_TIMESTAMP,
     [updated_at] DATETIME2 NOT NULL,
-    CONSTRAINT [task_weights_pkey] PRIMARY KEY CLUSTERED ([id]),
-    CONSTRAINT [UX_task_weights_normalized_name] UNIQUE NONCLUSTERED ([normalized_name])
+    CONSTRAINT [task_weight_definitions_pkey] PRIMARY KEY CLUSTERED ([id]),
+    CONSTRAINT [UX_task_weight_definitions_normalized_name] UNIQUE NONCLUSTERED ([normalized_name])
 );
 
 -- CreateTable
-CREATE TABLE [dbo].[initiative_sizes] (
+CREATE TABLE [dbo].[initiative_size_definitions] (
     [id] UNIQUEIDENTIFIER NOT NULL,
     [name] NVARCHAR(100) NOT NULL,
     [normalized_name] NVARCHAR(100) NOT NULL,
     [min_score] DECIMAL(12,2) NOT NULL,
     [max_score] DECIMAL(12,2) NOT NULL,
-    [is_active] BIT NOT NULL CONSTRAINT [initiative_sizes_is_active_df] DEFAULT 1,
-    [created_at] DATETIME2 NOT NULL CONSTRAINT [initiative_sizes_created_at_df] DEFAULT CURRENT_TIMESTAMP,
+    [is_active] BIT NOT NULL CONSTRAINT [initiative_size_definitions_is_active_df] DEFAULT 1,
+    [created_at] DATETIME2 NOT NULL CONSTRAINT [initiative_size_definitions_created_at_df] DEFAULT CURRENT_TIMESTAMP,
     [updated_at] DATETIME2 NOT NULL,
-    CONSTRAINT [initiative_sizes_pkey] PRIMARY KEY CLUSTERED ([id]),
-    CONSTRAINT [UX_initiative_sizes_normalized_name] UNIQUE NONCLUSTERED ([normalized_name])
+    CONSTRAINT [initiative_size_definitions_pkey] PRIMARY KEY CLUSTERED ([id]),
+    CONSTRAINT [UX_initiative_size_definitions_normalized_name] UNIQUE NONCLUSTERED ([normalized_name])
 );
 
 -- CreateTable
 CREATE TABLE [dbo].[custom_field_definitions] (
     [id] UNIQUEIDENTIFIER NOT NULL,
-    [entity_type] VARCHAR(16) NOT NULL,
     [name] NVARCHAR(200) NOT NULL,
     [normalized_name] NVARCHAR(200) NOT NULL,
+    [entity_type] VARCHAR(16) NOT NULL,
     [field_type] VARCHAR(16) NOT NULL,
     [is_required] BIT NOT NULL CONSTRAINT [custom_field_definitions_is_required_df] DEFAULT 0,
+    [is_active] BIT NOT NULL CONSTRAINT [custom_field_definitions_is_active_df] DEFAULT 1,
     [show_in_table] BIT NOT NULL CONSTRAINT [custom_field_definitions_show_in_table_df] DEFAULT 0,
     [show_in_cards] BIT NOT NULL CONSTRAINT [custom_field_definitions_show_in_cards_df] DEFAULT 0,
-    [is_active] BIT NOT NULL CONSTRAINT [custom_field_definitions_is_active_df] DEFAULT 1,
     [created_at] DATETIME2 NOT NULL CONSTRAINT [custom_field_definitions_created_at_df] DEFAULT CURRENT_TIMESTAMP,
     [updated_at] DATETIME2 NOT NULL,
     CONSTRAINT [custom_field_definitions_pkey] PRIMARY KEY CLUSTERED ([id]),
-    CONSTRAINT [UX_custom_fields_entity_name] UNIQUE NONCLUSTERED ([entity_type],[normalized_name])
+    CONSTRAINT [UX_custom_field_definitions_entity_name] UNIQUE NONCLUSTERED ([entity_type],[normalized_name])
 );
 
 -- CreateTable
@@ -151,51 +154,21 @@ CREATE TABLE [dbo].[custom_field_options] (
     [definition_id] UNIQUEIDENTIFIER NOT NULL,
     [value] NVARCHAR(500) NOT NULL,
     [sort_order] INT NOT NULL,
+    [is_active] BIT NOT NULL CONSTRAINT [custom_field_options_is_active_df] DEFAULT 1,
     CONSTRAINT [custom_field_options_pkey] PRIMARY KEY CLUSTERED ([id]),
-    CONSTRAINT [UX_custom_field_options_value] UNIQUE NONCLUSTERED ([definition_id],[value]),
-    CONSTRAINT [UX_custom_field_options_order] UNIQUE NONCLUSTERED ([definition_id],[sort_order])
+    CONSTRAINT [UX_custom_field_options_definition_value] UNIQUE NONCLUSTERED ([definition_id],[value]),
+    CONSTRAINT [UX_custom_field_options_definition_order] UNIQUE NONCLUSTERED ([definition_id],[sort_order])
 );
 
 -- CreateTable
 CREATE TABLE [dbo].[initiatives] (
     [id] UNIQUEIDENTIFIER NOT NULL,
-    [kind] VARCHAR(16) NOT NULL,
+    [kind] VARCHAR(32) NOT NULL,
+    [name] NVARCHAR(500) NOT NULL,
+    [revision] INT NOT NULL CONSTRAINT [initiatives_revision_df] DEFAULT 1,
     [created_at] DATETIME2 NOT NULL CONSTRAINT [initiatives_created_at_df] DEFAULT CURRENT_TIMESTAMP,
     [updated_at] DATETIME2 NOT NULL,
     CONSTRAINT [initiatives_pkey] PRIMARY KEY CLUSTERED ([id])
-);
-
--- CreateTable
-CREATE TABLE [dbo].[passports] (
-    [id] UNIQUEIDENTIFIER NOT NULL,
-    [name] NVARCHAR(300) NOT NULL,
-    [strategic_goal] NVARCHAR(max),
-    [manager_id] UNIQUEIDENTIFIER,
-    [priority_id] UNIQUEIDENTIFIER,
-    [notes] NVARCHAR(max),
-    [created_at] DATETIME2 NOT NULL CONSTRAINT [passports_created_at_df] DEFAULT CURRENT_TIMESTAMP,
-    [updated_at] DATETIME2 NOT NULL,
-    CONSTRAINT [passports_pkey] PRIMARY KEY CLUSTERED ([id])
-);
-
--- CreateTable
-CREATE TABLE [dbo].[passport_departments] (
-    [passport_id] UNIQUEIDENTIFIER NOT NULL,
-    [department_id] UNIQUEIDENTIFIER NOT NULL,
-    [involvement] VARCHAR(32) NOT NULL,
-    CONSTRAINT [passport_departments_pkey] PRIMARY KEY CLUSTERED ([passport_id],[department_id],[involvement])
-);
-
--- CreateTable
-CREATE TABLE [dbo].[custom_field_values] (
-    [id] UNIQUEIDENTIFIER NOT NULL,
-    [definition_id] UNIQUEIDENTIFIER NOT NULL,
-    [passport_id] UNIQUEIDENTIFIER NOT NULL,
-    [text_value] NVARCHAR(max),
-    [number_value] DECIMAL(32,8),
-    [boolean_value] BIT,
-    CONSTRAINT [custom_field_values_pkey] PRIMARY KEY CLUSTERED ([id]),
-    CONSTRAINT [UX_custom_field_values_owner] UNIQUE NONCLUSTERED ([definition_id],[passport_id])
 );
 
 -- CreateTable
@@ -203,75 +176,106 @@ CREATE TABLE [dbo].[initiative_years] (
     [id] UNIQUEIDENTIFIER NOT NULL,
     [initiative_id] UNIQUEIDENTIFIER NOT NULL,
     [year] INT NOT NULL,
-    [annual_passport_id] UNIQUEIDENTIFIER NOT NULL,
-    [preparation_passport_id] UNIQUEIDENTIFIER NOT NULL,
+    [strategic_goal] NVARCHAR(2000),
     [revision] INT NOT NULL CONSTRAINT [initiative_years_revision_df] DEFAULT 1,
     [created_at] DATETIME2 NOT NULL CONSTRAINT [initiative_years_created_at_df] DEFAULT CURRENT_TIMESTAMP,
     [updated_at] DATETIME2 NOT NULL,
     CONSTRAINT [initiative_years_pkey] PRIMARY KEY CLUSTERED ([id]),
-    CONSTRAINT [UX_initiative_years_annual_passport] UNIQUE NONCLUSTERED ([annual_passport_id]),
-    CONSTRAINT [UX_initiative_years_preparation_passport] UNIQUE NONCLUSTERED ([preparation_passport_id]),
     CONSTRAINT [UX_initiative_years_initiative_year] UNIQUE NONCLUSTERED ([initiative_id],[year])
+);
+
+-- CreateTable
+CREATE TABLE [dbo].[preparation_stages] (
+    [initiative_year_id] UNIQUEIDENTIFIER NOT NULL,
+    [manager_id] UNIQUEIDENTIFIER,
+    [priority_id] UNIQUEIDENTIFIER,
+    [revision] INT NOT NULL CONSTRAINT [preparation_stages_revision_df] DEFAULT 1,
+    [created_at] DATETIME2 NOT NULL CONSTRAINT [preparation_stages_created_at_df] DEFAULT CURRENT_TIMESTAMP,
+    [updated_at] DATETIME2 NOT NULL,
+    CONSTRAINT [preparation_stages_pkey] PRIMARY KEY CLUSTERED ([initiative_year_id])
+);
+
+-- CreateTable
+CREATE TABLE [dbo].[preparation_stage_departments] (
+    [initiative_year_id] UNIQUEIDENTIFIER NOT NULL,
+    [department_id] UNIQUEIDENTIFIER NOT NULL,
+    CONSTRAINT [preparation_stage_departments_pkey] PRIMARY KEY CLUSTERED ([initiative_year_id],[department_id])
 );
 
 -- CreateTable
 CREATE TABLE [dbo].[quarter_cards] (
     [id] UNIQUEIDENTIFIER NOT NULL,
     [initiative_year_id] UNIQUEIDENTIFIER NOT NULL,
-    [passport_id] UNIQUEIDENTIFIER NOT NULL,
-    [quarter] CHAR(2) NOT NULL,
-    [status_id] UNIQUEIDENTIFIER,
+    [quarter] INT NOT NULL,
+    [manager_id] UNIQUEIDENTIFIER,
+    [priority_id] UNIQUEIDENTIFIER,
+    [notes] NVARCHAR(max),
+    [status_id] UNIQUEIDENTIFIER NOT NULL,
+    [total_weight] DECIMAL(12,2) NOT NULL CONSTRAINT [quarter_cards_total_weight_df] DEFAULT 0,
     [size_definition_id] UNIQUEIDENTIFIER,
-    [size_snapshot_name] NVARCHAR(100) NOT NULL,
-    [size_snapshot_weight] DECIMAL(12,2) NOT NULL,
+    [size_snapshot_name] NVARCHAR(100),
+    [size_snapshot_min] DECIMAL(12,2),
+    [size_snapshot_max] DECIMAL(12,2),
     [moved_from_year] INT,
-    [moved_from_quarter] CHAR(2),
+    [moved_from_quarter] INT,
     [revision] INT NOT NULL CONSTRAINT [quarter_cards_revision_df] DEFAULT 1,
     [created_at] DATETIME2 NOT NULL CONSTRAINT [quarter_cards_created_at_df] DEFAULT CURRENT_TIMESTAMP,
     [updated_at] DATETIME2 NOT NULL,
     CONSTRAINT [quarter_cards_pkey] PRIMARY KEY CLUSTERED ([id]),
-    CONSTRAINT [UX_quarter_cards_passport] UNIQUE NONCLUSTERED ([passport_id]),
     CONSTRAINT [UX_quarter_cards_year_quarter] UNIQUE NONCLUSTERED ([initiative_year_id],[quarter])
 );
 
 -- CreateTable
-CREATE TABLE [dbo].[checklist_items] (
+CREATE TABLE [dbo].[quarter_card_departments] (
+    [quarter_card_id] UNIQUEIDENTIFIER NOT NULL,
+    [department_id] UNIQUEIDENTIFIER NOT NULL,
+    CONSTRAINT [quarter_card_departments_pkey] PRIMARY KEY CLUSTERED ([quarter_card_id],[department_id])
+);
+
+-- CreateTable
+CREATE TABLE [dbo].[scope_items] (
     [id] UNIQUEIDENTIFIER NOT NULL,
-    [card_id] UNIQUEIDENTIFIER NOT NULL,
-    [text] NVARCHAR(1000) NOT NULL,
-    [is_completed] BIT NOT NULL CONSTRAINT [checklist_items_is_completed_df] DEFAULT 0,
-    [status_id] UNIQUEIDENTIFIER,
-    [weight_definition_id] UNIQUEIDENTIFIER,
+    [quarter_card_id] UNIQUEIDENTIFIER NOT NULL,
+    [lineage_id] UNIQUEIDENTIFIER NOT NULL,
+    [copied_from_item_id] UNIQUEIDENTIFIER,
+    [text] NVARCHAR(2000) NOT NULL,
+    [status_code] VARCHAR(16) NOT NULL CONSTRAINT [scope_items_status_code_df] DEFAULT 'DEFAULT',
+    [weight_definition_id] UNIQUEIDENTIFIER NOT NULL,
     [weight_snapshot_name] NVARCHAR(100) NOT NULL,
     [weight_snapshot_value] DECIMAL(12,2) NOT NULL,
-    [moved_from_year] INT,
-    [moved_from_quarter] CHAR(2),
-    [revision] INT NOT NULL CONSTRAINT [checklist_items_revision_df] DEFAULT 1,
-    [created_at] DATETIME2 NOT NULL CONSTRAINT [checklist_items_created_at_df] DEFAULT CURRENT_TIMESTAMP,
+    [moved_from_card_id] UNIQUEIDENTIFIER,
+    [revision] INT NOT NULL CONSTRAINT [scope_items_revision_df] DEFAULT 1,
+    [created_at] DATETIME2 NOT NULL CONSTRAINT [scope_items_created_at_df] DEFAULT CURRENT_TIMESTAMP,
     [updated_at] DATETIME2 NOT NULL,
-    CONSTRAINT [checklist_items_pkey] PRIMARY KEY CLUSTERED ([id])
+    CONSTRAINT [scope_items_pkey] PRIMARY KEY CLUSTERED ([id]),
+    CONSTRAINT [UX_scope_items_card_lineage] UNIQUE NONCLUSTERED ([quarter_card_id],[lineage_id])
 );
 
 -- CreateTable
-CREATE TABLE [dbo].[checklist_item_departments] (
-    [checklist_item_id] UNIQUEIDENTIFIER NOT NULL,
+CREATE TABLE [dbo].[scope_item_executors] (
+    [scope_item_id] UNIQUEIDENTIFIER NOT NULL,
     [department_id] UNIQUEIDENTIFIER NOT NULL,
-    CONSTRAINT [checklist_item_departments_pkey] PRIMARY KEY CLUSTERED ([checklist_item_id],[department_id])
+    CONSTRAINT [scope_item_executors_pkey] PRIMARY KEY CLUSTERED ([scope_item_id],[department_id])
 );
 
 -- CreateTable
-CREATE TABLE [dbo].[checklist_item_assignees] (
-    [checklist_item_id] UNIQUEIDENTIFIER NOT NULL,
-    [user_id] UNIQUEIDENTIFIER NOT NULL,
-    CONSTRAINT [checklist_item_assignees_pkey] PRIMARY KEY CLUSTERED ([checklist_item_id],[user_id])
+CREATE TABLE [dbo].[quarter_card_custom_field_values] (
+    [quarter_card_id] UNIQUEIDENTIFIER NOT NULL,
+    [definition_id] UNIQUEIDENTIFIER NOT NULL,
+    [text_value] NVARCHAR(max),
+    [number_value] DECIMAL(18,4),
+    [boolean_value] BIT,
+    [date_value] DATE,
+    [option_value] NVARCHAR(200),
+    CONSTRAINT [quarter_card_custom_field_values_pkey] PRIMARY KEY CLUSTERED ([quarter_card_id],[definition_id])
 );
 
 -- CreateTable
 CREATE TABLE [dbo].[audit_events] (
     [id] UNIQUEIDENTIFIER NOT NULL,
-    [aggregate_type] VARCHAR(40) NOT NULL,
-    [aggregate_id] UNIQUEIDENTIFIER NOT NULL,
-    [action_code] VARCHAR(80) NOT NULL,
+    [aggregate_type] VARCHAR(100) NOT NULL,
+    [aggregate_id] NVARCHAR(100) NOT NULL,
+    [action_code] VARCHAR(100) NOT NULL,
     [message] NVARCHAR(1000) NOT NULL,
     [actor_user_id] UNIQUEIDENTIFIER,
     [actor_name] NVARCHAR(200) NOT NULL,
@@ -284,10 +288,11 @@ CREATE TABLE [dbo].[audit_events] (
 );
 
 -- CreateIndex
-CREATE NONCLUSTERED INDEX [IX_refresh_tokens_user_expiry] ON [dbo].[refresh_tokens]([user_id], [expires_at]);
+CREATE NONCLUSTERED INDEX [IX_refresh_tokens_user_id] ON [dbo].[refresh_tokens]([user_id]);
 
 -- CreateIndex
-CREATE NONCLUSTERED INDEX [IX_passport_departments_department] ON [dbo].[passport_departments]([department_id]);
+CREATE NONCLUSTERED INDEX [IX_initiatives_kind] ON [dbo].[initiatives]([kind]);
+CREATE UNIQUE NONCLUSTERED INDEX [UX_initiatives_kind_name] ON [dbo].[initiatives]([kind], [name]);
 
 -- CreateIndex
 CREATE NONCLUSTERED INDEX [IX_initiative_years_year] ON [dbo].[initiative_years]([year]);
@@ -296,16 +301,13 @@ CREATE NONCLUSTERED INDEX [IX_initiative_years_year] ON [dbo].[initiative_years]
 CREATE NONCLUSTERED INDEX [IX_quarter_cards_quarter] ON [dbo].[quarter_cards]([quarter]);
 
 -- CreateIndex
-CREATE NONCLUSTERED INDEX [IX_checklist_items_card] ON [dbo].[checklist_items]([card_id]);
-
--- CreateIndex
-CREATE NONCLUSTERED INDEX [IX_checklist_departments_department] ON [dbo].[checklist_item_departments]([department_id]);
-
--- CreateIndex
-CREATE NONCLUSTERED INDEX [IX_checklist_assignees_user] ON [dbo].[checklist_item_assignees]([user_id]);
+CREATE NONCLUSTERED INDEX [IX_scope_items_lineage] ON [dbo].[scope_items]([lineage_id]);
 
 -- CreateIndex
 CREATE NONCLUSTERED INDEX [IX_audit_events_aggregate] ON [dbo].[audit_events]([aggregate_type], [aggregate_id], [occurred_at]);
+
+-- AddForeignKey
+ALTER TABLE [dbo].[users] ADD CONSTRAINT [users_role_fkey] FOREIGN KEY ([role]) REFERENCES [dbo].[role_permissions]([role]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE [dbo].[users] ADD CONSTRAINT [users_department_id_fkey] FOREIGN KEY ([department_id]) REFERENCES [dbo].[departments]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
@@ -320,89 +322,111 @@ ALTER TABLE [dbo].[managers] ADD CONSTRAINT [managers_department_id_fkey] FOREIG
 ALTER TABLE [dbo].[custom_field_options] ADD CONSTRAINT [custom_field_options_definition_id_fkey] FOREIGN KEY ([definition_id]) REFERENCES [dbo].[custom_field_definitions]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[passports] ADD CONSTRAINT [passports_manager_id_fkey] FOREIGN KEY ([manager_id]) REFERENCES [dbo].[managers]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[initiative_years] ADD CONSTRAINT [initiative_years_initiative_id_fkey] FOREIGN KEY ([initiative_id]) REFERENCES [dbo].[initiatives]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[passports] ADD CONSTRAINT [passports_priority_id_fkey] FOREIGN KEY ([priority_id]) REFERENCES [dbo].[priorities]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[preparation_stages] ADD CONSTRAINT [preparation_stages_initiative_year_id_fkey] FOREIGN KEY ([initiative_year_id]) REFERENCES [dbo].[initiative_years]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[passport_departments] ADD CONSTRAINT [passport_departments_passport_id_fkey] FOREIGN KEY ([passport_id]) REFERENCES [dbo].[passports]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[preparation_stages] ADD CONSTRAINT [preparation_stages_manager_id_fkey] FOREIGN KEY ([manager_id]) REFERENCES [dbo].[managers]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[passport_departments] ADD CONSTRAINT [passport_departments_department_id_fkey] FOREIGN KEY ([department_id]) REFERENCES [dbo].[departments]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[preparation_stages] ADD CONSTRAINT [preparation_stages_priority_id_fkey] FOREIGN KEY ([priority_id]) REFERENCES [dbo].[priorities]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[custom_field_values] ADD CONSTRAINT [custom_field_values_definition_id_fkey] FOREIGN KEY ([definition_id]) REFERENCES [dbo].[custom_field_definitions]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[preparation_stage_departments] ADD CONSTRAINT [preparation_stage_departments_initiative_year_id_fkey] FOREIGN KEY ([initiative_year_id]) REFERENCES [dbo].[preparation_stages]([initiative_year_id]) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[custom_field_values] ADD CONSTRAINT [custom_field_values_passport_id_fkey] FOREIGN KEY ([passport_id]) REFERENCES [dbo].[passports]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[preparation_stage_departments] ADD CONSTRAINT [preparation_stage_departments_department_id_fkey] FOREIGN KEY ([department_id]) REFERENCES [dbo].[departments]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[initiative_years] ADD CONSTRAINT [initiative_years_initiative_id_fkey] FOREIGN KEY ([initiative_id]) REFERENCES [dbo].[initiatives]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [quarter_cards_initiative_year_id_fkey] FOREIGN KEY ([initiative_year_id]) REFERENCES [dbo].[initiative_years]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[initiative_years] ADD CONSTRAINT [initiative_years_annual_passport_id_fkey] FOREIGN KEY ([annual_passport_id]) REFERENCES [dbo].[passports]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [quarter_cards_manager_id_fkey] FOREIGN KEY ([manager_id]) REFERENCES [dbo].[managers]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[initiative_years] ADD CONSTRAINT [initiative_years_preparation_passport_id_fkey] FOREIGN KEY ([preparation_passport_id]) REFERENCES [dbo].[passports]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [quarter_cards_priority_id_fkey] FOREIGN KEY ([priority_id]) REFERENCES [dbo].[priorities]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [quarter_cards_initiative_year_id_fkey] FOREIGN KEY ([initiative_year_id]) REFERENCES [dbo].[initiative_years]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [quarter_cards_status_id_fkey] FOREIGN KEY ([status_id]) REFERENCES [dbo].[card_status_definitions]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [quarter_cards_passport_id_fkey] FOREIGN KEY ([passport_id]) REFERENCES [dbo].[passports]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [quarter_cards_size_definition_id_fkey] FOREIGN KEY ([size_definition_id]) REFERENCES [dbo].[initiative_size_definitions]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [quarter_cards_status_id_fkey] FOREIGN KEY ([status_id]) REFERENCES [dbo].[initiative_statuses]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[quarter_card_departments] ADD CONSTRAINT [quarter_card_departments_quarter_card_id_fkey] FOREIGN KEY ([quarter_card_id]) REFERENCES [dbo].[quarter_cards]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [quarter_cards_size_definition_id_fkey] FOREIGN KEY ([size_definition_id]) REFERENCES [dbo].[initiative_sizes]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[quarter_card_departments] ADD CONSTRAINT [quarter_card_departments_department_id_fkey] FOREIGN KEY ([department_id]) REFERENCES [dbo].[departments]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[checklist_items] ADD CONSTRAINT [checklist_items_card_id_fkey] FOREIGN KEY ([card_id]) REFERENCES [dbo].[quarter_cards]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[scope_items] ADD CONSTRAINT [scope_items_quarter_card_id_fkey] FOREIGN KEY ([quarter_card_id]) REFERENCES [dbo].[quarter_cards]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[checklist_items] ADD CONSTRAINT [checklist_items_status_id_fkey] FOREIGN KEY ([status_id]) REFERENCES [dbo].[initiative_statuses]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[scope_items] ADD CONSTRAINT [scope_items_copied_from_item_id_fkey] FOREIGN KEY ([copied_from_item_id]) REFERENCES [dbo].[scope_items]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[checklist_items] ADD CONSTRAINT [checklist_items_weight_definition_id_fkey] FOREIGN KEY ([weight_definition_id]) REFERENCES [dbo].[task_weights]([id]) ON DELETE SET NULL ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[scope_items] ADD CONSTRAINT [scope_items_weight_definition_id_fkey] FOREIGN KEY ([weight_definition_id]) REFERENCES [dbo].[task_weight_definitions]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[checklist_item_departments] ADD CONSTRAINT [checklist_item_departments_checklist_item_id_fkey] FOREIGN KEY ([checklist_item_id]) REFERENCES [dbo].[checklist_items]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[scope_items] ADD CONSTRAINT [scope_items_moved_from_card_id_fkey] FOREIGN KEY ([moved_from_card_id]) REFERENCES [dbo].[quarter_cards]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[checklist_item_departments] ADD CONSTRAINT [checklist_item_departments_department_id_fkey] FOREIGN KEY ([department_id]) REFERENCES [dbo].[departments]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[scope_item_executors] ADD CONSTRAINT [scope_item_executors_scope_item_id_fkey] FOREIGN KEY ([scope_item_id]) REFERENCES [dbo].[scope_items]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[checklist_item_assignees] ADD CONSTRAINT [checklist_item_assignees_checklist_item_id_fkey] FOREIGN KEY ([checklist_item_id]) REFERENCES [dbo].[checklist_items]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[scope_item_executors] ADD CONSTRAINT [scope_item_executors_department_id_fkey] FOREIGN KEY ([department_id]) REFERENCES [dbo].[departments]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[checklist_item_assignees] ADD CONSTRAINT [checklist_item_assignees_user_id_fkey] FOREIGN KEY ([user_id]) REFERENCES [dbo].[users]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[quarter_card_custom_field_values] ADD CONSTRAINT [quarter_card_custom_field_values_quarter_card_id_fkey] FOREIGN KEY ([quarter_card_id]) REFERENCES [dbo].[quarter_cards]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
-ALTER TABLE [dbo].[audit_events] ADD CONSTRAINT [audit_events_actor_user_id_fkey] FOREIGN KEY ([actor_user_id]) REFERENCES [dbo].[users]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[quarter_card_custom_field_values] ADD CONSTRAINT [quarter_card_custom_field_values_definition_id_fkey] FOREIGN KEY ([definition_id]) REFERENCES [dbo].[custom_field_definitions]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
--- Domain constraints not expressible in Prisma Schema Language.
-ALTER TABLE [dbo].[users] ADD CONSTRAINT [CK_users_role] CHECK ([role] IN ('SUPER_ADMIN', 'ADMIN', 'USER'));
-ALTER TABLE [dbo].[role_permissions] ADD CONSTRAINT [CK_role_permissions_role] CHECK ([role] IN ('SUPER_ADMIN', 'ADMIN', 'USER'));
+-- AddForeignKey
+ALTER TABLE [dbo].[audit_events] ADD CONSTRAINT [audit_events_actor_user_id_fkey] FOREIGN KEY ([actor_user_id]) REFERENCES [dbo].[users]([id]) ON DELETE SET NULL ON UPDATE NO ACTION;
+
+
+-- Domain invariants not expressible in Prisma schema.
+ALTER TABLE [dbo].[users] ADD CONSTRAINT [CK_users_role] CHECK ([role] IN ('SUPER_ADMIN','ADMIN','USER'));
+ALTER TABLE [dbo].[initiatives] ADD CONSTRAINT [CK_initiatives_kind] CHECK ([kind] IN ('PROJECT','OPERATIONAL_TASK'));
+ALTER TABLE [dbo].[initiatives] ADD CONSTRAINT [CK_initiatives_revision] CHECK ([revision] >= 1);
+ALTER TABLE [dbo].[initiative_years] ADD CONSTRAINT [CK_initiative_years_year] CHECK ([year] BETWEEN 2000 AND 2200);
+ALTER TABLE [dbo].[initiative_years] ADD CONSTRAINT [CK_initiative_years_revision] CHECK ([revision] >= 1);
+ALTER TABLE [dbo].[preparation_stages] ADD CONSTRAINT [CK_preparation_stages_revision] CHECK ([revision] >= 1);
+ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [CK_quarter_cards_quarter] CHECK ([quarter] BETWEEN 1 AND 4);
+ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [CK_quarter_cards_revision] CHECK ([revision] >= 1);
+ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [CK_quarter_cards_total_weight] CHECK ([total_weight] >= 0);
+ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [CK_quarter_cards_moved_period] CHECK (([moved_from_year] IS NULL AND [moved_from_quarter] IS NULL) OR ([moved_from_year] BETWEEN 2000 AND 2200 AND [moved_from_quarter] BETWEEN 1 AND 4));
+ALTER TABLE [dbo].[scope_items] ADD CONSTRAINT [CK_scope_items_status_code] CHECK ([status_code] IN ('DEFAULT','GREEN','YELLOW','RED'));
+ALTER TABLE [dbo].[scope_items] ADD CONSTRAINT [CK_scope_items_revision] CHECK ([revision] >= 1);
+ALTER TABLE [dbo].[scope_items] ADD CONSTRAINT [CK_scope_items_weight_snapshot] CHECK ([weight_snapshot_value] >= 0);
+ALTER TABLE [dbo].[task_weight_definitions] ADD CONSTRAINT [CK_task_weight_definitions_weight] CHECK ([weight] >= 0);
 ALTER TABLE [dbo].[departments] ADD CONSTRAINT [CK_departments_capacity] CHECK ([capacity_limit_points] >= 0);
-ALTER TABLE [dbo].[task_weights] ADD CONSTRAINT [CK_task_weights_value] CHECK ([weight] >= 0);
-ALTER TABLE [dbo].[initiative_sizes] ADD CONSTRAINT [CK_initiative_sizes_range] CHECK ([min_score] >= 0 AND [max_score] >= [min_score]);
-ALTER TABLE [dbo].[initiatives] ADD CONSTRAINT [CK_initiatives_kind] CHECK ([kind] IN ('PROJECT', 'TASK'));
-ALTER TABLE [dbo].[custom_field_definitions] ADD CONSTRAINT [CK_custom_fields_entity] CHECK ([entity_type] IN ('project', 'task'));
-ALTER TABLE [dbo].[custom_field_definitions] ADD CONSTRAINT [CK_custom_fields_type] CHECK ([field_type] IN ('TEXT', 'NUMBER', 'SELECT', 'CHECKBOX', 'RICHTEXT'));
-ALTER TABLE [dbo].[passport_departments] ADD CONSTRAINT [CK_passport_departments_involvement] CHECK ([involvement] IN ('IMPLEMENTER', 'CROSS_FUNCTIONAL'));
-ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [CK_quarter_cards_quarter] CHECK ([quarter] IN ('Q1', 'Q2', 'Q3', 'Q4'));
-ALTER TABLE [dbo].[quarter_cards] ADD CONSTRAINT [CK_quarter_cards_size_weight] CHECK ([size_snapshot_weight] >= 0);
-ALTER TABLE [dbo].[checklist_items] ADD CONSTRAINT [CK_checklist_items_weight] CHECK ([weight_snapshot_value] >= 0);
-ALTER TABLE [dbo].[checklist_items] ADD CONSTRAINT [CK_checklist_items_moved_quarter] CHECK ([moved_from_quarter] IS NULL OR [moved_from_quarter] IN ('Q1', 'Q2', 'Q3', 'Q4'));
-ALTER TABLE [dbo].[audit_events] ADD CONSTRAINT [CK_audit_events_source_quarter] CHECK ([source_quarter] IS NULL OR [source_quarter] IN ('Q1', 'Q2', 'Q3', 'Q4'));
-ALTER TABLE [dbo].[audit_events] ADD CONSTRAINT [CK_audit_events_target_quarter] CHECK ([target_quarter] IS NULL OR [target_quarter] IN ('Q1', 'Q2', 'Q3', 'Q4'));
-ALTER TABLE [dbo].[custom_field_values] ADD CONSTRAINT [CK_custom_field_values_single_value] CHECK (
+ALTER TABLE [dbo].[initiative_size_definitions] ADD CONSTRAINT [CK_initiative_size_definitions_range] CHECK ([min_score] >= 0 AND [max_score] >= [min_score]);
+ALTER TABLE [dbo].[custom_field_definitions] ADD CONSTRAINT [CK_custom_field_definitions_type] CHECK ([field_type] IN ('TEXT','NUMBER','SELECT','CHECKBOX','RICHTEXT'));
+ALTER TABLE [dbo].[custom_field_definitions] ADD CONSTRAINT [CK_custom_field_definitions_entity_type] CHECK ([entity_type] IN ('project','task'));
+ALTER TABLE [dbo].[quarter_card_custom_field_values] ADD CONSTRAINT [CK_quarter_card_custom_field_one_value] CHECK (
     (CASE WHEN [text_value] IS NULL THEN 0 ELSE 1 END) +
     (CASE WHEN [number_value] IS NULL THEN 0 ELSE 1 END) +
-    (CASE WHEN [boolean_value] IS NULL THEN 0 ELSE 1 END) = 1
+    (CASE WHEN [boolean_value] IS NULL THEN 0 ELSE 1 END) +
+    (CASE WHEN [date_value] IS NULL THEN 0 ELSE 1 END) +
+    (CASE WHEN [option_value] IS NULL THEN 0 ELSE 1 END) = 1
 );
+CREATE UNIQUE NONCLUSTERED INDEX [UX_task_weight_definitions_one_default]
+ON [dbo].[task_weight_definitions]([is_default]) WHERE [is_default] = 1;
+
+-- Required immutable defaults. Seed upserts the same deterministic records.
+INSERT INTO [dbo].[card_status_definitions]
+  ([id],[code],[name],[normalized_name],[color],[is_active],[is_system],[created_at],[updated_at])
+VALUES
+  ('00000000-0000-0000-0000-000000000001','DEFAULT',N'Не визначено',N'не визначено','#94a3b8',1,1,SYSUTCDATETIME(),SYSUTCDATETIME());
+
+INSERT INTO [dbo].[task_weight_definitions]
+  ([id],[name],[normalized_name],[weight],[is_default],[is_system],[is_active],[created_at],[updated_at])
+VALUES
+  ('00000000-0000-0000-0000-000000000002',N'Не визначено',N'не визначено',0,1,1,1,SYSUTCDATETIME(),SYSUTCDATETIME());
 
 COMMIT TRAN;
 

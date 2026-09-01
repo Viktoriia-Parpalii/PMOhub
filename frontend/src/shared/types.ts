@@ -1,4 +1,3 @@
-
 export interface HistoryEvent {
   id: string;
   date: string;
@@ -7,9 +6,97 @@ export interface HistoryEvent {
 }
 
 export type CapacityWeight = string;
-export type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
+export type Quarter = "Q1" | "Q2" | "Q3" | "Q4";
 export type HealthStatus = string;
-export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'USER';
+export type UserRole = "SUPER_ADMIN" | "ADMIN" | "USER";
+
+export type InitiativeKind = "PROJECT" | "OPERATIONAL_TASK";
+export type ScopeStatusCode = "DEFAULT" | "GREEN" | "YELLOW" | "RED";
+
+export interface PreparationStageReadModel {
+  initiative_year_id: string;
+  manager_id: string | null;
+  manager: { id: string; name: string } | null;
+  priority_id: string | null;
+  priority: { id: string; name: string } | null;
+  department_ids: string[];
+  departments: Array<{ id: string; name: string }>;
+  revision: number;
+}
+
+export interface QuarterCardSummary {
+  id: string;
+  quarter: Quarter;
+  status_id: string;
+  status_code: string;
+  revision: number;
+  total_weight: number;
+  is_locked: boolean;
+  locked_at: string;
+}
+
+export interface InitiativeYearReadModel {
+  id: string;
+  initiative_id: string;
+  kind: InitiativeKind;
+  name: string;
+  initiative_revision: number;
+  year: number;
+  strategic_goal: string | null;
+  revision: number;
+  preparation: PreparationStageReadModel | null;
+  cards: QuarterCardSummary[];
+  is_locked: boolean;
+  locked_at: string;
+}
+
+export interface ScopeItemReadModel {
+  id: string;
+  lineage_id: string;
+  copied_from_item_id: string | null;
+  text: string;
+  status_code: ScopeStatusCode;
+  weight_definition_id: string;
+  weight_snapshot: { name: string; value: number };
+  executor_department_ids: string[];
+  executors: Array<{ id: string; name: string }>;
+  moved_from_card_id: string | null;
+  revision: number;
+}
+
+export interface QuarterCardReadModel {
+  id: string;
+  initiative_year_id: string;
+  initiative_id: string;
+  kind: InitiativeKind;
+  name: string;
+  strategic_goal: string | null;
+  year: number;
+  quarter: Quarter;
+  manager_id: string | null;
+  manager: { id: string; name: string } | null;
+  priority_id: string | null;
+  priority: { id: string; name: string } | null;
+  department_ids: string[];
+  effective_involved_department_ids: string[];
+  status_id: string;
+  status_code: string;
+  status: { id: string; code: string; name: string; color: string };
+  notes: string | null;
+  total_weight: number;
+  size_snapshot: {
+    definition_id: string | null;
+    name: string;
+    min: number | null;
+    max: number | null;
+  };
+  custom_fields: Record<string, unknown>;
+  scope: ScopeItemReadModel[];
+  moved_from: { year: number; quarter: Quarter } | null;
+  revision: number;
+  is_locked: boolean;
+  locked_at: string;
+}
 
 export interface User {
   password?: string;
@@ -18,22 +105,28 @@ export interface User {
   email: string;
   role: UserRole;
   departmentId?: string;
+  must_change_password?: boolean;
 }
 
 export interface RolePermissions {
   role: UserRole;
-  canCreateEditProjects: boolean;
-  canDeleteProjects: boolean;
+  canCreateEditInitiatives: boolean;
+  canDeleteInitiatives: boolean;
   canAccessAdmin: boolean;
   isReadOnly: boolean;
   canEditArchive: boolean;
 }
 
-export type CustomFieldType = 'TEXT' | 'NUMBER' | 'SELECT' | 'CHECKBOX' | 'RICHTEXT';
+export type CustomFieldType =
+  | "TEXT"
+  | "NUMBER"
+  | "SELECT"
+  | "CHECKBOX"
+  | "RICHTEXT";
 
 export interface CustomFieldDef {
   id: string;
-  entityType: 'project' | 'task';
+  entityType: "project" | "task";
   name: string;
   type: CustomFieldType;
   isRequired: boolean;
@@ -59,9 +152,10 @@ export interface Manager {
 
 export interface ChecklistItem {
   id: string;
+  revision?: number;
   text: string;
   is_completed: boolean;
-  color?: 'GREEN' | 'YELLOW' | 'RED' | 'GRAY' | 'DEFAULT';
+  color?: "GREEN" | "YELLOW" | "RED" | "GRAY" | "DEFAULT";
   status_id?: string;
   status_code?: string;
   weightId?: string;
@@ -90,13 +184,13 @@ export interface MutationResult<T = undefined> {
   success: boolean;
   message: string;
   data?: T;
-  requiresConfirmation?: ScopeMergePreview;
-  status?: 'COMMIT_FAILED' | 'COMMITTED_REFRESH_FAILED' | 'SUCCESS';
+  status?: "COMMIT_FAILED" | "COMMITTED_REFRESH_FAILED" | "SUCCESS";
   committed?: boolean;
+  errorCode?: string;
 }
 
 export type Priority = string;
-export interface InitiativePassport {
+export interface InitiativeMetadata {
   name: string;
   strategic_goal?: string;
   implementer_dept_ids: string[];
@@ -107,7 +201,7 @@ export interface InitiativePassport {
   custom_fields?: Record<string, unknown>;
 }
 
-export interface InitiativeYearSnapshot extends InitiativePassport {
+export interface InitiativeYearContext extends InitiativeMetadata {
   year: number;
   history: HistoryEvent[];
   preparationStage?: PreparationStage;
@@ -115,6 +209,7 @@ export interface InitiativeYearSnapshot extends InitiativePassport {
 
 /** Дані «нульового кварталу». Вони існують лише у річному записі беклогу. */
 export interface PreparationStage {
+  revision?: number;
   manager_id?: string;
   priority?: Priority;
   cross_functional_dept_ids: string[];
@@ -123,69 +218,26 @@ export interface PreparationStage {
   history: HistoryEvent[];
 }
 
-export interface Project extends InitiativePassport {
+export interface InitiativeViewModel extends InitiativeMetadata {
   id: string;
   /** Server optimistic-concurrency version. */
   revision?: number;
-  /** Незмінний ідентифікатор ланцюжка річних backlog-записів. */
-  initiative_chain_id?: string;
+  initiative_revision?: number;
+  initiative_id: string;
+  initiative_year_id?: string;
   year: number;
-  yearSnapshots?: Record<string, InitiativeYearSnapshot>;
+  preparation_stage?: PreparationStage;
   quarter: Quarter;
   health_status: HealthStatus;
   health_status_id?: string;
   health_status_code?: string;
   checklist: ChecklistItem[];
-  is_backlog: boolean;
-  backlog_id?: string;
+  record_type: "YEAR" | "CARD";
   moved_from?: string;
   history?: HistoryEvent[];
   sizeSnapshot?: InitiativeSizeSnapshot;
-}
-export interface OperationalTask extends InitiativePassport {
-  id: string;
-  /** Server optimistic-concurrency version. */
-  revision?: number;
-  /** Незмінний ідентифікатор ланцюжка річних backlog-записів. */
-  initiative_chain_id?: string;
-  year: number;
-  yearSnapshots?: Record<string, InitiativeYearSnapshot>;
-  quarter: Quarter;
-  health_status: HealthStatus;
-  health_status_id?: string;
-  health_status_code?: string;
-  checklist: ChecklistItem[];
-  is_backlog: boolean;
-  backlog_id?: string;
-  moved_from?: string;
-  history?: HistoryEvent[];
-  sizeSnapshot?: InitiativeSizeSnapshot;
-}
-
-export interface ScopeMergePreview {
-  token: string;
-  sourceCardId: string;
-  targetCardId: string;
-  sourcePeriod: string;
-  targetPeriod: string;
-  incomingCount: number;
-  addedCount: number;
-  duplicateItemIds: string[];
-  deletesSource: boolean;
-}
-
-export interface SavePropagationTargets {
-  backlogYears: number[];
-  cardIds: string[];
-}
-
-export interface SavePassportCommand {
-  kind: 'project' | 'task';
-  source: { type: 'backlog'; masterId: string; year: number }
-    | { type: 'card'; cardId: string };
-  passportPatch: Partial<InitiativePassport>;
-  sourceCardPatch?: Pick<Project, 'checklist' | 'health_status'>;
-  targets: SavePropagationTargets;
+  is_locked?: boolean;
+  locked_at?: string;
 }
 
 export interface PriorityDef {
@@ -208,6 +260,8 @@ export interface TaskWeightDef {
   name: string;
   weight: number;
   is_active: boolean;
+  is_default?: boolean;
+  is_system?: boolean;
 }
 
 export interface InitiativeSizeDef {
@@ -218,37 +272,15 @@ export interface InitiativeSizeDef {
   is_active: boolean;
 }
 
-export interface FullExportData {
-  version: '5.0' | '6.0';
-  exportedAt: string;
-  exportedBy?: {
-    id?: string;
-    name?: string;
-    email?: string;
-    role?: string;
-  };
+export interface ReferenceDataState {
   departments: Department[];
   priorities: PriorityDef[];
   initiativeStatuses: InitiativeStatusDef[];
   taskWeights: TaskWeightDef[];
   initiativeSizes: InitiativeSizeDef[];
   managers: Manager[];
-  projects: Project[];
-  tasks: OperationalTask[];
-  users: User[];
-  rolePermissions: RolePermissions[];
-  customFields: CustomFieldDef[];
-}
-
-export interface AppDataState {
-  departments: Department[];
-  priorities: PriorityDef[];
-  initiativeStatuses: InitiativeStatusDef[];
-  taskWeights: TaskWeightDef[];
-  initiativeSizes: InitiativeSizeDef[];
-  managers: Manager[];
-  projects: Project[];
-  tasks: OperationalTask[];
+  projects: InitiativeViewModel[];
+  tasks: InitiativeViewModel[];
   users: User[];
   rolePermissions: RolePermissions[];
   customFields: CustomFieldDef[];
