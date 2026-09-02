@@ -16,6 +16,7 @@ export class DatabaseSnapshotQueryService {
   async load() {
     const data = await this.prisma.$transaction(
       async (tx) => ({
+        roles: await tx.role.findMany({ orderBy: { code: "asc" } }),
         users: await tx.user.findMany({
           select: {
             id: true,

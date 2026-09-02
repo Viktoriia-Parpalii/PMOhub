@@ -5,12 +5,11 @@ import { defineConfig, loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  if (mode === 'production' && (!env.VITE_API_URL || /localhost|127\.0\.0\.1/i.test(env.VITE_API_URL))) {
-    throw new Error('Production build requires a non-local VITE_API_URL');
+  if (mode === 'production' && !env.VITE_API_URL) {
+    throw new Error('Production build requires VITE_API_URL');
   }
   return {
-    // GitHub Pages publishes this repository at /PMOhub/.
-    base: env.VITE_BASE_PATH || '/PMOhub/',
+    base: env.VITE_BASE_PATH || '/',
 
     plugins: [
       react(),

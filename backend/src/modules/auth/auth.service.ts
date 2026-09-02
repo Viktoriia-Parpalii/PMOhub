@@ -29,8 +29,9 @@ export class AuthService {
   async login(email: string, password: string, userAgent?: string) {
     const user = await this.prisma.user.findUnique({
       where: { normalizedEmail: normalizeEmail(email) },
+      include: { roleDefinition: true },
     });
-    if (!user?.isActive)
+    if (!user?.isActive || !user.roleDefinition.isActive)
       throw new AppError(
         "INVALID_CREDENTIALS",
         "Невірний email або пароль",
@@ -78,7 +79,7 @@ export class AuthService {
       );
     const stored = await this.prisma.refreshToken.findUnique({
       where: { tokenHash: digest(refreshToken) },
-      include: { user: true },
+      include: { user: { include: { roleDefinition: true } } },
     });
     if (stored?.revokedAt) {
       await this.prisma.refreshToken.updateMany({
@@ -91,7 +92,12 @@ export class AuthService {
         HttpStatus.UNAUTHORIZED,
       );
     }
-    if (!stored || stored.expiresAt <= new Date() || !stored.user.isActive) {
+    if (
+      !stored ||
+      stored.expiresAt <= new Date() ||
+      !stored.user.isActive ||
+      !stored.user.roleDefinition.isActive
+    ) {
       throw new AppError(
         "INVALID_REFRESH_TOKEN",
         "Токен оновлення сесії недійсний",

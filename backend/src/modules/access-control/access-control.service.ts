@@ -8,16 +8,28 @@ import { UpdatePermissionDto } from "./access-control.dto";
 export class AccessControlService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list() {
-    return this.prisma.rolePermission.findMany({ orderBy: { role: "asc" } });
+  async list() {
+    const rows = await this.prisma.rolePermission.findMany({
+      include: { roleDefinition: true },
+      orderBy: { roleDefinition: { name: "asc" } },
+    });
+    return rows.map(({ roleDefinition, ...permission }) => ({
+      ...permission,
+      roleName: roleDefinition.name,
+      isSystem: roleDefinition.isSystem,
+      isDefault: roleDefinition.isDefault,
+      isActive: roleDefinition.isActive,
+    }));
   }
 
   async update(role: string, dto: UpdatePermissionDto, actor: AuthUser) {
     const actorPermission = await this.prisma.rolePermission.findUnique({
       where: { role: actor.role },
+      include: { roleDefinition: true },
     });
     if (
       actor.role !== "SUPER_ADMIN" ||
+      actorPermission?.roleDefinition?.isActive === false ||
       !actorPermission?.canAccessAdmin ||
       actorPermission.isReadOnly
     ) {
@@ -27,10 +39,14 @@ export class AccessControlService {
         HttpStatus.FORBIDDEN,
       );
     }
-    if (!["SUPER_ADMIN", "ADMIN", "USER"].includes(role))
+    const roleDefinition = await this.prisma.role.findUnique({
+      where: { code: role },
+      include: { rolePermission: true },
+    });
+    if (!roleDefinition?.isActive || !roleDefinition.rolePermission)
       throw new AppError(
         "INVALID_ROLE",
-        "Некоректна роль",
+        "Роль не існує, неактивна або не має налаштованих прав",
         HttpStatus.BAD_REQUEST,
       );
     if (

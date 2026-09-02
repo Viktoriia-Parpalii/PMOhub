@@ -16,6 +16,7 @@ const user = {
   departmentId: null,
   passwordHash: "temporary-password-hash",
   isActive: true,
+  roleDefinition: { code: "USER", isActive: true },
   mustChangePassword: true,
 };
 

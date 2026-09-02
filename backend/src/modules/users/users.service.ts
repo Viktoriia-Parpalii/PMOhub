@@ -303,8 +303,13 @@ export class UsersService {
   private async assertMayAdmin(role: string) {
     const permission = await this.prisma.rolePermission.findUnique({
       where: { role },
+      include: { roleDefinition: true },
     });
-    if (!permission?.canAccessAdmin || permission.isReadOnly) {
+    if (
+      !permission?.canAccessAdmin ||
+      permission.roleDefinition?.isActive === false ||
+      permission.isReadOnly
+    ) {
       throw new AppError(
         "FORBIDDEN",
         "Недостатньо прав адміністратора",
@@ -315,16 +320,16 @@ export class UsersService {
 
   private async assertRoleConfigured(
     role: string,
-    client: Pick<Prisma.TransactionClient, "rolePermission"> = this.prisma,
+    client: Pick<Prisma.TransactionClient, "role"> = this.prisma,
   ) {
-    const permission = await client.rolePermission.findUnique({
-      where: { role },
-      select: { role: true },
+    const roleDefinition = await client.role.findUnique({
+      where: { code: role },
+      select: { code: true, isActive: true, rolePermission: { select: { role: true } } },
     });
-    if (!permission) {
+    if (!roleDefinition?.isActive || !roleDefinition.rolePermission) {
       throw new AppError(
         "ROLE_NOT_CONFIGURED",
-        "Для обраної ролі не налаштовано права доступу",
+        "Обрана роль неактивна або для неї не налаштовано права доступу",
         HttpStatus.CONFLICT,
         { role },
       );

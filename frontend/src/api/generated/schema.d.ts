@@ -965,8 +965,7 @@ export interface components {
             name: string;
             /** Format: email */
             email: string;
-            /** @enum {string} */
-            role: "SUPER_ADMIN" | "ADMIN" | "USER";
+            role: string;
             /** Format: uuid */
             department_id?: string;
         };
@@ -974,8 +973,7 @@ export interface components {
             name?: string;
             /** Format: email */
             email?: string;
-            /** @enum {string} */
-            role?: "SUPER_ADMIN" | "ADMIN" | "USER";
+            role?: string;
             /** Format: uuid */
             department_id?: string;
             is_active?: boolean;

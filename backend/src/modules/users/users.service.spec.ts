@@ -17,18 +17,18 @@ const actor = {
 describe('UsersService role integrity', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('creates a user only when the selected role has a permission record', async () => {
+  it('creates a user with a dynamically configured role', async () => {
     const created = {
       id: '00000000-0000-4000-8000-000000000010',
       name: 'New User',
       email: 'user@example.com',
-      role: 'USER',
+      role: 'PORTFOLIO_REVIEWER',
       departmentId: null,
       isActive: true,
       mustChangePassword: true,
     };
     const tx: any = {
-      rolePermission: { findUnique: vi.fn(async () => ({ role: 'USER' })) },
+      role: { findUnique: vi.fn(async () => ({ code: 'PORTFOLIO_REVIEWER', isActive: true, rolePermission: { role: 'PORTFOLIO_REVIEWER' } })) },
       user: { create: vi.fn(async () => created) },
       auditEvent: { create: vi.fn(async () => ({})) },
     };
@@ -40,20 +40,23 @@ describe('UsersService role integrity', () => {
     const result = await new UsersService(prisma).create({
       name: ' New User ',
       email: 'User@Example.com',
-      role: 'USER',
+      role: 'PORTFOLIO_REVIEWER',
     }, actor);
 
     expect(argon2.hash).toHaveBeenCalledOnce();
-    expect(tx.rolePermission.findUnique).toHaveBeenCalledWith({ where: { role: 'USER' }, select: { role: true } });
-    expect(tx.user.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ name: 'New User', normalizedEmail: 'user@example.com', role: 'USER' }),
+    expect(tx.role.findUnique).toHaveBeenCalledWith({
+      where: { code: 'PORTFOLIO_REVIEWER' },
+      select: { code: true, isActive: true, rolePermission: { select: { role: true } } },
     });
-    expect(result.data.user).toMatchObject({ id: created.id, role: 'USER' });
+    expect(tx.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ name: 'New User', normalizedEmail: 'user@example.com', role: 'PORTFOLIO_REVIEWER' }),
+    });
+    expect(result.data.user).toMatchObject({ id: created.id, role: 'PORTFOLIO_REVIEWER' });
   });
 
   it('does not insert a user when permissions for the role are missing', async () => {
     const tx: any = {
-      rolePermission: { findUnique: vi.fn(async () => null) },
+      role: { findUnique: vi.fn(async () => null) },
       user: { create: vi.fn() },
     };
     const prisma: any = {
@@ -82,7 +85,7 @@ describe('UsersService role integrity', () => {
       mustChangePassword: false,
     };
     const tx: any = {
-      rolePermission: { findUnique: vi.fn(async () => ({ role: 'ADMIN' })) },
+      role: { findUnique: vi.fn(async () => ({ code: 'ADMIN', isActive: true, rolePermission: { role: 'ADMIN' } })) },
       user: { update: vi.fn(async ({ data }: any) => ({ ...existing, ...data })) },
       refreshToken: { updateMany: vi.fn(async () => ({ count: 1 })) },
       auditEvent: { create: vi.fn(async () => ({})) },
@@ -95,7 +98,10 @@ describe('UsersService role integrity', () => {
 
     const result = await new UsersService(prisma).update(existing.id, { role: 'ADMIN' }, actor);
 
-    expect(tx.rolePermission.findUnique).toHaveBeenCalledWith({ where: { role: 'ADMIN' }, select: { role: true } });
+    expect(tx.role.findUnique).toHaveBeenCalledWith({
+      where: { code: 'ADMIN' },
+      select: { code: true, isActive: true, rolePermission: { select: { role: true } } },
+    });
     expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: existing.id },
       data: expect.objectContaining({ role: 'ADMIN' }),

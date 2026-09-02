@@ -11,9 +11,16 @@ export class ExportAuthorizationService {
     if (actor.role === "SUPER_ADMIN") return;
     const permissions = await this.prisma.rolePermission.findUnique({
       where: { role: actor.role },
-      select: { canAccessAdmin: true },
+      select: {
+        canAccessAdmin: true,
+        isReadOnly: true,
+        roleDefinition: { select: { isActive: true } },
+      },
     });
-    if (!permissions?.canAccessAdmin) {
+    if (
+      !permissions?.canAccessAdmin ||
+      permissions.roleDefinition?.isActive === false
+    ) {
       throw new AppError(
         "EXPORT_FORBIDDEN",
         "У вас немає права експортувати дані",

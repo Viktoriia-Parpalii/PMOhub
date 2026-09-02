@@ -7,6 +7,21 @@ datasource db {
   provider = "sqlserver"
 }
 
+model Role {
+  code           String          @id @db.VarChar(32)
+  name           String          @db.NVarChar(100)
+  isSystem       Boolean         @default(false) @map("is_system")
+  isDefault      Boolean         @default(false) @map("is_default")
+  isActive       Boolean         @default(true) @map("is_active")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.DateTime2
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.DateTime2
+  users          User[]
+  rolePermission RolePermission?
+
+  @@unique([name], map: "UX_roles_name")
+  @@map("roles")
+}
+
 model User {
   id                 String         @id @default(uuid()) @db.UniqueIdentifier
   name               String         @db.NVarChar(200)
@@ -20,7 +35,7 @@ model User {
   createdAt          DateTime       @default(now()) @map("created_at") @db.DateTime2
   updatedAt          DateTime       @updatedAt @map("updated_at") @db.DateTime2
   department         Department?    @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  rolePermission     RolePermission @relation(fields: [role], references: [role], onDelete: NoAction, onUpdate: NoAction)
+  roleDefinition     Role           @relation(fields: [role], references: [code], onDelete: NoAction, onUpdate: NoAction)
   refreshTokens      RefreshToken[]
   auditEvents        AuditEvent[]
 
@@ -49,7 +64,7 @@ model RolePermission {
   canAccessAdmin        Boolean @default(false) @map("can_access_admin")
   isReadOnly            Boolean @default(false) @map("is_read_only")
   canEditArchive        Boolean @default(false) @map("can_edit_archive")
-  users                 User[]
+  roleDefinition        Role    @relation(fields: [role], references: [code], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("role_permissions")
 }

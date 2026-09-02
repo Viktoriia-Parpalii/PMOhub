@@ -28,6 +28,25 @@ BEGIN TRY
   DECLARE @Now DATETIME2 = SYSUTCDATETIME();
   DECLARE @TestPasswordHash NVARCHAR(500) = N'$argon2id$v=19$m=65536,p=4,t=3$QiclrUveY/OnXr8c44zzzw$6O7SQMhM/TviAZyKibR3UMSqqOYXA5HBjgM88PnAd+k';
 
+  /* Системні ролі вже створює initial migration; MERGE робить quality seed самодостатнім. */
+  MERGE [dbo].[roles] AS target
+  USING (VALUES
+    ('SUPER_ADMIN',N'Супер адміністратор',1,0,1),
+    ('ADMIN',N'Адміністратор',1,0,1),
+    ('USER',N'Користувач',1,1,1)
+  ) AS source([code],[name],[is_system],[is_default],[is_active])
+  ON target.[code] = source.[code]
+  WHEN MATCHED THEN UPDATE SET
+    [name] = source.[name],
+    [is_system] = source.[is_system],
+    [is_default] = source.[is_default],
+    [is_active] = source.[is_active],
+    [updated_at] = @Now
+  WHEN NOT MATCHED THEN INSERT
+    ([code],[name],[is_system],[is_default],[is_active],[created_at],[updated_at])
+  VALUES
+    (source.[code],source.[name],source.[is_system],source.[is_default],source.[is_active],@Now,@Now);
+
   /* RBAC */
   MERGE [dbo].[role_permissions] AS target
   USING (VALUES

@@ -73,7 +73,7 @@ describe("JsonExportSerializer", () => {
   it("documents auth redactions in full snapshot", () => {
     const data = {
       users: [{ id: "user", email: "user@example.com", normalizedEmail: "user@example.com" }],
-      role_permissions: [], departments: [], managers: [], priorities: [],
+      roles: [], role_permissions: [], departments: [], managers: [], priorities: [],
       card_status_definitions: [], task_weight_definitions: [], initiative_size_definitions: [],
       custom_field_definitions: [], custom_field_options: [], initiatives: [], initiative_years: [],
       preparation_stages: [], preparation_stage_departments: [], quarter_cards: [],

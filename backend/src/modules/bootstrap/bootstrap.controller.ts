@@ -40,6 +40,7 @@ export class BootstrapController {
       this.fields.list(),
       this.prisma.rolePermission.findUnique({
         where: { role: currentUser.role },
+        include: { roleDefinition: true },
       }),
     ]);
     return {
@@ -53,7 +54,24 @@ export class BootstrapController {
         taskWeights,
         initiativeSizes,
         customFields,
-        rolePermissions: currentRolePermission ? [currentRolePermission] : [],
+        rolePermissions: currentRolePermission
+          ? [
+              {
+                role: currentRolePermission.role,
+                roleName: currentRolePermission.roleDefinition.name,
+                isSystem: currentRolePermission.roleDefinition.isSystem,
+                isDefault: currentRolePermission.roleDefinition.isDefault,
+                isActive: currentRolePermission.roleDefinition.isActive,
+                canCreateEditInitiatives:
+                  currentRolePermission.canCreateEditInitiatives,
+                canDeleteInitiatives:
+                  currentRolePermission.canDeleteInitiatives,
+                canAccessAdmin: currentRolePermission.canAccessAdmin,
+                isReadOnly: currentRolePermission.isReadOnly,
+                canEditArchive: currentRolePermission.canEditArchive,
+              },
+            ]
+          : [],
         businessPeriod: { ...currentPeriod(), time_zone: "Europe/Kyiv" },
       },
     };

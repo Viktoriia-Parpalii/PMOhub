@@ -1,91 +1,51 @@
 # PMO Hub backend
 
-NestJS REST API with Prisma and Microsoft SQL Server 2022.
+Backend — це NestJS API з Prisma та Microsoft SQL Server. Повна інструкція для всього застосунку є у [кореневому README](../README.md).
 
-## Локальний запуск API та frontend
+## 1. Локально: розробка і тестування
 
-Потрібні Node.js 20+, npm і Docker Desktop. Команди нижче виконуються в PowerShell.
+Виконуйте команди з каталогу `backend`.
 
-### 1. Запустіть SQL Server і підготуйте API
-
-У корені репозиторію:
+### Налаштування
 
 ```powershell
-docker compose up -d sqlserver
-docker compose exec sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "ChangeMe_Strong_123" -C -Q "IF DB_ID(N'pmohub') IS NULL CREATE DATABASE pmohub"
+Copy-Item .env.example .env
 ```
 
-Скопіюйте `backend/.env.example` у `backend/.env`. Для локальної розробки залиште:
+Заповніть `backend/.env`:
 
 ```dotenv
-PORT=4000
+NODE_ENV=development
+DATABASE_URL="sqlserver://localhost:1433;database=pmohub;schema=dbo;user=pmohub_app;password=YOUR_PASSWORD;encrypt=true;trustServerCertificate=true"
+JWT_ACCESS_SECRET=випадковий-секрет-щонайменше-32-символи
+JWT_REFRESH_SECRET=інший-випадковий-секрет-щонайменше-32-символи
 FRONTEND_ORIGIN=http://localhost:3000
 COOKIE_SECURE=false
-HTTP_BODY_LIMIT=10mb
-EXPOSE_ERROR_DETAILS=true
 ```
 
-Задайте у цьому ж файлі унікальні значення довжиною щонайменше 32 символи для `JWT_ACCESS_SECRET` і `JWT_REFRESH_SECRET`. За потреби задайте `BOOTSTRAP_ADMIN_*`, щоб створити першого адміністратора під час seed.
+База `pmohub` повинна вже існувати. Якщо SQL Server працює на іншому комп'ютері, замініть `localhost` його DNS-іменем або IP-адресою.
 
-Далі, у новому терміналі:
+### Перший запуск
 
 ```powershell
-Set-Location backend
 npm ci
-npm run prisma:generate
 npm run db:migrate
-npm run db:seed
 npm run dev
 ```
 
-Перевірте готовність API: [http://localhost:4000/api/v1/health/ready](http://localhost:4000/api/v1/health/ready). Swagger доступний за [http://localhost:4000/api/docs](http://localhost:4000/api/docs).
+`npm ci` автоматично генерує Prisma Client. `db:migrate` створює таблиці разом із системними ролями, правами та DEFAULT-довідниками. `db:seed` запускайте лише опційно для першого адміністратора, попередньо заповнивши всі `BOOTSTRAP_ADMIN_*` у `.env`.
 
-### 2. Запустіть frontend з підключенням до API
+Таблиця `roles` є батьківським довідником для `users.role` і `role_permissions.role`. Роль за замовчуванням позначається `is_default`; активність ролі перевіряється під час login, refresh і авторизації запитів.
 
-У ще одному терміналі:
+Наступного разу достатньо:
 
 ```powershell
-Set-Location frontend
-Copy-Item .env.example .env
-npm ci
 npm run dev
 ```
 
-У `frontend/.env` повинні бути такі значення:
+Після додавання нових міграцій знову виконайте `npm run db:migrate`.
 
-```dotenv
-VITE_API_URL=http://localhost:4000/api/v1
-```
-
-Відкрийте [http://localhost:3000](http://localhost:3000). Frontend завжди відновлює сесію через refresh-cookie та отримує дані з API/MSSQL; автономного demo-mode немає. Залишайте API і frontend на `localhost` — не змішуйте `localhost` з `127.0.0.1`, інакше cookie-сесія/CORS матимуть інший origin.
-
-Після зміни `VITE_*` змінних перезапустіть `npm run dev`. Якщо змінюєте порт або домен frontend, одночасно змініть `FRONTEND_ORIGIN` у `backend/.env` на точний origin (наприклад, `http://localhost:5173`) і перезапустіть API.
-
-`HTTP_BODY_LIMIT` обмежує розмір JSON-запитів. `EXPOSE_ERROR_DETAILS=true` додає технічний текст і stack trace лише у JSON-відповідь для Network tab — frontend показує користувачу тільки локалізоване повідомлення. У production встановіть `EXPOSE_ERROR_DETAILS=false`.
-
-### Docker-запуск API
-
-`docker compose up -d` також запускає контейнер API. Для нього `DATABASE_URL` примусово вказує на docker-host `sqlserver`, а не на `localhost`. Перед першим запуском все одно створіть базу та застосуйте migrations; найпростіше виконати команди `db:migrate` і `db:seed` з локального каталогу `backend`, як показано вище.
-
-The seed always creates the three role-permission rows. It creates the first `SUPER_ADMIN` only when all `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME`, and `BOOTSTRAP_ADMIN_PASSWORD` variables are present. Re-running it never replaces an existing password.
-
-## Відновлення доступу адміністратора
-
-Користувач змінює пароль лише після входу в систему. Якщо пароль забуто, `ADMIN` або `SUPER_ADMIN` у розділі **Адміністрування → Користувачі системи** видає тимчасовий пароль. Він показується тільки один раз; після входу користувач має змінити його у профілі. `ADMIN` не може скидати пароль `SUPER_ADMIN`.
-
-Якщо втрачено пароль єдиного `SUPER_ADMIN`, розробник із доступом до коду й БД може офлайн згенерувати Argon2id-хеш:
-
-```powershell
-$env:RECOVERY_EMAIL = 'admin@example.com'
-$env:RECOVERY_PASSWORD = 'a-new-strong-password-at-least-12-chars'
-npm run password:hash
-```
-
-Скрипт надрукує готовий SQL `UPDATE` для таблиці `users`. Виконайте його лише після перевірки email, а новий пароль передайте власнику захищеним каналом. Для безпеки скрипт не підключається до БД і не змінює дані самостійно.
-
-Never commit plaintext passwords, JWTs, refresh tokens, or generated password hashes.
-
-## Verification
+### Перевірка
 
 ```powershell
 npm run typecheck
@@ -93,4 +53,53 @@ npm run test
 npm run build
 ```
 
-All database timestamps are UTC; archive rules use `BUSINESS_TIME_ZONE` (default `Europe/Kyiv`).
+API readiness: [http://localhost:4000/api/v1/health/ready](http://localhost:4000/api/v1/health/ready). Swagger: [http://localhost:4000/api/docs](http://localhost:4000/api/docs).
+
+## 2. Docker: production
+
+Команди Docker виконуйте з кореня репозиторію, не з каталогу `backend`.
+
+### Налаштування
+
+```powershell
+Copy-Item .env.docker.example .env.docker
+```
+
+У `.env.docker` задайте справжній production `DATABASE_URL`, JWT secrets, `FRONTEND_ORIGIN=https://...` і `COOKIE_SECURE=true`. Файл `backend/.env` у Docker-режимі не використовується.
+
+Якщо SQL Server працює на Docker-хості, використовуйте `host.docker.internal`; для окремого DB-сервера використовуйте його приватне DNS-ім'я або IP. Не використовуйте `localhost` усередині контейнера.
+
+### Запуск
+
+```powershell
+docker compose --env-file .env.docker up -d --build
+```
+
+Перед кожним стартом API його entrypoint автоматично виконує `npm run db:migrate`. Команда застосовує лише нові міграції; вже виконані пропускаються. NestJS запускається тільки після успішної міграції.
+
+Без CI/CD оновлення виконується на production-сервері вручну (переконайтесь що в папці остання версія проекту):
+
+```powershell
+docker compose --env-file .env.docker up -d --build
+```
+
+Користувач БД із `DATABASE_URL` повинен мати права на зміну схеми. Перед потенційно руйнівними міграціями створюйте backup.
+
+Перевірити результат можна в логах:
+
+```powershell
+docker compose --env-file .env.docker logs -f api
+```
+
+Автоматичні міграції підходять для одного API-контейнера. Якщо пізніше буде кілька API-реплік, міграції слід винести в окремий deployment job.
+
+Системні дані створює migration. Якщо потрібний bootstrap-адміністратор, один раз виконайте `npm run db:seed` із довіреного dev-комп'ютера, тимчасово задавши production `DATABASE_URL` і `BOOTSTRAP_ADMIN_*`. Не зберігайте production credentials у `backend/.env`.
+
+### Перевірка
+
+```powershell
+docker compose --env-file .env.docker ps
+docker compose --env-file .env.docker logs -f api
+```
+
+`PRISMA_GENERATE_DATABASE_URL` у Dockerfile — фіктивний build-only аргумент. Prisma потребує його для генерації клієнта, але не підключається за цією адресою. Справжній production URL надходить контейнерам тільки з `.env.docker`; передавати production credentials у `docker build` не потрібно і небезпечно.

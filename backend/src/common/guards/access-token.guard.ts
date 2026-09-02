@@ -48,8 +48,10 @@ export class AccessTokenGuard implements CanActivate {
       if (payload.type !== "access") throw new Error("Invalid token type");
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
+        include: { roleDefinition: true },
       });
-      if (!user?.isActive) throw new Error("Inactive user");
+      if (!user?.isActive || !user.roleDefinition.isActive)
+        throw new Error("Inactive user or role");
       request.user = {
         id: user.id,
         name: user.name,

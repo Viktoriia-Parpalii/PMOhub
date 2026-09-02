@@ -3066,11 +3066,7 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "SUPER_ADMIN",
-              "ADMIN",
-              "USER"
-            ]
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
           },
           "department_id": {
             "type": "string",
@@ -3097,11 +3093,7 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "SUPER_ADMIN",
-              "ADMIN",
-              "USER"
-            ]
+            "pattern": "^[A-Z][A-Z0-9_]{1,31}$"
           },
           "department_id": {
             "type": "string",

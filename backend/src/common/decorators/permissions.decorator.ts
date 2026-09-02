@@ -7,6 +7,6 @@ export const RequirePermissions = (...permissions: PermissionName[]) =>
   SetMetadata(PERMISSIONS_KEY, permissions);
 
 export const ROLES_KEY = "roles";
-export type ApplicationRole = "SUPER_ADMIN" | "ADMIN" | "USER";
+export type ApplicationRole = string;
 export const RequireRoles = (...roles: ApplicationRole[]) =>
   SetMetadata(ROLES_KEY, roles);

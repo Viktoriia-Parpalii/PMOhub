@@ -202,8 +202,13 @@ export class CustomFieldsService {
   private async assertMayAdmin(actor: AuthUser) {
     const permission = await this.prisma.rolePermission.findUnique({
       where: { role: actor.role },
+      include: { roleDefinition: true },
     });
-    if (!permission?.canAccessAdmin || permission.isReadOnly)
+    if (
+      !permission?.canAccessAdmin ||
+      permission.roleDefinition?.isActive === false ||
+      permission.isReadOnly
+    )
       throw new AppError(
         "FORBIDDEN",
         "Недостатньо прав адміністратора",

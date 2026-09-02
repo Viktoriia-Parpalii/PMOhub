@@ -41,10 +41,12 @@ export class PermissionsGuard implements CanActivate {
     }
     const permissions = await this.prisma.rolePermission.findUnique({
       where: { role: user.role },
+      include: { roleDefinition: true },
     });
     if (
       required?.length &&
       (!permissions ||
+        !permissions.roleDefinition.isActive ||
         permissions.isReadOnly ||
         !required.every((key) => permissions[key] === true))
     ) {

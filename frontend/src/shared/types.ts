@@ -8,7 +8,8 @@ export interface HistoryEvent {
 export type CapacityWeight = string;
 export type Quarter = "Q1" | "Q2" | "Q3" | "Q4";
 export type HealthStatus = string;
-export type UserRole = "SUPER_ADMIN" | "ADMIN" | "USER";
+/** Stable role code supplied by the backend roles dictionary. */
+export type UserRole = string;
 
 export type InitiativeKind = "PROJECT" | "OPERATIONAL_TASK";
 export type ScopeStatusCode = "DEFAULT" | "GREEN" | "YELLOW" | "RED";
@@ -110,6 +111,10 @@ export interface User {
 
 export interface RolePermissions {
   role: UserRole;
+  roleName?: string;
+  isSystem?: boolean;
+  isDefault?: boolean;
+  isActive?: boolean;
   canCreateEditInitiatives: boolean;
   canDeleteInitiatives: boolean;
   canAccessAdmin: boolean;

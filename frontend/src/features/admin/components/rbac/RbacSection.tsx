@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Check, Copy, KeyRound, Power, PowerOff, Trash2 } from "lucide-react";
 import { useAppContext } from "../../../../app/store";
 import { UserRole } from "../../../../shared/types";
@@ -36,13 +36,31 @@ export const RbacSection = () => {
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserDept, setNewUserDept] = useState("");
-  const [newUserRole, setNewUserRole] = useState<UserRole>("USER");
+  const [newUserRole, setNewUserRole] = useState<UserRole>("");
   const [copied, setCopied] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState<{
     name: string;
     value: string;
   } | null>(null);
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+  const activeRoles = useMemo(
+    () => rolePermissions.filter((role) => role.isActive !== false),
+    [rolePermissions],
+  );
+  const roleLabel = (role: (typeof rolePermissions)[number]) =>
+    role.roleName ? `${role.roleName} (${role.role})` : role.role;
+
+  useEffect(() => {
+    if (
+      activeRoles.length &&
+      !activeRoles.some((role) => role.role === newUserRole)
+    ) {
+      setNewUserRole(
+        activeRoles.find((role) => role.isDefault)?.role ??
+          activeRoles[0].role,
+      );
+    }
+  }, [activeRoles, newUserRole]);
 
   const isCurrentUserEmail = (email: string) =>
     email.trim().toLowerCase() === currentUser?.email.trim().toLowerCase();
@@ -78,7 +96,12 @@ export const RbacSection = () => {
   };
 
   const handleAddUser = async () => {
-    if (!newUserName.trim() || !newUserEmail.trim() || !newUserDept) {
+    if (
+      !newUserName.trim() ||
+      !newUserEmail.trim() ||
+      !newUserDept ||
+      !newUserRole
+    ) {
       notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.entities.fillAllFields);
       return;
     }
@@ -125,11 +148,7 @@ export const RbacSection = () => {
               {rolePermissions.map((rp) => (
                 <tr key={rp.role}>
                   <td className={styles.strong}>
-                    {rp.role === "SUPER_ADMIN"
-                      ? "Супер адмін (SUPER_ADMIN)"
-                      : rp.role === "ADMIN"
-                        ? "Адміністратор (ADMIN)"
-                        : "Користувач (USER)"}
+                    {roleLabel(rp)}
                   </td>
                   <td className={styles.center}>
                     <input
@@ -239,11 +258,15 @@ export const RbacSection = () => {
                       }
                       className={styles.roleSelect}
                     >
-                      <option value="SUPER_ADMIN">
-                        Супер адмін (SUPER_ADMIN)
-                      </option>
-                      <option value="ADMIN">Адміністратор (ADMIN)</option>
-                      <option value="USER">Користувач (USER)</option>
+                      {rolePermissions.map((role) => (
+                        <option
+                          key={role.role}
+                          value={role.role}
+                          disabled={role.isActive === false}
+                        >
+                          {roleLabel(role)}
+                        </option>
+                      ))}
                     </select>
                   </td>
                   <td className={styles.tableCellRight}>
@@ -482,11 +505,11 @@ export const RbacSection = () => {
                       }
                       className={styles.select}
                     >
-                      <option value="SUPER_ADMIN">
-                        Супер адмін (SUPER_ADMIN)
-                      </option>
-                      <option value="ADMIN">Адміністратор (ADMIN)</option>
-                      <option value="USER">Користувач (USER)</option>
+                      {activeRoles.map((role) => (
+                        <option key={role.role} value={role.role}>
+                          {roleLabel(role)}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

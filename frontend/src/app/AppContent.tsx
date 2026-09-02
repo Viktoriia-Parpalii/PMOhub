@@ -31,13 +31,6 @@ const Dashboard = React.lazy(() =>
   })),
 );
 const wideTabs: AppTabId[] = ["projects", "tasks", "backlog", "dashboard"];
-const getRoleLabel = (role: string) =>
-  role === "SUPER_ADMIN"
-    ? "Супер адмін"
-    : role === "ADMIN"
-      ? "Адміністратор"
-      : "Користувач";
-
 export const AppContent = () => {
   const {
     currentUser,
@@ -75,8 +68,7 @@ export const AppContent = () => {
     (permission) => permission.role === currentUser.role,
   );
   const canAccessAdmin =
-    userRolePerm?.canAccessAdmin ??
-    (currentUser.role === "ADMIN" || currentUser.role === "SUPER_ADMIN");
+    userRolePerm?.isActive !== false && userRolePerm?.canAccessAdmin === true;
   const tabs: NavigationItem[] = [
     {
       id: "dashboard",
@@ -135,7 +127,7 @@ export const AppContent = () => {
       <AppSidebar
         currentUser={currentUser}
         departmentName={departmentName}
-        roleLabel={getRoleLabel(currentUser.role)}
+        roleLabel={userRolePerm?.roleName ?? currentUser.role}
         tabs={tabs}
         activeTab={currentTab.id}
         isMobileMenuOpen={isMobileMenuOpen}

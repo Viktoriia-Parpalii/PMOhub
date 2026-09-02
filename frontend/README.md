@@ -1,36 +1,78 @@
 # PMO Hub frontend
 
-Frontend-прототип системи управління стратегічним портфелем та операційними задачами на React, TypeScript і Vite.
+Frontend — це React/Vite застосунок. Він завжди працює через backend API. Повна інструкція для всього застосунку є у [кореневому README](../README.md).
 
-## Локальний запуск з backend
+## 1. Локально: розробка і тестування
 
-Потрібні Node.js 20+ та npm. Спочатку запустіть MSSQL і API за інструкцією у [backend README](../backend/README.md).
+Спочатку запустіть backend на `http://localhost:4000`. Потім відкрийте PowerShell у каталозі `frontend`.
+
+### Налаштування
 
 ```powershell
 Copy-Item .env.example .env
+```
+
+Перевірте `frontend/.env`:
+
+```dotenv
+VITE_API_URL=http://localhost:4000/api/v1
+VITE_BASE_PATH=/
+```
+
+У `backend/.env` значення `FRONTEND_ORIGIN` має дорівнювати `http://localhost:3000`.
+
+### Запуск
+
+```powershell
 npm ci
 npm run dev
 ```
 
-Перевірте, що у `frontend/.env` задано:
+Відкрийте [http://localhost:3000](http://localhost:3000). Не змішуйте `localhost` і `127.0.0.1`, оскільки для cookies і CORS це різні адреси.
 
-```dotenv
-VITE_API_URL=http://localhost:4000/api/v1
-```
+### Перевірка
 
-Після запуску відкрийте [http://localhost:3000](http://localhost:3000). У цьому режимі frontend використовує API, дані зберігаються в MSSQL, а сесія відновлюється через безпечну HttpOnly refresh-cookie. API має бути доступний на `http://localhost:4000`, а `FRONTEND_ORIGIN` у `backend/.env` — дорівнювати `http://localhost:3000`.
-
-Frontend завжди працює через backend; автономний demo-mode більше не підтримується.
-
-## Перевірка
-
-```bash
+```powershell
 npm run typecheck
 npm run test
 npm run build
-npm run preview
 ```
 
-Backup/recovery та Excel export не входять до поточного релізу. Майбутній Excel export буде спроєктовано окремо на основі актуальних server-side read models.
+## 2. Docker: production
 
-Проєкт використовує npm і `package-lock.json` як єдиний package manager contract. `npm run test:e2e` запускає Playwright smoke-тести; `npm run check:bundle` перевіряє бюджет initial JS у 500 KB.
+Окремо запускати Dockerfile frontend не потрібно. Використовуйте кореневий `docker-compose.yml`, який запускає frontend і backend разом у різних контейнерах.
+
+### Налаштування
+
+Команди виконуйте з кореня репозиторію:
+
+```powershell
+Copy-Item .env.docker.example .env.docker
+```
+
+Для frontend залиште в `.env.docker`:
+
+```dotenv
+VITE_API_URL=/api/v1
+VITE_BASE_PATH=/
+FRONTEND_PORT=3000
+```
+
+`VITE_*` значення вбудовуються під час збирання image. Після їх зміни frontend потрібно перебудувати.
+
+### Запуск
+
+```powershell
+docker compose --env-file .env.docker up -d --build
+```
+
+Dockerfile збирає Vite-застосунок, а Nginx віддає готові файли та перенаправляє `/api/*` до `api:4000` у внутрішній Docker-мережі.
+
+Для первинної перевірки відкрийте `http://SERVER_ADDRESS:3000`. У production налаштуйте HTTPS reverse proxy або load balancer і відкривайте сайт через публічний домен, наприклад `https://pmohub.example.com`.
+
+### Перевірка
+
+```powershell
+docker compose --env-file .env.docker ps
+docker compose --env-file .env.docker logs -f frontend
+```

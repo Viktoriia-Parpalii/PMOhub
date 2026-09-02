@@ -97,11 +97,12 @@ export const ProjectsTab = () => {
   const userRolePerm = rolePermissions?.find(
     (rp) => rp.role === currentUser?.role,
   );
-  const canEditArchive =
-    userRolePerm?.canEditArchive ?? currentUser?.role === "SUPER_ADMIN";
-  const canEditNormal = userRolePerm
-    ? userRolePerm.canCreateEditInitiatives && !userRolePerm.isReadOnly
-    : currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN";
+  const canEditArchive = userRolePerm?.canEditArchive === true;
+  const canEditNormal = Boolean(
+    userRolePerm?.isActive !== false &&
+      userRolePerm?.canCreateEditInitiatives &&
+      !userRolePerm?.isReadOnly,
+  );
   const canEdit = isArchive ? canEditNormal && canEditArchive : canEditNormal;
 
   const projCustomFields = (customFields || []).filter(

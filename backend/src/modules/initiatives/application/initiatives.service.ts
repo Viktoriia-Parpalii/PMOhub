@@ -1668,9 +1668,11 @@ export class InitiativesService {
   private async assertCanEdit(actor: AuthUser) {
     const permissions = await this.prisma.rolePermission.findUnique({
       where: { role: actor.role },
+      include: { roleDefinition: true },
     });
     if (
       !permissions ||
+      permissions.roleDefinition?.isActive === false ||
       permissions.isReadOnly ||
       !permissions.canCreateEditInitiatives
     )
@@ -1684,9 +1686,11 @@ export class InitiativesService {
   private async assertCanDelete(actor: AuthUser) {
     const permissions = await this.prisma.rolePermission.findUnique({
       where: { role: actor.role },
+      include: { roleDefinition: true },
     });
     if (
       !permissions ||
+      permissions.roleDefinition?.isActive === false ||
       permissions.isReadOnly ||
       !permissions.canDeleteInitiatives
     )
@@ -1700,9 +1704,11 @@ export class InitiativesService {
   private async assertCanEditArchive(actor: AuthUser) {
     const permissions = await this.prisma.rolePermission.findUnique({
       where: { role: actor.role },
+      include: { roleDefinition: true },
     });
     if (
       !permissions ||
+      permissions.roleDefinition?.isActive === false ||
       permissions.isReadOnly ||
       !permissions.canCreateEditInitiatives ||
       !permissions.canEditArchive

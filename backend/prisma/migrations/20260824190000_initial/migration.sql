@@ -6,6 +6,19 @@ BEGIN TRAN;
 IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = N'dbo') EXEC sp_executesql N'CREATE SCHEMA [dbo];';
 
 -- CreateTable
+CREATE TABLE [dbo].[roles] (
+    [code] VARCHAR(32) NOT NULL,
+    [name] NVARCHAR(100) NOT NULL,
+    [is_system] BIT NOT NULL CONSTRAINT [roles_is_system_df] DEFAULT 0,
+    [is_default] BIT NOT NULL CONSTRAINT [roles_is_default_df] DEFAULT 0,
+    [is_active] BIT NOT NULL CONSTRAINT [roles_is_active_df] DEFAULT 1,
+    [created_at] DATETIME2 NOT NULL CONSTRAINT [roles_created_at_df] DEFAULT CURRENT_TIMESTAMP,
+    [updated_at] DATETIME2 NOT NULL,
+    CONSTRAINT [roles_pkey] PRIMARY KEY CLUSTERED ([code]),
+    CONSTRAINT [UX_roles_name] UNIQUE NONCLUSTERED ([name])
+);
+
+-- CreateTable
 CREATE TABLE [dbo].[users] (
     [id] UNIQUEIDENTIFIER NOT NULL,
     [name] NVARCHAR(200) NOT NULL,
@@ -307,7 +320,10 @@ CREATE NONCLUSTERED INDEX [IX_scope_items_lineage] ON [dbo].[scope_items]([linea
 CREATE NONCLUSTERED INDEX [IX_audit_events_aggregate] ON [dbo].[audit_events]([aggregate_type], [aggregate_id], [occurred_at]);
 
 -- AddForeignKey
-ALTER TABLE [dbo].[users] ADD CONSTRAINT [users_role_fkey] FOREIGN KEY ([role]) REFERENCES [dbo].[role_permissions]([role]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE [dbo].[users] ADD CONSTRAINT [users_role_fkey] FOREIGN KEY ([role]) REFERENCES [dbo].[roles]([code]) ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE [dbo].[role_permissions] ADD CONSTRAINT [role_permissions_role_fkey] FOREIGN KEY ([role]) REFERENCES [dbo].[roles]([code]) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE [dbo].[users] ADD CONSTRAINT [users_department_id_fkey] FOREIGN KEY ([department_id]) REFERENCES [dbo].[departments]([id]) ON DELETE NO ACTION ON UPDATE NO ACTION;
@@ -389,7 +405,6 @@ ALTER TABLE [dbo].[audit_events] ADD CONSTRAINT [audit_events_actor_user_id_fkey
 
 
 -- Domain invariants not expressible in Prisma schema.
-ALTER TABLE [dbo].[users] ADD CONSTRAINT [CK_users_role] CHECK ([role] IN ('SUPER_ADMIN','ADMIN','USER'));
 ALTER TABLE [dbo].[initiatives] ADD CONSTRAINT [CK_initiatives_kind] CHECK ([kind] IN ('PROJECT','OPERATIONAL_TASK'));
 ALTER TABLE [dbo].[initiatives] ADD CONSTRAINT [CK_initiatives_revision] CHECK ([revision] >= 1);
 ALTER TABLE [dbo].[initiative_years] ADD CONSTRAINT [CK_initiative_years_year] CHECK ([year] BETWEEN 2000 AND 2200);
@@ -416,8 +431,25 @@ ALTER TABLE [dbo].[quarter_card_custom_field_values] ADD CONSTRAINT [CK_quarter_
 );
 CREATE UNIQUE NONCLUSTERED INDEX [UX_task_weight_definitions_one_default]
 ON [dbo].[task_weight_definitions]([is_default]) WHERE [is_default] = 1;
+CREATE UNIQUE NONCLUSTERED INDEX [UX_roles_one_default]
+ON [dbo].[roles]([is_default]) WHERE [is_default] = 1;
 
--- Required immutable defaults. Seed upserts the same deterministic records.
+-- Required system roles and their initial permissions.
+INSERT INTO [dbo].[roles]
+  ([code],[name],[is_system],[is_default],[is_active],[created_at],[updated_at])
+VALUES
+  ('SUPER_ADMIN',N'Супер адміністратор',1,0,1,SYSUTCDATETIME(),SYSUTCDATETIME()),
+  ('ADMIN',N'Адміністратор',1,0,1,SYSUTCDATETIME(),SYSUTCDATETIME()),
+  ('USER',N'Користувач',1,1,1,SYSUTCDATETIME(),SYSUTCDATETIME());
+
+INSERT INTO [dbo].[role_permissions]
+  ([role],[can_create_edit_initiatives],[can_delete_initiatives],[can_access_admin],[is_read_only],[can_edit_archive])
+VALUES
+  ('SUPER_ADMIN',1,1,1,0,1),
+  ('ADMIN',1,1,1,0,0),
+  ('USER',0,0,0,1,0);
+
+-- Required immutable dictionary defaults.
 INSERT INTO [dbo].[card_status_definitions]
   ([id],[code],[name],[normalized_name],[color],[is_active],[is_system],[created_at],[updated_at])
 VALUES
