@@ -421,12 +421,12 @@ ON [dbo].[task_weight_definitions]([is_default]) WHERE [is_default] = 1;
 INSERT INTO [dbo].[card_status_definitions]
   ([id],[code],[name],[normalized_name],[color],[is_active],[is_system],[created_at],[updated_at])
 VALUES
-  ('00000000-0000-0000-0000-000000000001','DEFAULT',N'Не визначено',N'не визначено','#94a3b8',1,1,SYSUTCDATETIME(),SYSUTCDATETIME());
+  ('00000000-0000-4000-8000-000000000001','DEFAULT',N'Не визначено',N'не визначено','#94a3b8',1,1,SYSUTCDATETIME(),SYSUTCDATETIME());
 
 INSERT INTO [dbo].[task_weight_definitions]
   ([id],[name],[normalized_name],[weight],[is_default],[is_system],[is_active],[created_at],[updated_at])
 VALUES
-  ('00000000-0000-0000-0000-000000000002',N'Не визначено',N'не визначено',0,1,1,1,SYSUTCDATETIME(),SYSUTCDATETIME());
+  ('00000000-0000-4000-8000-000000000002',N'Не визначено',N'не визначено',0,1,1,1,SYSUTCDATETIME(),SYSUTCDATETIME());
 
 COMMIT TRAN;
 

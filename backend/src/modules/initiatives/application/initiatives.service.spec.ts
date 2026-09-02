@@ -105,6 +105,69 @@ describe('InitiativesService transactional rules', () => {
     });
   });
 
+  it('does not block a card update when department capacity is exceeded', async () => {
+    const tx: any = {
+      quarterCard: {
+        findUnique: vi.fn(async () => ({
+          id: 'card-1',
+          revision: 1,
+          quarter: 1,
+          initiativeYear: {
+            year: 2099,
+            initiative: { kind: 'PROJECT' },
+          },
+          scopeItems: [],
+        })),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+        update: vi.fn(async () => ({})),
+      },
+      initiativeStatus: {
+        findFirst: vi.fn(async () => ({ id: 'status-in-progress', isActive: true })),
+      },
+      taskWeight: { findMany: vi.fn(async () => []) },
+      scopeItem: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        deleteMany: vi.fn(async () => ({ count: 0 })),
+        findMany: vi.fn(async () => []),
+      },
+      quarterCardDepartment: {
+        deleteMany: vi.fn(async () => ({ count: 0 })),
+        findMany: vi.fn(async () => []),
+        createMany: vi.fn(async () => ({ count: 0 })),
+      },
+      customFieldDefinition: { findMany: vi.fn(async () => []) },
+      customFieldValue: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+      initiativeSize: { findMany: vi.fn(async () => []) },
+      auditEvent: { create: vi.fn(async () => ({})) },
+      /* Deliberately no department.findMany capacity query. */
+    };
+    const prisma: any = {
+      rolePermission: {
+        findUnique: vi.fn(async () => ({
+          isReadOnly: false,
+          canCreateEditInitiatives: true,
+        })),
+      },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+
+    const result = await new InitiativesService(prisma).updateCard('card-1', {
+      revision: 1,
+      department_ids: [],
+      status_id: 'status-in-progress',
+      scope: [],
+      custom_fields: {},
+    }, actor);
+
+    expect(result).toMatchObject({
+      success: true,
+      data: { card_id: 'card-1', card_revision: 2 },
+    });
+    expect(tx.quarterCard.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ statusId: 'status-in-progress' }),
+    }));
+  });
+
   it('creates a card from the nearest previous card and copies only effective involved departments', async () => {
     const create = vi.fn(async ({ data }) => ({ id: 'card-new', revision: 1, ...data, departments: [] }));
     const tx: any = {

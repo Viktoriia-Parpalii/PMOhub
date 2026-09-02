@@ -19,7 +19,6 @@ import {
   UpdatePreparationDto,
 } from "../api/initiative.dto";
 import { currentPeriod, isPeriodLocked } from "../domain/period.policy";
-import { assertPeriodCapacity } from "../domain/capacity.policy";
 
 type Tx = Prisma.TransactionClient;
 type Defaults = {
@@ -166,7 +165,6 @@ export class InitiativesService {
             initial.custom_fields ?? {},
           );
           await this.recalculateCard(tx, card.id);
-          await assertPeriodCapacity(tx, dto.year, qn(initial.quarter));
           await this.audit(
             tx,
             "QuarterCard",
@@ -531,11 +529,6 @@ export class InitiativesService {
           dto.custom_fields ?? {},
         );
         await this.recalculateCard(tx, id);
-        await assertPeriodCapacity(
-          tx,
-          current.initiativeYear.year,
-          current.quarter,
-        );
         await this.audit(
           tx,
           "QuarterCard",
@@ -759,7 +752,6 @@ export class InitiativesService {
           },
         });
         if (!changed.count) await this.throwConflict(tx, "QuarterCard", id);
-        await assertPeriodCapacity(tx, dto.to_year, qn(dto.to_quarter));
         await this.audit(
           tx,
           "QuarterCard",
@@ -1160,13 +1152,6 @@ export class InitiativesService {
         );
         if (mode === "MOVE") await this.recalculateCard(tx, source.id);
         await this.recalculateCard(tx, target.id);
-        if (mode === "MOVE")
-          await assertPeriodCapacity(
-            tx,
-            source.initiativeYear.year,
-            source.quarter,
-          );
-        await assertPeriodCapacity(tx, dto.to_year, qn(dto.to_quarter));
         await this.audit(
           tx,
           "ScopeItem",

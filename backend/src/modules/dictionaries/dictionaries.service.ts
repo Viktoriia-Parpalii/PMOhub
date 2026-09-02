@@ -6,7 +6,6 @@ import { AppError } from "../../common/errors/app-error";
 import { DictionaryDto } from "./dictionary.dto";
 import { isPeriodLocked } from "../initiatives/domain/period.policy";
 import { AuthUser } from "../../common/auth/auth-user";
-import { assertPeriodCapacity } from "../initiatives/domain/capacity.policy";
 
 export type DictionaryType =
   | "departments"
@@ -446,7 +445,6 @@ export class DictionariesService {
         const sizes = await this.sizeDefinitions(tx);
         let changedCards = 0;
         let changedTasks = 0;
-        const affectedPeriods = new Set<string>();
         for (const card of cards) {
           if (
             isPeriodLocked(
@@ -493,11 +491,6 @@ export class DictionariesService {
           });
           changedCards += 1;
           changedTasks += affected.length;
-          affectedPeriods.add(`${card.initiativeYear.year}:${card.quarter}`);
-        }
-        for (const period of affectedPeriods) {
-          const [year, quarter] = period.split(":").map(Number);
-          await assertPeriodCapacity(tx, year, quarter);
         }
         await tx.auditEvent.create({
           data: {

@@ -55,6 +55,8 @@ const riskLabels: Record<string, string> = {
   INCOMPLETE_PREPARATION: "Підготовчий етап заповнений не повністю",
 };
 
+const AnalyticsLoadingContext = React.createContext(false);
+
 type DepartmentCapacity = AnalyticsResponse["department_capacity"][number];
 type Drilldown =
   | {
@@ -268,8 +270,9 @@ export const Dashboard = () => {
       </section>
 
       {analytics.isPending && <AppLoader label="Завантаження аналітики…" />}
-      {data && (
-        <>
+      <AnalyticsLoadingContext.Provider value={analytics.isFetching}>
+        {data && (
+          <>
           <div className={styles.kpiGrid}>
             <Kpi
               title={`Карток ${kindLabels.genitive} у вибраному періоді`}
@@ -513,8 +516,9 @@ export const Dashboard = () => {
               </Chart>
             </div>
           )}
-        </>
-      )}
+          </>
+        )}
+      </AnalyticsLoadingContext.Provider>
       {drilldown && (
         <DrilldownModal
           value={drilldown}
@@ -550,12 +554,14 @@ const Kpi = ({
   danger?: boolean;
   onClick?: () => void;
 }) => {
+  const loading = React.useContext(AnalyticsLoadingContext);
   const Tag = onClick ? "button" : "div";
   return (
     <Tag
-      onClick={onClick}
+      onClick={loading ? undefined : onClick}
       className={`${styles.kpi} ${danger ? styles.kpiDanger : ""}`}
       style={{ "--accent": accent } as CSSProperties}
+      aria-busy={loading}
     >
       <div className={styles.kpiLabel}>{title}</div>
       <div className={styles.kpiValue}>{value}</div>
@@ -568,6 +574,7 @@ const Kpi = ({
         </div>
       )}
       {onClick && <span className={styles.kpiHint}>Переглянути деталі →</span>}
+      {loading && <WidgetLoader compact />}
     </Tag>
   );
 };
@@ -584,25 +591,47 @@ const Chart = ({
   badge?: string;
   dangerBadge?: boolean;
   className?: string;
-}>) => (
-  <section className={`${styles.panel} ${className}`}>
-    <header className={styles.panelHeader}>
-      <div>
-        <h3 className={styles.panelTitle}>{title}</h3>
-        {description && (
-          <p className={styles.panelDescription}>{description}</p>
+}>) => {
+  const loading = React.useContext(AnalyticsLoadingContext);
+  return (
+    <section
+      className={`${styles.panel} ${className}`}
+      aria-busy={loading}
+    >
+      <header className={styles.panelHeader}>
+        <div>
+          <h3 className={styles.panelTitle}>{title}</h3>
+          {description && (
+            <p className={styles.panelDescription}>{description}</p>
+          )}
+        </div>
+        {badge && (
+          <span
+            className={`${styles.badge} ${dangerBadge ? styles.badgeDanger : ""}`}
+          >
+            {badge}
+          </span>
         )}
+      </header>
+      <div
+        className={`${styles.panelContent} ${loading ? styles.panelContentLoading : ""}`}
+      >
+        {children}
+        {loading && <WidgetLoader />}
       </div>
-      {badge && (
-        <span
-          className={`${styles.badge} ${dangerBadge ? styles.badgeDanger : ""}`}
-        >
-          {badge}
-        </span>
-      )}
-    </header>
-    {children}
-  </section>
+    </section>
+  );
+};
+
+const WidgetLoader = ({ compact = false }: { compact?: boolean }) => (
+  <div
+    className={`${styles.widgetLoader} ${compact ? styles.widgetLoaderCompact : ""}`}
+    role="status"
+    aria-live="polite"
+  >
+    <span className={styles.widgetSpinner} aria-hidden="true" />
+    <span>Оновлюємо дані…</span>
+  </div>
 );
 const Empty = () => <div className={styles.empty}>Немає даних</div>;
 

@@ -22,7 +22,7 @@ async function main() {
   await prisma.initiativeStatus.upsert({
     where: { code: 'DEFAULT' },
     create: {
-      id: '00000000-0000-0000-0000-000000000001',
+      id: '00000000-0000-4000-8000-000000000001',
       code: 'DEFAULT',
       name: 'Не визначено',
       normalizedName: 'не визначено',
@@ -35,7 +35,7 @@ async function main() {
   await prisma.taskWeight.upsert({
     where: { normalizedName: 'не визначено' },
     create: {
-      id: '00000000-0000-0000-0000-000000000002',
+      id: '00000000-0000-4000-8000-000000000002',
       name: 'Не визначено',
       normalizedName: 'не визначено',
       weight: 0,

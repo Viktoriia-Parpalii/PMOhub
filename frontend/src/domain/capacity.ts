@@ -97,7 +97,7 @@ export const getInitiativeMetrics = (
   };
 };
 
-export const validateChecklistCapacity = (
+export const validateChecklistAssignments = (
   checklist: ChecklistItem[] | undefined,
   taskWeights: TaskWeightDef[],
 ): string[] => {

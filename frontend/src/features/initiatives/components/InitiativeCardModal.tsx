@@ -20,7 +20,7 @@ import {
 } from "../../../shared/utils";
 import {
   makeWeightSnapshot,
-  validateChecklistCapacity,
+  validateChecklistAssignments,
 } from "../../../domain/capacity";
 import { canEditInitiative, getPermissions } from "../../../domain/permissions";
 import { RichTextEditor } from "../../../components/ui/RichTextEditor";
@@ -339,7 +339,7 @@ export const InitiativeCardModal = ({
       notify(NOTIFICATION_KINDS.error, `Вкажіть назву ${noun}`);
       return;
     }
-    const validation = validateChecklistCapacity(checklist, taskWeights);
+    const validation = validateChecklistAssignments(checklist, taskWeights);
     if (validation.length) {
       notify(NOTIFICATION_KINDS.error, validation.join(" • "));
       return;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateCardDepartmentLoads, getInitiativeSize, getInitiativeWeight, validateChecklistCapacity } from './capacity';
+import { calculateCardDepartmentLoads, getInitiativeSize, getInitiativeWeight, validateChecklistAssignments } from './capacity';
 import { Department, InitiativeViewModel, TaskWeightDef } from '../shared/types';
 
 const weights: TaskWeightDef[] = [
@@ -31,13 +31,13 @@ describe('capacity calculator', () => {
   });
 
   it('requires an active weight and at least one executor', () => {
-    expect(validateChecklistCapacity([{ id: 'I', text: 'Invalid', is_completed: false }], weights)).toHaveLength(2);
+    expect(validateChecklistAssignments([{ id: 'I', text: 'Invalid', is_completed: false }], weights)).toHaveLength(2);
   });
 
   it('uses the stored weight snapshot even after a definition changes or is deleted', () => {
     const archivedItem = { id: 'I', text: 'Archived', is_completed: false, weightId: 'L', weightSnapshot: { definitionId: 'L', name: 'L', value: 5 }, implementer_dept_ids: ['D1'] };
     expect(getInitiativeWeight([archivedItem], [{ id: 'L', name: 'L', weight: 99, is_active: true }])).toBe(5);
     expect(getInitiativeWeight([archivedItem], [])).toBe(5);
-    expect(validateChecklistCapacity([archivedItem], [])).toEqual([]);
+    expect(validateChecklistAssignments([archivedItem], [])).toEqual([]);
   });
 });

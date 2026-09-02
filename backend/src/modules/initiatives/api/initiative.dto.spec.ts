@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { UpdateCardDto } from './initiative.dto';
 
 describe('initiative UNIQUEIDENTIFIER validation', () => {
-  it('accepts deterministic MSSQL identifiers used by system dictionaries', async () => {
+  it('accepts deterministic UUID v4 identifiers used by system dictionaries', async () => {
     const dto = Object.assign(new UpdateCardDto(), {
       revision: 1,
       department_ids: [],
-      status_id: '00000000-0000-0000-0000-000000000001',
+      status_id: '00000000-0000-4000-8000-000000000001',
       scope: [],
     });
 
