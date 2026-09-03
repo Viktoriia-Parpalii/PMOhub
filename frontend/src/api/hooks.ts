@@ -108,7 +108,10 @@ export const useAnalyticsQuery = (
 ) =>
   useQuery<AnalyticsSectionResponse>({
     queryKey: queryKeys.analytics(mode, section, params.toString()),
-    queryFn: ({ signal }) => loadAnalytics(mode, section, params, signal),
+    // React StrictMode mounts, unmounts and mounts the dashboard again in
+    // development. Keeping this small analytics request alive lets the second
+    // observer reuse the same in-flight query instead of aborting and repeating it.
+    queryFn: () => loadAnalytics(mode, section, params),
     enabled,
     placeholderData: (previous) => previous,
   });
@@ -118,6 +121,6 @@ export const useAnalyticsDrilldownQuery = (
 ) =>
   useQuery({
     queryKey: queryKeys.analyticsDrilldown(params.toString()),
-    queryFn: ({ signal }) => loadAnalyticsDrilldown(params, signal),
+    queryFn: () => loadAnalyticsDrilldown(params),
     enabled,
   });

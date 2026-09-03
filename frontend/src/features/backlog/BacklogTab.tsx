@@ -30,6 +30,10 @@ import {
   toQuarterCardViewModel,
 } from "../../api/apiClient";
 import { useInitiativeYearCountsQuery } from "../../api/hooks";
+import {
+  filterBacklogCards,
+  matchesBacklogDimensions,
+} from "./backlogFiltering";
 
 const quarters: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 
@@ -140,6 +144,31 @@ export const BacklogTab = () => {
     countsQuery.data?.operational_tasks ??
     (activeTab === "TASKS" ? allMasters.length : 0);
 
+  const cardsByMaster = useMemo(() => {
+    const grouped = new Map<string, Initiative[]>();
+    records.forEach((record) => {
+      if (
+        record.record_type !== "CARD" ||
+        record.year !== selectedYear ||
+        !record.initiative_year_id
+      )
+        return;
+      const cards = grouped.get(record.initiative_year_id) ?? [];
+      cards.push(record);
+      grouped.set(record.initiative_year_id, cards);
+    });
+    return grouped;
+  }, [records, selectedYear]);
+
+  const cardFilters = {
+    quarter: quarterFilter,
+    managerId: managerFilter,
+    priorityId: priorityFilter,
+  };
+  const cardsFor = (masterId: string) => cardsByMaster.get(masterId) ?? [];
+  const visibleCardsFor = (masterId: string) =>
+    filterBacklogCards(cardsFor(masterId), cardFilters);
+
   const masters = useMemo(
     () =>
       allMasters.filter((record) => {
@@ -149,11 +178,22 @@ export const BacklogTab = () => {
           (!nameQuery || record.name.toLowerCase().includes(nameQuery)) &&
           (!goalQuery ||
             (record.strategic_goal ?? "").toLowerCase().includes(goalQuery)) &&
-          (!managerFilter || record.manager_id === managerFilter) &&
-          (!priorityFilter || record.priority === priorityFilter)
+          matchesBacklogDimensions(
+            record,
+            cardsByMaster.get(record.id) ?? [],
+            cardFilters,
+          )
         );
       }),
-    [allMasters, nameSearch, goalSearch, managerFilter, priorityFilter],
+    [
+      allMasters,
+      cardsByMaster,
+      nameSearch,
+      goalSearch,
+      quarterFilter,
+      managerFilter,
+      priorityFilter,
+    ],
   );
 
   const eligibleIds = useMemo(
@@ -179,13 +219,6 @@ export const BacklogTab = () => {
   const allVisibleSelected =
     selectableMasterIds.length > 0 &&
     selectableMasterIds.every((id) => selectedIds.includes(id));
-  const cardsFor = (masterId: string) =>
-    records.filter(
-      (record) =>
-        record.record_type === "CARD" &&
-        record.initiative_year_id === masterId &&
-        record.year === selectedYear,
-    );
   const cancelExtensionSelection = () => {
     setIsSelectingForExtension(false);
     setSelectedIds([]);
@@ -354,6 +387,7 @@ export const BacklogTab = () => {
           selectedYear={selectedYear}
           visibleQuarters={visibleQuarters}
           cardsFor={cardsFor}
+          visibleCardsFor={visibleCardsFor}
           managers={managers}
           priorities={priorities}
           departments={departments}

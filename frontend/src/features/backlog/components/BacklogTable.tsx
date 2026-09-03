@@ -40,6 +40,7 @@ interface BacklogTableProps {
   selectedYear: number;
   visibleQuarters: Quarter[];
   cardsFor: (id: string) => BacklogInitiative[];
+  visibleCardsFor: (id: string) => BacklogInitiative[];
   managers: Manager[];
   priorities: PriorityDef[];
   departments: Department[];
@@ -100,6 +101,7 @@ export const BacklogTable = (props: BacklogTableProps) => {
         <tbody className={styles.tableBody}>
           {props.masters.map((master) => {
             const cards = props.cardsFor(master.id);
+            const visibleCards = props.visibleCardsFor(master.id);
             const eligible = props.eligibleIds.has(master.id);
             const selected = props.selectedIds.includes(master.id);
             return (
@@ -207,8 +209,8 @@ export const BacklogTable = (props: BacklogTableProps) => {
                   <tr>
                     <td colSpan={columns} className={styles.expandedCell}>
                       <div className={styles.periodCards}>
-                        {cards.length ? (
-                          [...cards]
+                        {visibleCards.length ? (
+                          [...visibleCards]
                             .sort((a, b) => a.quarter.localeCompare(b.quarter))
                             .map((card) => (
                               <QuarterCard

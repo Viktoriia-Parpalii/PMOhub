@@ -19,28 +19,33 @@
 
 .toolbar {
   padding: 14px 18px 12px;
+  container-type: inline-size;
 }
 
 .toolbarRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
 }
 
 .filters {
   display: flex;
+  width: max-content;
+  max-width: 100%;
   min-width: 0;
-  flex: 1;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .select {
+  width: auto;
   min-height: 40px;
-  min-width: 104px;
-  max-width: 205px;
-  padding: 8px 34px 8px 12px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 30px 8px 11px;
   border: 1px solid #dce4ed;
   border-radius: 9px;
   outline: none;
@@ -48,11 +53,24 @@
   color: #475569;
   font-size: 13px;
   font-weight: 650;
+  field-sizing: content;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .kindSelect {
-  width: 270px;
-  max-width: 270px;
+  min-width: 250px;
+  flex: 0 0 auto;
+}
+
+.periodSelect {
+  min-width: 82px;
+  flex: 0 0 auto;
+}
+
+.entitySelect {
+  min-width: 155px;
+  flex: 0 0 auto;
 }
 
 .select:focus {
@@ -71,13 +89,13 @@
 }
 
 .switchButton {
-  min-width: 112px;
-  padding: 8px 16px;
+  min-width: 82px;
+  padding: 8px 10px;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: #64748b;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 750;
   cursor: pointer;
 }
@@ -100,6 +118,22 @@
   font-size: 11px;
 }
 
+@container (max-width: 920px) {
+  .toolbarRow {
+    flex-wrap: wrap;
+  }
+
+  .filters {
+    width: 100%;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+  }
+
+  .switch {
+    margin-left: auto;
+  }
+}
+
 .error {
   padding: 48px;
   border-radius: 18px;
@@ -115,13 +149,20 @@
 
 .kpiGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 14px;
+}
+
+.kpiGridQuarterly {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.kpiGridAnnual {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .kpi {
   position: relative;
-  min-height: 132px;
+  min-height: 150px;
   overflow: hidden;
   padding: 18px 19px;
   text-align: left;
@@ -181,6 +222,13 @@ button.kpi:hover {
   text-transform: uppercase;
 }
 
+.kpiLabel {
+  display: flex;
+  height: 48px;
+  align-items: flex-start;
+  line-height: 16px;
+}
+
 .kpiValue {
   margin-top: 11px;
   color: var(--accent, #1e293b);
@@ -225,6 +273,20 @@ button.kpi:hover {
   gap: 22px;
 }
 
+.grid57,
+.grid75 {
+  display: grid;
+  gap: 22px;
+}
+
+.grid57 {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+}
+
+.grid75 {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+}
+
 .span4 {
   grid-column: span 4;
 }
@@ -245,10 +307,18 @@ button.kpi:hover {
   grid-column: span 12;
 }
 
+.singleMedium {
+  grid-column: 4 / span 6;
+}
+
 .panel {
   position: relative;
   min-width: 0;
-  padding: 24px 28px 22px;
+  padding: 20px 22px 18px;
+}
+
+.drilldownChart {
+  cursor: pointer;
 }
 
 .panelContent {
@@ -478,7 +548,7 @@ button.kpi:hover {
 }
 
 .verticalChartScroll {
-  max-height: 315px;
+  max-height: 360px;
   overflow-y: auto;
   padding-right: 4px;
   scrollbar-color: #c7d2fe transparent;
@@ -487,7 +557,6 @@ button.kpi:hover {
 
 .chartScroll::-webkit-scrollbar,
 .verticalChartScroll::-webkit-scrollbar,
-.managerGridCompact::-webkit-scrollbar,
 .heatmapScroll::-webkit-scrollbar,
 .reserveGrid::-webkit-scrollbar {
   width: 7px;
@@ -496,7 +565,6 @@ button.kpi:hover {
 
 .chartScroll::-webkit-scrollbar-thumb,
 .verticalChartScroll::-webkit-scrollbar-thumb,
-.managerGridCompact::-webkit-scrollbar-thumb,
 .heatmapScroll::-webkit-scrollbar-thumb,
 .reserveGrid::-webkit-scrollbar-thumb {
   border-radius: 999px;
@@ -505,7 +573,6 @@ button.kpi:hover {
 
 .chartScroll::-webkit-scrollbar-track,
 .verticalChartScroll::-webkit-scrollbar-track,
-.managerGridCompact::-webkit-scrollbar-track,
 .heatmapScroll::-webkit-scrollbar-track,
 .reserveGrid::-webkit-scrollbar-track {
   background: transparent;
@@ -523,6 +590,7 @@ button.kpi:hover {
 }
 
 .reserveCard {
+  min-width: 0;
   padding: 13px 14px;
   border: 1px solid #e7edf4;
   border-radius: 13px;
@@ -531,12 +599,16 @@ button.kpi:hover {
 
 .reserveTop {
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
 }
 
 .departmentName {
+  min-width: 0;
+  flex: 1 1 120px;
   overflow: hidden;
   color: #34435a;
   font-size: 12px;
@@ -546,12 +618,19 @@ button.kpi:hover {
 }
 
 .reserveValue {
-  flex: none;
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 1 auto;
+  margin-left: auto;
+  box-sizing: border-box;
   padding: 4px 7px;
   border: 1px solid;
   border-radius: 8px;
   font-size: 10px;
   font-weight: 800;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: normal;
 }
 
 .good {
@@ -643,20 +722,6 @@ button.kpi:hover {
   grid-template-columns: repeat(5, minmax(130px, 1fr));
   gap: 14px;
   padding-top: 4px;
-}
-
-.managerGridCompact {
-  display: flex;
-  max-width: 100%;
-  overflow-x: auto;
-  padding-bottom: 7px;
-  scrollbar-color: #c7d2fe transparent;
-  scrollbar-width: thin;
-}
-
-.managerGridCompact .managerCard {
-  min-width: 155px;
-  flex: 1 0 155px;
 }
 
 .managerCard {
@@ -942,10 +1007,6 @@ button.kpi:hover {
     align-items: flex-start;
   }
 
-  .switch {
-    margin-left: 0;
-  }
-
   .span5,
   .span7 {
     grid-column: span 12;
@@ -953,6 +1014,11 @@ button.kpi:hover {
 
   .managerGrid {
     grid-template-columns: repeat(3, minmax(130px, 1fr));
+  }
+
+  .kpiGridAnnual,
+  .kpiGridQuarterly {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -965,12 +1031,19 @@ button.kpi:hover {
     align-self: flex-end;
   }
 
-  .grid2 {
+  .filters {
+    flex-wrap: wrap;
+  }
+
+  .grid2,
+  .grid57,
+  .grid75 {
     grid-template-columns: 1fr;
   }
 
   .span4,
-  .span8 {
+  .span8,
+  .singleMedium {
     grid-column: span 12;
   }
 
@@ -996,9 +1069,18 @@ button.kpi:hover {
 
   .filters,
   .select,
-  .kindSelect {
+  .kindSelect,
+  .periodSelect,
+  .entitySelect {
     width: 100%;
     max-width: none;
+  }
+
+  .kindSelect,
+  .periodSelect,
+  .entitySelect {
+    min-width: 0;
+    flex: 1 0 100%;
   }
 
   .switch {
@@ -1026,7 +1108,7 @@ button.kpi:hover {
   }
 
   .panel {
-    padding: 19px 16px;
+    padding: 16px 14px;
   }
 
   .managerGrid {
@@ -1044,7 +1126,6 @@ button.kpi:hover {
 }
 
 @media (max-width: 460px) {
-
   .kpiGrid,
   .managerGrid {
     grid-template-columns: 1fr;

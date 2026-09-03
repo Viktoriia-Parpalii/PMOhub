@@ -12,7 +12,6 @@ const overviewCard = (
   quarter,
   statusId: `status-${status}`,
   priorityId: "priority",
-  totalWeight: decimal(4),
   sizeSnapshotName: "M",
   priority: { name: "Priority" },
   status: { name: `Status ${status}`, color: "#123456" },
@@ -65,7 +64,7 @@ describe("AnalyticsService section contracts", () => {
         },
       }),
     );
-    expect(result.summary).toMatchObject({ cards: 1, total_weight: 4 });
+    expect(result.summary).toMatchObject({ cards: 1, scope_items: 1 });
     expect(result.status_distribution[0]).toEqual({
       status_id: "status-ACTIVE",
       name: "Status ACTIVE",

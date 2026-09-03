@@ -86,11 +86,16 @@ export const Dashboard = () => {
     managerId: "",
   });
   useEffect(() => {
-    setFilters((current) => ({
-      ...current,
-      year: businessPeriod.year,
-      quarter: businessPeriod.quarter,
-    }));
+    setFilters((current) =>
+      current.year === businessPeriod.year &&
+      current.quarter === businessPeriod.quarter
+        ? current
+        : {
+            ...current,
+            year: businessPeriod.year,
+            quarter: businessPeriod.quarter,
+          },
+    );
   }, [businessPeriod.quarter, businessPeriod.year]);
   const [drilldown, setDrilldown] = useState<Drilldown>(null);
   const params = useMemo(() => {
@@ -222,7 +227,7 @@ export const Dashboard = () => {
   const summary = data?.summary ?? {
     cards: 0,
     initiatives: 0,
-    total_weight: 0,
+    scope_items: 0,
     average_progress: 0,
     average_duration: 0,
     overloaded_departments: 0,
@@ -259,7 +264,7 @@ export const Dashboard = () => {
             <select
               value={filters.year}
               onChange={(event) => update("year", Number(event.target.value))}
-              className={styles.select}
+              className={`${styles.select} ${styles.periodSelect}`}
               aria-label="Рік"
             >
               {years.map((year) => (
@@ -272,7 +277,7 @@ export const Dashboard = () => {
                 onChange={(event) =>
                   update("quarter", event.target.value as Quarter)
                 }
-                className={styles.select}
+                className={`${styles.select} ${styles.periodSelect}`}
                 aria-label="Квартал"
               >
                 {(["Q1", "Q2", "Q3", "Q4"] as Quarter[]).map((quarter) => (
@@ -283,8 +288,12 @@ export const Dashboard = () => {
             <select
               value={filters.departmentId}
               onChange={(event) => update("departmentId", event.target.value)}
-              className={styles.select}
+              className={`${styles.select} ${styles.entitySelect}`}
               aria-label="Підрозділ"
+              title={
+                departments.find((item) => item.id === filters.departmentId)
+                  ?.name ?? "Всі підрозділи"
+              }
             >
               <option value="">Всі підрозділи</option>
               {departments.map((item) => (
@@ -296,8 +305,12 @@ export const Dashboard = () => {
             <select
               value={filters.managerId}
               onChange={(event) => update("managerId", event.target.value)}
-              className={styles.select}
+              className={`${styles.select} ${styles.entitySelect}`}
               aria-label="Менеджер"
+              title={
+                managers.find((item) => item.id === filters.managerId)?.name ??
+                "Всі менеджери"
+              }
             >
               <option value="">Всі менеджери</option>
               {managers.map((item) => (
@@ -341,24 +354,30 @@ export const Dashboard = () => {
       >
         {data && (
           <>
-          <div className={styles.kpiGrid}>
+          <div
+            className={`${styles.kpiGrid} ${
+              mode === "annual" ? styles.kpiGridAnnual : styles.kpiGridQuarterly
+            }`}
+          >
             <Kpi
               title={`Карток ${kindLabels.genitive} у вибраному періоді`}
               value={summary.cards}
               accent="#0f766e"
               onClick={() => openRecords("Картки у вибраному періоді")}
             />
+            {mode === "annual" && (
+              <Kpi
+                title={`Унікальних ${kindLabels.genitive}`}
+                value={summary.initiatives}
+                accent="#4f46e5"
+                onClick={() => openRecords(kindLabels.nominativeTitle)}
+              />
+            )}
             <Kpi
-              title={`Унікальних ${kindLabels.genitive}`}
-              value={summary.initiatives}
-              accent="#4f46e5"
-              onClick={() => openRecords(kindLabels.nominativeTitle)}
-            />
-            <Kpi
-              title={`Сумарна вага ${kindLabels.genitive}`}
-              value={`${summary.total_weight} бал.`}
+              title="Завдань у scope"
+              value={summary.scope_items}
               accent="#7c3aed"
-              onClick={() => openRecords("Картки, що формують сумарну вагу")}
+              onClick={() => openRecords("Картки із завданнями у scope")}
             />
             <Kpi
               title={`${mode === "annual" ? "Загальне виконання скоупу" : "Середній прогрес"} ${kindLabels.genitive}`}
@@ -397,7 +416,7 @@ export const Dashboard = () => {
 
           {mode === "quarterly" ? (
             <>
-              <div className={styles.grid2}>
+              <div className={styles.grid57}>
                 <Chart title={`Статус ${kindLabels.genitive}`}>
                   {statusData.length ? (
                     <StatusDonut
@@ -413,11 +432,13 @@ export const Dashboard = () => {
                     <Empty />
                   )}
                 </Chart>
-                <Chart title={`Пріоритети та статуси ${kindLabels.genitive}`}>
+                <Chart
+                  title={`Пріоритети та статуси ${kindLabels.genitive}`}
+                >
                   <PriorityStatusChart data={data} onOpen={openRecords} />
                 </Chart>
               </div>
-              <div className={styles.grid2}>
+              <div className={styles.grid57}>
                 <Chart title="Виконання скоупу">
                   <ScopeProgressChart data={data} statusColor={statusColor} />
                 </Chart>
@@ -428,7 +449,7 @@ export const Dashboard = () => {
                   <SizeChart data={data} onOpen={openRecords} />
                 </Chart>
               </div>
-              <div className={styles.grid2}>
+              <div className={styles.grid75}>
                 <Chart
                   title={`Завантаженість підрозділів за вагою ${kindLabels.genitive}`}
                 >
@@ -452,16 +473,17 @@ export const Dashboard = () => {
                   />
                 </Chart>
               </div>
-              <div className={styles.grid2}>
+              <div className={styles.grid75}>
                 <Chart
                   title={`Динаміка обсягу ${kindLabels.genitive}: поточний і попередній квартал`}
                 >
                   <QuarterComparisonChart data={data} />
                 </Chart>
                 <Chart
-                  title={`Топ завантажених менеджерів за вагою ${kindLabels.genitive}`}
+                  title="Контроль плану"
+                  badge={String(planningHealth?.risks?.total ?? 0)}
                 >
-                  <ManagerCards data={data} onOpen={openRecords} compact />
+                  <RiskList data={data} onOpen={openRecords} />
                 </Chart>
               </div>
             </>
@@ -494,7 +516,7 @@ export const Dashboard = () => {
                   <SizeChart data={data} onOpen={openRecords} />
                 </Chart>
               </div>
-              <div className={styles.grid2}>
+              <div className={styles.grid75}>
                 <Chart
                   title={`Історична динаміка статусів ${kindLabels.genitive}`}
                 >
@@ -512,11 +534,13 @@ export const Dashboard = () => {
                 >
                   <DepartmentLoadChart data={data} />
                 </Chart>
-                <Chart title={`Пріоритети та статуси ${kindLabels.genitive}`}>
+                <Chart
+                  title={`Пріоритети та статуси ${kindLabels.genitive}`}
+                >
                   <PriorityStatusChart data={data} onOpen={openRecords} />
                 </Chart>
               </div>
-              <div className={styles.grid2}>
+              <div className={styles.grid75}>
                 <Chart
                   title="Теплова карта завантаження за кварталами"
                   description="Зелений — норма, жовтий — від 80%, червоний — перевищення."
@@ -554,19 +578,21 @@ export const Dashboard = () => {
           )}
 
           {mode === "quarterly" && (
-            <Chart
-              title="Контроль плану"
-              badge={String(planningHealth?.risks?.total ?? 0)}
-            >
-              <RiskList data={data} onOpen={openRecords} />
-            </Chart>
+            <div className={styles.grid12}>
+              <Chart
+                title={`Топ завантажених менеджерів за вагою ${kindLabels.genitive}`}
+                className={styles.span12}
+              >
+                <ManagerCards data={data} onOpen={openRecords} />
+              </Chart>
+            </div>
           )}
 
           {mode === "annual" && (
             <div className={styles.grid12}>
               <Chart
                 title="Готовність підготовчого етапу"
-                className={styles.span12}
+                className={styles.singleMedium}
               >
                 <button
                   type="button"
@@ -714,7 +740,7 @@ const SizeChart = ({
   data: AnalyticsResponse;
   onOpen: (title: string, criteria?: AnalyticsDrilldownCriteria) => void;
 }) => {
-  const height = Math.max(280, data.size_breakdown.length * 52);
+  const height = Math.max(325, data.size_breakdown.length * 52);
   return (
     <div className={styles.verticalChartScroll}>
       <div style={{ height }}>
@@ -749,6 +775,7 @@ const SizeChart = ({
               cursor={{ fill: "#f6f8fb" }}
             />
             <Bar
+              className={styles.drilldownChart}
               dataKey="count"
               name="Кількість карток"
               radius={[0, 6, 6, 0]}
@@ -827,7 +854,7 @@ const PriorityStatusChart = ({
   data: AnalyticsResponse;
   onOpen: (title: string, criteria?: AnalyticsDrilldownCriteria) => void;
 }) => {
-  const height = Math.max(265, data.priority_status_breakdown.length * 54);
+  const height = Math.max(325, data.priority_status_breakdown.length * 54);
   return (
     <>
       <div className={styles.verticalChartScroll}>
@@ -864,6 +891,7 @@ const PriorityStatusChart = ({
               />
               {data.status_distribution.map((status) => (
                 <Bar
+                  className={styles.drilldownChart}
                   key={status.status_id}
                   dataKey={(entry) =>
                     entry.status_counts[status.status_id] ?? 0
@@ -1121,6 +1149,7 @@ const StatusDonut = ({
       <ResponsiveContainer width="100%" height={235}>
         <PieChart>
           <Pie
+            className={styles.drilldownChart}
             data={data}
             dataKey="count"
             nameKey="name"
@@ -1241,16 +1270,12 @@ const VolumeTooltip = ({ active, payload, label, currentYear }: any) =>
 const ManagerCards = ({
   data,
   onOpen,
-  compact = false,
 }: {
   data: AnalyticsResponse;
   onOpen: (title: string, criteria?: AnalyticsDrilldownCriteria) => void;
-  compact?: boolean;
 }) =>
   data.manager_loads.length ? (
-    <div
-      className={`${styles.managerGrid} ${compact ? styles.managerGridCompact : ""}`}
-    >
+    <div className={styles.managerGrid}>
       {data.manager_loads.slice(0, 5).map((manager, index) => (
         <button
           type="button"
@@ -1286,6 +1311,11 @@ const reserveTone = (load: number, limit: number) =>
     : limit > 0 && load / limit >= 0.8
       ? styles.warning
       : styles.good;
+const formatWeight = (value: number) =>
+  new Intl.NumberFormat("uk-UA", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value);
 const ReserveWidget = ({
   data,
   mode,
@@ -1331,8 +1361,8 @@ const ReserveWidget = ({
                 className={`${styles.reserveValue} ${reserveTone(department.load, department.limit)}`}
               >
                 {department.reserve < 0
-                  ? `Перевищення ${Math.abs(department.reserve)}`
-                  : `Резерв ${department.reserve}`}
+                  ? `Перевищення ${formatWeight(Math.abs(department.reserve))}`
+                  : `Резерв ${formatWeight(department.reserve)}`}
               </span>
             </div>
             <div className={styles.progressTrack}>
@@ -1343,7 +1373,7 @@ const ReserveWidget = ({
             </div>
             <div className={styles.loadMeta}>
               <span>
-                {department.load} з {department.limit} балів
+                {formatWeight(department.load)} з {formatWeight(department.limit)} балів
               </span>
             </div>
           </article>

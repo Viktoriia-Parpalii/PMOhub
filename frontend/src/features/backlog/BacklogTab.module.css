@@ -367,9 +367,10 @@
 }
 
 .filterControl {
-    height: 56px;
-    padding: 0 1.25rem;
-    font-size: 17px;
+    height: 40px;
+    padding: 0 .75rem;
+    border-radius: .75rem;
+    font-size: 14px;
 }
 
 .filterControl::placeholder {

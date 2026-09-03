@@ -24,7 +24,6 @@ const overviewSelect = {
   quarter: true,
   statusId: true,
   priorityId: true,
-  totalWeight: true,
   sizeSnapshotName: true,
   initiativeYear: {
     select: {
@@ -338,9 +337,7 @@ export class AnalyticsService {
       summary: {
         cards: cards.length,
         initiatives: duration.size,
-        total_weight: round(
-          cards.reduce((sum, card) => sum + card.totalWeight.toNumber(), 0),
-        ),
+        scope_items: scopeItems.length,
         average_progress: progress,
         average_duration:
           annual && duration.size

@@ -56,7 +56,7 @@ export interface AnalyticsOverviewResponse {
   summary: {
     cards: number;
     initiatives: number;
-    total_weight: number;
+    scope_items: number;
     average_progress: number;
     average_duration: number;
   };
