@@ -1,57 +1,159 @@
-import { describe, expect, it, vi } from 'vitest';
-import { AnalyticsService } from './analytics.service';
+import { describe, expect, it, vi } from "vitest";
+import { AnalyticsService } from "./analytics.service";
 
 const decimal = (value: number) => ({ toNumber: () => value });
-const card = (quarter: number, status: string, id = `card-${quarter}`, scopeStatus = 'YELLOW') => ({
-  id, quarter, statusId: `status-${status}`, managerId: 'manager', priorityId: 'priority', totalWeight: decimal(4), sizeSnapshotName: 'M', createdAt: new Date(),
-  manager: { name: 'Manager' }, priority: { name: 'Priority' }, status: { code: status, name: `Status ${status}`, color: '#123456' }, departments: [{ departmentId: 'department' }],
-  initiativeYear: { year: 2027, initiativeId: 'initiative', initiative: { id: 'initiative', kind: 'PROJECT', name: 'Project' } },
-  scopeItems: [{ statusCode: scopeStatus, weightSnapshotValue: decimal(4), executors: [{ departmentId: 'department' }] }],
+const overviewCard = (
+  quarter: number,
+  status: string,
+  id = `card-${quarter}`,
+  scopeStatus = "YELLOW",
+) => ({
+  id,
+  quarter,
+  statusId: `status-${status}`,
+  priorityId: "priority",
+  totalWeight: decimal(4),
+  sizeSnapshotName: "M",
+  priority: { name: "Priority" },
+  status: { name: `Status ${status}`, color: "#123456" },
+  initiativeYear: { initiativeId: "initiative" },
+  scopeItems: [{ statusCode: scopeStatus }],
 });
 
-describe('AnalyticsService aggregation contracts', () => {
-  it('applies kind, year, quarter, department and manager to the quarterly query', async () => {
-    const prisma: any = { quarterCard: { findMany: vi.fn(async () => []) }, department: { findMany: vi.fn(async () => []) }, initiativeYear: { findMany: vi.fn(async () => []) } };
-    const result = await new AnalyticsService(prisma).quarterly({ year: 2027, quarter: 'Q2', kind: 'PROJECT', department_id: 'department', manager_id: 'manager' });
-    expect(prisma.quarterCard.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {
-      quarter: 2, managerId: 'manager', departments: { some: { departmentId: 'department' } }, initiativeYear: { year: 2027, initiative: { kind: 'PROJECT' } },
-    } }));
-    expect(prisma.department.findMany).toHaveBeenCalledWith({ where: { id: 'department' } });
-    expect(result.period_comparison).toEqual([{ label: 'Q1 2027', cards: 0 }, { label: 'Q2 2027', cards: 0 }]);
-  });
+const recordCard = (id: string) => ({
+  id,
+  quarter: 2,
+  managerId: "manager",
+  priorityId: "priority",
+  statusId: "status-risk",
+  totalWeight: decimal(4),
+  sizeSnapshotName: "M",
+  manager: { name: "Manager" },
+  priority: { name: "Priority" },
+  status: { name: "Risk", color: "#123456" },
+  departments: [{ departmentId: "department" }],
+  initiativeYear: {
+    year: 2027,
+    initiativeId: "initiative",
+    initiative: { kind: "PROJECT", name: "Project" },
+  },
+  scopeItems: [
+    { statusCode: "YELLOW", executors: [{ departmentId: "department" }] },
+  ],
+});
 
-  it('aggregates annual status, size, progress and priority matrix from every quarterly card', async () => {
-    const cards = [card(1, 'YELLOW', 'card-1', 'RED'), card(2, 'GREEN', 'card-2', 'GREEN')];
-    cards[0].managerId = null as unknown as string;
-    const previousCards = [card(4, 'DEFAULT', 'previous-card', 'DEFAULT')];
+describe("AnalyticsService section contracts", () => {
+  it("returns a compact quarterly overview without card id collections", async () => {
     const prisma: any = {
-      quarterCard: { findMany: vi.fn(async ({ where }: any) => where.initiativeYear.year === 2026 ? previousCards : cards) },
-      initiativeYear: { findMany: vi.fn(async () => []) },
-      department: { findMany: vi.fn(async () => [{ id: 'department', name: 'Department', capacityLimitPoints: decimal(10) }]) },
+      quarterCard: { findMany: vi.fn(async () => [overviewCard(2, "ACTIVE")]) },
+      initiativeYear: { findMany: vi.fn(async () => [{ year: 2027 }]) },
     };
-    const result = await new AnalyticsService(prisma).annual({ year: 2027 });
-    expect(result.summary).toMatchObject({ cards: 2, initiatives: 1, average_duration: 2, average_progress: 50, total_weight: 8 });
-    expect(result.status_distribution).toEqual(expect.arrayContaining([
-      expect.objectContaining({ status_id: 'status-GREEN', code: 'GREEN', count: 1, card_ids: ['card-2'] }),
-      expect.objectContaining({ status_id: 'status-YELLOW', code: 'YELLOW', count: 1, card_ids: ['card-1'] }),
-    ]));
-    expect(result.size_breakdown).toEqual([{ name: 'M', count: 2, card_ids: ['card-1', 'card-2'] }]);
-    expect(result.scope_status_counts).toMatchObject({ GREEN: 1, RED: 1 });
-    expect(result.quarter_trend.find((item) => item.quarter === 'Q1')).toMatchObject({ cards: 1, initiatives: 1 });
-    expect(result.volume_trend.find((item) => item.quarter === 'Q4')).toMatchObject({ current: 0, previous: 1 });
-    expect(result.priority_status_breakdown[0]).toMatchObject({ name: 'Priority', status_counts: { 'status-GREEN': 1, 'status-YELLOW': 1 } });
-    expect(result.history[0].status_distribution).toEqual(expect.arrayContaining([expect.objectContaining({ status_id: 'status-GREEN', count: 1 })]));
-    expect(result.risks).toEqual([]);
-    expect(result).not.toHaveProperty('records');
+    const result = await new AnalyticsService(prisma).quarterlyOverview({
+      year: 2027,
+      quarter: "Q2",
+      kind: "PROJECT",
+      department_id: "department",
+      manager_id: "manager",
+    });
+    expect(prisma.quarterCard.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          quarter: 2,
+          managerId: "manager",
+          departments: { some: { departmentId: "department" } },
+          initiativeYear: { year: 2027, initiative: { kind: "PROJECT" } },
+        },
+      }),
+    );
+    expect(result.summary).toMatchObject({ cards: 1, total_weight: 4 });
+    expect(result.status_distribution[0]).toEqual({
+      status_id: "status-ACTIVE",
+      name: "Status ACTIVE",
+      color: "#123456",
+      count: 1,
+    });
+    expect(JSON.stringify(result)).not.toContain("card_ids");
   });
 
-  it('loads drill-down records separately by dynamic status id and pagination', async () => {
-    const cards = [card(1, 'custom', 'card-1'), card(2, 'custom', 'card-2')];
-    cards[0].statusId = 'status-risk';
-    cards[1].statusId = 'status-plan';
-    const prisma: any = { quarterCard: { findMany: vi.fn(async () => cards) } };
-    const result = await new AnalyticsService(prisma).drilldown({ year: 2027, mode: 'annual', status_id: 'status-risk', page: 1, page_size: 1 });
-    expect(result).toMatchObject({ total: 1, page: 1, page_size: 1 });
-    expect(result.records.map((item) => item.id)).toEqual(['card-1']);
+  it("returns normalized annual workload without manager card ids", async () => {
+    const cards = [
+      {
+        id: "card-1",
+        quarter: 1,
+        managerId: "manager",
+        totalWeight: decimal(4),
+        manager: { name: "Manager" },
+        departments: [{ departmentId: "department" }],
+        scopeItems: [
+          {
+            weightSnapshotValue: decimal(4),
+            executors: [{ departmentId: "department" }],
+          },
+        ],
+      },
+    ];
+    const prisma: any = {
+      quarterCard: { findMany: vi.fn(async () => cards) },
+      department: {
+        findMany: vi.fn(async () => [
+          { id: "department", name: "Department", capacityLimitPoints: decimal(10) },
+        ]),
+      },
+    };
+    const result = await new AnalyticsService(prisma).annualWorkload({ year: 2027 });
+    expect(result.departments[0]).toMatchObject({ load: 4, limit: 40, reserve: 36 });
+    expect(result.departments[0].quarters).toHaveLength(4);
+    expect(result.managers[0]).toEqual({
+      manager_id: "manager",
+      name: "Manager",
+      load: 4,
+      cards: 1,
+    });
+    expect(JSON.stringify(result)).not.toContain("card_ids");
+  });
+
+  it("calculates quarterly comparison with count-only database queries", async () => {
+    const prisma: any = {
+      quarterCard: { count: vi.fn().mockResolvedValueOnce(8).mockResolvedValueOnce(6) },
+    };
+    const result = await new AnalyticsService(prisma).quarterlyTrends({
+      year: 2027,
+      quarter: "Q1",
+    });
+    expect(result.period_comparison).toEqual([
+      { label: "Q4 2026", cards: 6 },
+      { label: "Q1 2027", cards: 8 },
+    ]);
+  });
+
+  it("paginates drilldown in the database and filters by dimensions", async () => {
+    const prisma: any = {
+      quarterCard: {
+        count: vi.fn(async () => 1),
+        findMany: vi.fn(async () => [recordCard("card-1")]),
+      },
+    };
+    const result = await new AnalyticsService(prisma).drilldown({
+      year: 2027,
+      mode: "annual",
+      status_id: "status-risk",
+      size_name: "M",
+      priority_key: "priority",
+      page: 2,
+      page_size: 25,
+    });
+    expect(prisma.quarterCard.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 25,
+        take: 25,
+        where: expect.objectContaining({
+          statusId: "status-risk",
+          sizeSnapshotName: "M",
+          priorityId: "priority",
+        }),
+      }),
+    );
+    expect(result).toMatchObject({ total: 1, page: 2, page_size: 25 });
+    expect(result.records[0]).not.toHaveProperty("status_code");
   });
 });

@@ -77,7 +77,7 @@ mutation -> commit -> canonical GET/refetch -> cache update -> close form
 
 There are no optimistic server-state updates. A failed commit keeps the form and cache unchanged. Abort signals are forwarded to GET requests, access-token refresh is single-flight, and a failed refresh clears authentication plus the full query cache.
 
-Dashboard data is not sourced from the portfolio collections. `GET /analytics/quarterly/summary` and `GET /analytics/annual/summary` apply `kind`, `year`, `quarter`, `department_id`, and `manager_id` on the server and return aggregates only. Paginated records are loaded separately from `GET /analytics/drilldown`.
+Dashboard data is not sourced from the portfolio collections. Quarterly and annual analytics are split into the `overview`, `workload`, `trends`, and `planning-health` resources. Every resource applies `kind`, `year`, `quarter`, `department_id`, and `manager_id` on the server and returns only the fields required by its widget group. Aggregates never include card-ID collections. Paginated records are loaded separately from `GET /analytics/drilldown`, using server-side dimensions such as `status_id`, `size_name`, `priority_key`, `manager_id`, or `risk`.
 
 ## Export flow
 
@@ -100,7 +100,7 @@ Dashboard data is not sourced from the portfolio collections. `GET /analytics/qu
 - Type, department and manager filters are combined with AND. Department-filtered capacity contains only the selected department.
 - Drill-down IDs are produced from the same filtered card set as the aggregate.
 - Annual “current risks” use only the latest quarterly card of each initiative; all other annual widgets aggregate every quarterly card.
-- Analytics pages load `/analytics/quarterly/summary` or `/analytics/annual/summary`; full card records are fetched only from paginated `/analytics/drilldown` after a user action.
+- Analytics pages independently cache `/analytics/{quarterly|annual}/{overview|workload|trends|planning-health}`. Full card records are fetched only from paginated `/analytics/drilldown` after a user action.
 - Portfolio collections return summary records without scope/custom-field payloads. Canonical card detail and audit history are loaded when the modal/history tab opens.
 - Backlog loads full summaries only for its active project/task tab; the inactive tab uses the lightweight `/initiative-years/counts` endpoint.
 

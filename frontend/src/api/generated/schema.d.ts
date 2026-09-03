@@ -580,14 +580,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/analytics/quarterly/summary": {
+    "/api/v1/analytics/quarterly/overview": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["AnalyticsController_quarterly"];
+        get: operations["AnalyticsController_quarterlyOverview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -596,14 +596,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/analytics/annual/summary": {
+    "/api/v1/analytics/quarterly/workload": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["AnalyticsController_annual"];
+        get: operations["AnalyticsController_quarterlyWorkload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/quarterly/trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AnalyticsController_quarterlyTrends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/quarterly/planning-health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AnalyticsController_quarterlyPlanningHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/annual/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AnalyticsController_annualOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/annual/workload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AnalyticsController_annualWorkload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/annual/trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AnalyticsController_annualTrends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/annual/planning-health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AnalyticsController_annualPlanningHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1029,46 +1125,13 @@ export interface components {
             showInCards?: boolean;
             isActive?: boolean;
         };
-        CardStatusMetricDto: {
-            /** Format: uuid */
-            status_id: string;
-            code: string;
-            name: string;
-            color: string;
-            count: number;
-            card_ids: string[];
-        };
-        StatusCountsDto: {
-            GREEN: number;
-            YELLOW: number;
-            RED: number;
-            DEFAULT: number;
-        };
-        AnalyticsSummaryDataDto: {
-            /** @enum {string} */
-            mode: "QUARTERLY" | "ANNUAL";
-            available_years: number[];
-            summary: Record<string, never>;
-            status_distribution: components["schemas"]["CardStatusMetricDto"][];
-            scope_status_counts: components["schemas"]["StatusCountsDto"];
-            size_breakdown: Record<string, never>[];
-            priority_breakdown: Record<string, never>[];
-            priority_status_breakdown: Record<string, never>[];
-            department_capacity: Record<string, never>[];
-            capacity_by_quarter: Record<string, never>[];
-            manager_loads: Record<string, never>[];
-            risks: Record<string, never>[];
-            quarter_trend: Record<string, never>[];
-            volume_trend: Record<string, never>[];
-            period_comparison: Record<string, never>[];
-            history: Record<string, never>[];
-            preparation: Record<string, never>;
-        };
-        AnalyticsSummaryResponseDto: {
+        AnalyticsDataResponseDto: {
             /** @enum {boolean} */
             success: true;
             message?: string;
-            data: components["schemas"]["AnalyticsSummaryDataDto"];
+            data: {
+                [key: string]: unknown;
+            };
         };
         AnalyticsRecordDto: {
             id: string;
@@ -1084,9 +1147,7 @@ export interface components {
             priority_id: string | null;
             priority_name: string | null;
             department_ids: string[];
-            /** Format: uuid */
             status_id: string;
-            status_code: string;
             status_name: string;
             status_color: string;
             total_weight: number;
@@ -2257,7 +2318,7 @@ export interface operations {
             };
         };
     };
-    AnalyticsController_quarterly: {
+    AnalyticsController_quarterlyOverview: {
         parameters: {
             query: {
                 quarter: "Q1" | "Q2" | "Q3" | "Q4";
@@ -2277,12 +2338,87 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AnalyticsSummaryResponseDto"];
+                    "application/json": components["schemas"]["AnalyticsDataResponseDto"];
                 };
             };
         };
     };
-    AnalyticsController_annual: {
+    AnalyticsController_quarterlyWorkload: {
+        parameters: {
+            query: {
+                quarter: "Q1" | "Q2" | "Q3" | "Q4";
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsDataResponseDto"];
+                };
+            };
+        };
+    };
+    AnalyticsController_quarterlyTrends: {
+        parameters: {
+            query: {
+                quarter: "Q1" | "Q2" | "Q3" | "Q4";
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsDataResponseDto"];
+                };
+            };
+        };
+    };
+    AnalyticsController_quarterlyPlanningHealth: {
+        parameters: {
+            query: {
+                quarter: "Q1" | "Q2" | "Q3" | "Q4";
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsDataResponseDto"];
+                };
+            };
+        };
+    };
+    AnalyticsController_annualOverview: {
         parameters: {
             query: {
                 year: number;
@@ -2301,7 +2437,79 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AnalyticsSummaryResponseDto"];
+                    "application/json": components["schemas"]["AnalyticsDataResponseDto"];
+                };
+            };
+        };
+    };
+    AnalyticsController_annualWorkload: {
+        parameters: {
+            query: {
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsDataResponseDto"];
+                };
+            };
+        };
+    };
+    AnalyticsController_annualTrends: {
+        parameters: {
+            query: {
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsDataResponseDto"];
+                };
+            };
+        };
+    };
+    AnalyticsController_annualPlanningHealth: {
+        parameters: {
+            query: {
+                year: number;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                department_id?: string;
+                manager_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsDataResponseDto"];
                 };
             };
         };
@@ -2315,8 +2523,12 @@ export interface operations {
                 manager_id?: string;
                 mode: "quarterly" | "annual";
                 quarter?: "Q1" | "Q2" | "Q3" | "Q4";
-                card_ids?: string;
                 status_id?: string;
+                card_id?: string;
+                size_name?: string;
+                priority_key?: string;
+                risk?: "NO_MANAGER" | "NO_PRIORITY" | "NO_SCOPE" | "NO_EXECUTOR";
+                view?: "cards" | "preparation";
                 page: number;
                 page_size: number;
             };

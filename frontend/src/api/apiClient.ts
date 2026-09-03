@@ -9,7 +9,8 @@ import {
 import type {
   AnalyticsDrilldownResponse,
   AnalyticsMode,
-  AnalyticsResponse,
+  AnalyticsSection,
+  AnalyticsSectionResponse,
 } from "../features/analytics/analyticsTypes";
 import { SYSTEM_MESSAGES } from "../shared/constants/systemMessages";
 import {
@@ -283,11 +284,12 @@ export const loadQuarterCards = (
   ).then((response) => response.data);
 export const loadAnalytics = (
   mode: AnalyticsMode,
+  section: AnalyticsSection,
   params: URLSearchParams,
   signal?: AbortSignal,
 ) =>
-  apiRequest<ApiResponse<AnalyticsResponse>>(
-    `/analytics/${mode}/summary?${params.toString()}`,
+  apiRequest<ApiResponse<AnalyticsSectionResponse>>(
+    `/analytics/${mode}/${section}?${params.toString()}`,
     { signal },
   ).then((response) => response.data);
 export const loadAnalyticsDrilldown = (

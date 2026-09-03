@@ -14,7 +14,11 @@ import {
 } from "./apiClient";
 import { queryKeys } from "./queryClient";
 import { loadAnalytics } from "./apiClient";
-import { AnalyticsMode } from "../features/analytics/analyticsTypes";
+import {
+  AnalyticsMode,
+  AnalyticsSection,
+  AnalyticsSectionResponse,
+} from "../features/analytics/analyticsTypes";
 
 export const useBootstrapQuery = (enabled: boolean) =>
   useQuery({
@@ -98,12 +102,13 @@ export const usePermissionsQuery = (enabled = false) =>
   });
 export const useAnalyticsQuery = (
   mode: AnalyticsMode,
+  section: AnalyticsSection,
   params: URLSearchParams,
   enabled = true,
 ) =>
-  useQuery({
-    queryKey: queryKeys.analytics(mode, params.toString()),
-    queryFn: ({ signal }) => loadAnalytics(mode, params, signal),
+  useQuery<AnalyticsSectionResponse>({
+    queryKey: queryKeys.analytics(mode, section, params.toString()),
+    queryFn: ({ signal }) => loadAnalytics(mode, section, params, signal),
     enabled,
     placeholderData: (previous) => previous,
   });

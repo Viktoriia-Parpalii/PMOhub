@@ -15,8 +15,11 @@ export const queryKeys = {
   users: ["reference-data", "users"] as const,
   permissions: ["reference-data", "permissions"] as const,
   customFields: ["reference-data", "custom-fields"] as const,
-  analytics: (mode: "quarterly" | "annual", params: string) =>
-    ["analytics", mode, params] as const,
+  analytics: (
+    mode: "quarterly" | "annual",
+    section: string,
+    params: string,
+  ) => ["analytics", mode, section, params] as const,
   analyticsDrilldown: (params: string) =>
     ["analytics", "drilldown", params] as const,
 };

@@ -25,10 +25,15 @@ import {
   quarterlyDepartmentReserve,
 } from "./analyticsSelectors";
 import {
+  AnalyticsDrilldownCriteria,
   AnalyticsFilters,
   AnalyticsMode,
+  AnalyticsOverviewResponse,
+  AnalyticsPlanningHealthResponse,
   AnalyticsRecord,
   AnalyticsResponse,
+  AnalyticsTrendsResponse,
+  AnalyticsWorkloadResponse,
   CardStatusMetric,
   StatusCounts,
 } from "./analyticsTypes";
@@ -61,9 +66,8 @@ type Drilldown =
   | {
       type: "records";
       title: string;
-      ids?: string[];
-      statusId?: string;
-      localRecords?: AnalyticsRecord[];
+      criteria?: AnalyticsDrilldownCriteria;
+      page: number;
     }
   | { type: "departments"; title: string; departments: DepartmentCapacity[] }
   | null;
@@ -94,31 +98,114 @@ export const Dashboard = () => {
     if (mode === "quarterly") result.set("quarter", filters.quarter);
     return result;
   }, [filters, mode]);
-  const analytics = useAnalyticsQuery(mode, params);
+  const overviewQuery = useAnalyticsQuery(mode, "overview", params);
+  const workloadQuery = useAnalyticsQuery(mode, "workload", params);
+  const trendsQuery = useAnalyticsQuery(mode, "trends", params);
+  const planningHealthQuery = useAnalyticsQuery(
+    mode,
+    "planning-health",
+    params,
+  );
+  const analyticsQueries = [
+    overviewQuery,
+    workloadQuery,
+    trendsQuery,
+    planningHealthQuery,
+  ];
   useEffect(() => {
-    if (analytics.isError)
+    if (analyticsQueries.some((query) => query.isError))
       notify(NOTIFICATION_KINDS.error, SYSTEM_MESSAGES.loading.analyticsFailed);
-  }, [analytics.isError]);
-  const data = analytics.data;
+  }, [overviewQuery.isError, workloadQuery.isError, trendsQuery.isError, planningHealthQuery.isError]);
+  const overview = overviewQuery.data as AnalyticsOverviewResponse | undefined;
+  const workload = workloadQuery.data as AnalyticsWorkloadResponse | undefined;
+  const trends = trendsQuery.data as AnalyticsTrendsResponse | undefined;
+  const planningHealth = planningHealthQuery.data as
+    | AnalyticsPlanningHealthResponse
+    | undefined;
+  const data = useMemo<AnalyticsResponse | undefined>(() => {
+    if (!overview) return undefined;
+    const departmentCapacity = (workload?.departments ?? []).map((item) => ({
+      department_id: item.id,
+      name: item.name,
+      load: item.load,
+      limit: item.limit,
+      reserve: item.reserve,
+      is_over_capacity: item.is_over_capacity,
+    }));
+    const capacityByQuarter = mode === "annual"
+      ? (["Q1", "Q2", "Q3", "Q4"] as Quarter[]).map((quarter) => ({
+          quarter,
+          departments: (workload?.departments ?? []).map((item) => {
+            const metric = item.quarters?.find((entry) => entry.quarter === quarter);
+            return {
+              department_id: item.id,
+              name: item.name,
+              load: metric?.load ?? 0,
+              limit: metric?.limit ?? 0,
+            };
+          }),
+        }))
+      : [{
+          quarter: filters.quarter,
+          departments: departmentCapacity.map((item) => ({
+            department_id: item.department_id,
+            name: item.name,
+            load: item.load,
+            limit: item.limit,
+          })),
+        }];
+    return {
+      mode: overview.mode,
+      available_years: overview.available_years,
+      summary: {
+        ...overview.summary,
+        overloaded_departments: workload?.overloaded_departments ?? 0,
+      },
+      status_distribution: overview.status_distribution,
+      scope_status_counts: overview.scope_status_counts ?? {
+        GREEN: 0,
+        YELLOW: 0,
+        RED: 0,
+        DEFAULT: 0,
+      },
+      size_breakdown: overview.size_breakdown,
+      priority_status_breakdown: overview.priority_status_breakdown,
+      department_capacity: departmentCapacity,
+      capacity_by_quarter: capacityByQuarter,
+      manager_loads: workload?.managers ?? [],
+      risks: planningHealth?.risks?.preview ?? [],
+      volume_trend: trends?.volume_trend ?? [],
+      period_comparison: trends?.period_comparison ?? [],
+      history: trends?.history ?? [],
+      preparation: planningHealth?.preparation ?? {
+        total: 0,
+        ready: 0,
+        incomplete: 0,
+      },
+    };
+  }, [filters.quarter, mode, overview, planningHealth, trends, workload]);
   const kindLabels = analyticsKindLabels(filters.kind);
   const statusColor = (code: keyof StatusCounts) => statusColors[code];
-  const openRecords = (title: string, ids?: string[], statusId?: string) =>
-    setDrilldown({ type: "records", title, ids, statusId });
+  const openRecords = (
+    title: string,
+    criteria?: AnalyticsDrilldownCriteria,
+  ) => setDrilldown({ type: "records", title, criteria, page: 1 });
   const drilldownParams = useMemo(() => {
     const value = analyticsQueryParams(filters);
     value.set("mode", mode);
-    value.set("page", "1");
-    value.set("page_size", "100");
+    value.set("page", String(drilldown?.type === "records" ? drilldown.page : 1));
+    value.set("page_size", "25");
     if (mode === "quarterly") value.set("quarter", filters.quarter);
-    if (drilldown?.type === "records" && drilldown.ids?.length)
-      value.set("card_ids", drilldown.ids.join(","));
-    if (drilldown?.type === "records" && drilldown.statusId)
-      value.set("status_id", drilldown.statusId);
+    if (drilldown?.type === "records") {
+      Object.entries(drilldown.criteria ?? {}).forEach(([key, entry]) => {
+        if (entry) value.set(key, entry);
+      });
+    }
     return value;
   }, [drilldown, filters, mode]);
   const drilldownQuery = useAnalyticsDrilldownQuery(
     drilldownParams,
-    drilldown?.type === "records" && !drilldown.localRecords,
+    drilldown?.type === "records",
   );
   const update = <K extends keyof AnalyticsFilters>(
     key: K,
@@ -148,34 +235,8 @@ export const Dashboard = () => {
   const overloadedDepartments =
     data?.department_capacity.filter((item) => item.is_over_capacity) ?? [];
   const preparationDrilldown = () =>
-    data &&
-    setDrilldown({
-      type: "records",
-      title: "Підготовчі етапи без квартальної картки",
-      localRecords: data.preparation.records.map((item) => ({
-        id: item.id,
-        initiative_id: item.initiative_id,
-        kind: item.kind as AnalyticsRecord["kind"],
-        name: item.name,
-        year: item.year,
-        quarter: "Q1",
-        manager_id: item.manager_id,
-        manager_name:
-          managers.find((manager) => manager.id === item.manager_id)?.name ??
-          null,
-        priority_id: item.priority_id,
-        priority_name: null,
-        department_ids: item.department_ids,
-        status_id: "PREPARATION",
-        status_code: "DEFAULT",
-        status_name: "Підготовчий етап",
-        status_color: "#94a3b8",
-        total_weight: 0,
-        size_name: "Підготовчий етап",
-        progress: item.ready ? 100 : 0,
-        scope_items: 0,
-        risks: item.ready ? [] : ["INCOMPLETE_PREPARATION"],
-      })),
+    openRecords("Підготовчі етапи без квартальної картки", {
+      view: "preparation",
     });
 
   return (
@@ -274,8 +335,10 @@ export const Dashboard = () => {
         </p>
       </section>
 
-      {analytics.isPending && <AppLoader label="Завантаження аналітики…" />}
-      <AnalyticsLoadingContext.Provider value={analytics.isFetching}>
+      {overviewQuery.isPending && <AppLoader label="Завантаження аналітики…" />}
+      <AnalyticsLoadingContext.Provider
+        value={analyticsQueries.some((query) => query.isFetching)}
+      >
         {data && (
           <>
           <div className={styles.kpiGrid}>
@@ -342,8 +405,7 @@ export const Dashboard = () => {
                       onSelect={(item) =>
                         openRecords(
                           `Статус: ${item.name}`,
-                          item.card_ids,
-                          item.status_id,
+                          { status_id: item.status_id },
                         )
                       }
                     />
@@ -416,8 +478,7 @@ export const Dashboard = () => {
                       onSelect={(item) =>
                         openRecords(
                           `Статус: ${item.name}`,
-                          item.card_ids,
-                          item.status_id,
+                          { status_id: item.status_id },
                         )
                       }
                     />
@@ -492,11 +553,20 @@ export const Dashboard = () => {
             </>
           )}
 
+          {mode === "quarterly" && (
+            <Chart
+              title="Контроль плану"
+              badge={String(planningHealth?.risks?.total ?? 0)}
+            >
+              <RiskList data={data} onOpen={openRecords} />
+            </Chart>
+          )}
+
           {mode === "annual" && (
             <div className={styles.grid12}>
               <Chart
                 title="Готовність підготовчого етапу"
-                className={styles.span4}
+                className={styles.span12}
               >
                 <button
                   type="button"
@@ -512,13 +582,6 @@ export const Dashboard = () => {
                   <span className={styles.link}>Переглянути записи →</span>
                 </button>
               </Chart>
-              <Chart
-                title="Контроль плану"
-                badge={String(data.risks.length)}
-                className={styles.span8}
-              >
-                <RiskList data={data} onOpen={openRecords} />
-              </Chart>
             </div>
           )}
           </>
@@ -529,13 +592,17 @@ export const Dashboard = () => {
           value={drilldown}
           records={
             drilldown.type === "records"
-              ? (drilldown.localRecords ?? drilldownQuery.data?.records ?? [])
+              ? (drilldownQuery.data?.records ?? [])
               : []
           }
-          loading={
-            drilldown.type === "records" &&
-            !drilldown.localRecords &&
-            drilldownQuery.isPending
+          loading={drilldown.type === "records" && drilldownQuery.isPending}
+          total={drilldownQuery.data?.total ?? 0}
+          page={drilldown.type === "records" ? drilldown.page : 1}
+          pageSize={drilldownQuery.data?.page_size ?? 25}
+          onPageChange={(page) =>
+            setDrilldown((current) =>
+              current?.type === "records" ? { ...current, page } : current,
+            )
           }
           onClose={() => setDrilldown(null)}
         />
@@ -645,7 +712,7 @@ const SizeChart = ({
   onOpen,
 }: {
   data: AnalyticsResponse;
-  onOpen: (title: string, ids?: string[]) => void;
+  onOpen: (title: string, criteria?: AnalyticsDrilldownCriteria) => void;
 }) => {
   const height = Math.max(280, data.size_breakdown.length * 52);
   return (
@@ -688,7 +755,7 @@ const SizeChart = ({
               onClick={(entry: any) =>
                 onOpen(
                   `Розмір: ${entry.name ?? entry.payload?.name}`,
-                  entry.card_ids ?? entry.payload?.card_ids,
+                  { size_name: entry.name ?? entry.payload?.name },
                 )
               }
             >
@@ -758,7 +825,7 @@ const PriorityStatusChart = ({
   onOpen,
 }: {
   data: AnalyticsResponse;
-  onOpen: (title: string, ids?: string[]) => void;
+  onOpen: (title: string, criteria?: AnalyticsDrilldownCriteria) => void;
 }) => {
   const height = Math.max(265, data.priority_status_breakdown.length * 54);
   return (
@@ -804,11 +871,17 @@ const PriorityStatusChart = ({
                   name={status.name}
                   stackId="priority"
                   fill={status.color}
-                  onClick={(entry: any) =>
-                    onOpen(
-                      `Пріоритет: ${entry.name ?? entry.payload?.name}`,
-                      entry.card_ids ?? entry.payload?.card_ids,
-                    )
+                   onClick={(entry: any) =>
+                     onOpen(
+                       `Пріоритет: ${entry.name ?? entry.payload?.name}`,
+                       {
+                         priority_key:
+                           entry.priority_id ??
+                           entry.payload?.priority_id ??
+                           "NONE",
+                         status_id: status.status_id,
+                       },
+                     )
                   }
                 />
               ))}
@@ -1171,7 +1244,7 @@ const ManagerCards = ({
   compact = false,
 }: {
   data: AnalyticsResponse;
-  onOpen: (title: string, ids?: string[]) => void;
+  onOpen: (title: string, criteria?: AnalyticsDrilldownCriteria) => void;
   compact?: boolean;
 }) =>
   data.manager_loads.length ? (
@@ -1183,7 +1256,11 @@ const ManagerCards = ({
           type="button"
           key={manager.manager_id}
           className={styles.managerCard}
-          onClick={() => onOpen(`Менеджер: ${manager.name}`, manager.card_ids)}
+          onClick={() =>
+            onOpen(`Менеджер: ${manager.name}`, {
+              manager_id: manager.manager_id,
+            })
+          }
         >
           <span
             className={`${styles.managerRank} ${index === 0 ? styles.managerRankTop : ""}`}
@@ -1319,7 +1396,7 @@ const RiskList = ({
   onOpen,
 }: {
   data: AnalyticsResponse;
-  onOpen: (title: string, ids?: string[]) => void;
+  onOpen: (title: string, criteria?: AnalyticsDrilldownCriteria) => void;
 }) => (
   <div className={styles.riskList}>
     {data.risks.length ? (
@@ -1327,7 +1404,9 @@ const RiskList = ({
         <button
           type="button"
           key={risk.id}
-          onClick={() => onOpen("Планувальний ризик", [risk.id])}
+          onClick={() =>
+            onOpen("Планувальний ризик", { card_id: risk.id })
+          }
           className={styles.risk}
         >
           <span className={styles.riskName}>{risk.name}</span>
@@ -1346,11 +1425,19 @@ const DrilldownModal = ({
   value,
   records,
   loading,
+  total,
+  page,
+  pageSize,
+  onPageChange,
   onClose,
 }: {
   value: NonNullable<Drilldown>;
   records: AnalyticsRecord[];
   loading: boolean;
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
   onClose: () => void;
 }) =>
   createPortal(
@@ -1366,7 +1453,7 @@ const DrilldownModal = ({
             <h2 className={styles.modalTitle}>{value.title}</h2>
             <p className={styles.modalCount}>
               {value.type === "records"
-                ? `Записів: ${records.length}`
+                ? `Записів: ${total}`
                 : `Підрозділів: ${value.departments.length}`}
             </p>
           </div>
@@ -1417,6 +1504,29 @@ const DrilldownModal = ({
                   </article>
                 ))}
                 {!records.length && <Empty />}
+                {total > pageSize && (
+                  <div className={styles.pagination}>
+                    <button
+                      type="button"
+                      className={styles.paginationButton}
+                      disabled={page <= 1}
+                      onClick={() => onPageChange(page - 1)}
+                    >
+                      Назад
+                    </button>
+                    <span className={styles.paginationStatus}>
+                      {page} з {Math.ceil(total / pageSize)}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.paginationButton}
+                      disabled={page * pageSize >= total}
+                      onClick={() => onPageChange(page + 1)}
+                    >
+                      Далі
+                    </button>
+                  </div>
+                )}
               </div>
             )
           ) : (

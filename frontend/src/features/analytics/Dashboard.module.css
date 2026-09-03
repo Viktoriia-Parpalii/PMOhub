@@ -241,6 +241,10 @@ button.kpi:hover {
   grid-column: span 8;
 }
 
+.span12 {
+  grid-column: span 12;
+}
+
 .panel {
   position: relative;
   min-width: 0;
@@ -847,6 +851,38 @@ button.kpi:hover {
 .recordList {
   display: grid;
   gap: 10px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.paginationButton {
+  min-width: 78px;
+  padding: 8px 14px;
+  border: 1px solid #dbe3ee;
+  border-radius: 9px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.paginationButton:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.paginationStatus {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .record {

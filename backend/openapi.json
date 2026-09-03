@@ -1598,9 +1598,9 @@
         ]
       }
     },
-    "/api/v1/analytics/quarterly/summary": {
+    "/api/v1/analytics/quarterly/overview": {
       "get": {
-        "operationId": "AnalyticsController_quarterly",
+        "operationId": "AnalyticsController_quarterlyOverview",
         "parameters": [
           {
             "name": "quarter",
@@ -1663,7 +1663,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AnalyticsSummaryResponseDto"
+                  "$ref": "#/components/schemas/AnalyticsDataResponseDto"
                 }
               }
             }
@@ -1679,9 +1679,252 @@
         ]
       }
     },
-    "/api/v1/analytics/annual/summary": {
+    "/api/v1/analytics/quarterly/workload": {
       "get": {
-        "operationId": "AnalyticsController_annual",
+        "operationId": "AnalyticsController_quarterlyWorkload",
+        "parameters": [
+          {
+            "name": "quarter",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          },
+          {
+            "name": "department_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "manager_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDataResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/quarterly/trends": {
+      "get": {
+        "operationId": "AnalyticsController_quarterlyTrends",
+        "parameters": [
+          {
+            "name": "quarter",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          },
+          {
+            "name": "department_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "manager_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDataResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/quarterly/planning-health": {
+      "get": {
+        "operationId": "AnalyticsController_quarterlyPlanningHealth",
+        "parameters": [
+          {
+            "name": "quarter",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          },
+          {
+            "name": "department_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "manager_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDataResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/annual/overview": {
+      "get": {
+        "operationId": "AnalyticsController_annualOverview",
         "parameters": [
           {
             "name": "year",
@@ -1730,7 +1973,208 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AnalyticsSummaryResponseDto"
+                  "$ref": "#/components/schemas/AnalyticsDataResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/annual/workload": {
+      "get": {
+        "operationId": "AnalyticsController_annualWorkload",
+        "parameters": [
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          },
+          {
+            "name": "department_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "manager_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDataResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/annual/trends": {
+      "get": {
+        "operationId": "AnalyticsController_annualTrends",
+        "parameters": [
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          },
+          {
+            "name": "department_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "manager_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDataResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/annual/planning-health": {
+      "get": {
+        "operationId": "AnalyticsController_annualPlanningHealth",
+        "parameters": [
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          },
+          {
+            "name": "department_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "manager_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDataResponseDto"
                 }
               }
             }
@@ -1817,20 +2261,65 @@
             }
           },
           {
-            "name": "card_ids",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "status_id",
             "required": false,
             "in": "query",
             "schema": {
               "format": "uuid",
               "type": "string"
+            }
+          },
+          {
+            "name": "card_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "size_name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "priority_key",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "pattern": "^(NONE|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "risk",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NO_MANAGER",
+                "NO_PRIORITY",
+                "NO_SCOPE",
+                "NO_EXECUTOR"
+              ]
+            }
+          },
+          {
+            "name": "view",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cards",
+                "preparation"
+              ]
             }
           },
           {
@@ -3268,184 +3757,7 @@
           "isRequired"
         ]
       },
-      "CardStatusMetricDto": {
-        "type": "object",
-        "properties": {
-          "status_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "code": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "color": {
-            "type": "string"
-          },
-          "count": {
-            "type": "number"
-          },
-          "card_ids": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "status_id",
-          "code",
-          "name",
-          "color",
-          "count",
-          "card_ids"
-        ]
-      },
-      "StatusCountsDto": {
-        "type": "object",
-        "properties": {
-          "GREEN": {
-            "type": "number"
-          },
-          "YELLOW": {
-            "type": "number"
-          },
-          "RED": {
-            "type": "number"
-          },
-          "DEFAULT": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "GREEN",
-          "YELLOW",
-          "RED",
-          "DEFAULT"
-        ]
-      },
-      "AnalyticsSummaryDataDto": {
-        "type": "object",
-        "properties": {
-          "mode": {
-            "type": "string",
-            "enum": [
-              "QUARTERLY",
-              "ANNUAL"
-            ]
-          },
-          "available_years": {
-            "type": "array",
-            "items": {
-              "type": "number"
-            }
-          },
-          "summary": {
-            "type": "object",
-            "additionalProperties": false
-          },
-          "status_distribution": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CardStatusMetricDto"
-            }
-          },
-          "scope_status_counts": {
-            "$ref": "#/components/schemas/StatusCountsDto"
-          },
-          "size_breakdown": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "priority_breakdown": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "priority_status_breakdown": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "department_capacity": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "capacity_by_quarter": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "manager_loads": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "risks": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "quarter_trend": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "volume_trend": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "period_comparison": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "history": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "preparation": {
-            "type": "object"
-          }
-        },
-        "required": [
-          "mode",
-          "available_years",
-          "summary",
-          "status_distribution",
-          "scope_status_counts",
-          "size_breakdown",
-          "priority_breakdown",
-          "priority_status_breakdown",
-          "department_capacity",
-          "capacity_by_quarter",
-          "manager_loads",
-          "risks",
-          "quarter_trend",
-          "volume_trend",
-          "period_comparison",
-          "history",
-          "preparation"
-        ]
-      },
-      "AnalyticsSummaryResponseDto": {
+      "AnalyticsDataResponseDto": {
         "type": "object",
         "properties": {
           "success": {
@@ -3458,7 +3770,8 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/AnalyticsSummaryDataDto"
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "required": [
@@ -3520,10 +3833,6 @@
             }
           },
           "status_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "status_code": {
             "type": "string"
           },
           "status_name": {
@@ -3564,7 +3873,6 @@
           "priority_name",
           "department_ids",
           "status_id",
-          "status_code",
           "status_name",
           "status_color",
           "total_weight",

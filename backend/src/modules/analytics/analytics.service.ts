@@ -1,208 +1,217 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "../../generated/prisma/client";
 import { PrismaService } from "../../infrastructure/database/prisma.service";
 import {
   AnalyticsDrilldownDto,
   AnalyticsFilterDto,
   QuarterlyAnalyticsFilterDto,
 } from "./analytics.dto";
-import { Prisma } from "../../generated/prisma/client";
 
 const round = (value: number) =>
   Math.round((value + Number.EPSILON) * 100) / 100;
 const SCOPE_STATUSES = ["GREEN", "YELLOW", "RED", "DEFAULT"] as const;
+const RISK_TYPES = [
+  "NO_MANAGER",
+  "NO_PRIORITY",
+  "NO_SCOPE",
+  "NO_EXECUTOR",
+] as const;
 type ScopeStatus = (typeof SCOPE_STATUSES)[number];
-type Card = Prisma.QuarterCardGetPayload<{
-  include: {
-    initiativeYear: { include: { initiative: true } };
-    manager: true;
-    priority: true;
-    status: true;
-    departments: true;
-    scopeItems: { include: { executors: true } };
-  };
-}>;
+type RiskType = (typeof RISK_TYPES)[number];
+
+const overviewSelect = {
+  id: true,
+  quarter: true,
+  statusId: true,
+  priorityId: true,
+  totalWeight: true,
+  sizeSnapshotName: true,
+  initiativeYear: {
+    select: {
+      initiativeId: true,
+    },
+  },
+  priority: { select: { name: true } },
+  status: { select: { name: true, color: true } },
+  scopeItems: { select: { statusCode: true } },
+} satisfies Prisma.QuarterCardSelect;
+
+const workloadSelect = {
+  id: true,
+  quarter: true,
+  managerId: true,
+  totalWeight: true,
+  manager: { select: { name: true } },
+  departments: { select: { departmentId: true } },
+  scopeItems: {
+    select: {
+      weightSnapshotValue: true,
+      executors: { select: { departmentId: true } },
+    },
+  },
+} satisfies Prisma.QuarterCardSelect;
+
+const recordSelect = {
+  id: true,
+  quarter: true,
+  managerId: true,
+  priorityId: true,
+  statusId: true,
+  totalWeight: true,
+  sizeSnapshotName: true,
+  initiativeYear: {
+    select: {
+      year: true,
+      initiativeId: true,
+      initiative: { select: { kind: true, name: true } },
+    },
+  },
+  manager: { select: { name: true } },
+  priority: { select: { name: true } },
+  status: { select: { name: true, color: true } },
+  departments: { select: { departmentId: true } },
+  scopeItems: {
+    select: {
+      statusCode: true,
+      executors: { select: { departmentId: true } },
+    },
+  },
+} satisfies Prisma.QuarterCardSelect;
+
+type OverviewCard = Prisma.QuarterCardGetPayload<{ select: typeof overviewSelect }>;
+type WorkloadCard = Prisma.QuarterCardGetPayload<{ select: typeof workloadSelect }>;
+type RecordCard = Prisma.QuarterCardGetPayload<{ select: typeof recordSelect }>;
 
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async quarterly(filter: QuarterlyAnalyticsFilterDto) {
-    const quarter = Number(filter.quarter.slice(1));
+  quarterlyOverview(filter: QuarterlyAnalyticsFilterDto) {
+    return this.overview(filter, false);
+  }
+
+  annualOverview(filter: AnalyticsFilterDto) {
+    return this.overview(filter, true);
+  }
+
+  quarterlyWorkload(filter: QuarterlyAnalyticsFilterDto) {
+    return this.workload(filter, false);
+  }
+
+  annualWorkload(filter: AnalyticsFilterDto) {
+    return this.workload(filter, true);
+  }
+
+  async quarterlyTrends(filter: QuarterlyAnalyticsFilterDto) {
+    const quarter = this.quarterNumber(filter.quarter);
     const previousQuarter = quarter === 1 ? 4 : quarter - 1;
     const previousYear = quarter === 1 ? filter.year - 1 : filter.year;
-    const cards = await this.cards({ ...filter, quarter });
-    const previousCards = await this.cards({
-      ...filter,
-      year: previousYear,
-      quarter: previousQuarter,
-    });
+    const [current, previous] = await Promise.all([
+      this.prisma.quarterCard.count({ where: this.cardWhere(filter, quarter) }),
+      this.prisma.quarterCard.count({
+        where: this.cardWhere({ ...filter, year: previousYear }, previousQuarter),
+      }),
+    ]);
     return {
-      mode: "QUARTERLY",
-      filters: filter,
-      ...(await this.aggregate(cards, false, filter.department_id)),
-      available_years: await this.availableYears(filter.kind),
-      quarter_trend: [],
-      volume_trend: [],
+      generated_at: new Date().toISOString(),
       period_comparison: [
-        {
-          label: `Q${previousQuarter} ${previousYear}`,
-          cards: previousCards.length,
-        },
-        { label: `${filter.quarter} ${filter.year}`, cards: cards.length },
+        { label: `Q${previousQuarter} ${previousYear}`, cards: previous },
+        { label: `${filter.quarter} ${filter.year}`, cards: current },
       ],
-      history: [],
-      preparation: { total: 0, ready: 0, records: [] },
     };
   }
 
-  async annual(filter: AnalyticsFilterDto) {
-    const cards = await this.cards(filter);
-    const latestByInitiative = new Map<string, Card>();
-    cards.forEach((card) => {
-      const key = card.initiativeYear.initiativeId;
-      if (
-        !latestByInitiative.has(key) ||
-        latestByInitiative.get(key)!.quarter < card.quarter
-      )
-        latestByInitiative.set(key, card);
-    });
-    const previousYearCards = await this.cards({
-      ...filter,
-      year: filter.year - 1,
-    });
-    const years = await this.filteredYears(filter);
-    const preparationRecords = years
-      .filter((year) => !year.quarterCards.length)
-      .map((year) => ({
-        id: year.id,
-        initiative_id: year.initiativeId,
-        kind: year.initiative.kind,
-        name: year.initiative.name,
-        year: year.year,
-        manager_id: year.preparationStage?.managerId ?? null,
-        priority_id: year.preparationStage?.priorityId ?? null,
-        department_ids:
-          year.preparationStage?.departments.map((link) => link.departmentId) ??
-          [],
-        ready: Boolean(
-          year.preparationStage?.managerId &&
-          year.preparationStage?.priorityId &&
-          year.preparationStage.departments.length,
-        ),
-      }));
-    const historyCards = await this.cards({ ...filter, year: undefined });
-    const historyByYear = new Map<number, Card[]>();
-    historyCards
-      .filter((card) => card.initiativeYear.year <= filter.year)
-      .forEach((card) => {
-        const bucket = historyByYear.get(card.initiativeYear.year) ?? [];
-        bucket.push(card);
-        historyByYear.set(card.initiativeYear.year, bucket);
-      });
-    const history = [...historyByYear.entries()]
-      .sort(([a], [b]) => a - b)
-      .map(([year, yearCards]) => ({
-        year,
-        status_distribution: this.statusDistribution(yearCards),
-        initiatives: new Set(
-          yearCards.map((card) => card.initiativeYear.initiativeId),
-        ).size,
-        cards: yearCards.length,
-      }));
-    return {
-      mode: "ANNUAL",
-      filters: filter,
-      ...(await this.aggregate(cards, true, filter.department_id, [
-        ...latestByInitiative.values(),
-      ])),
-      available_years: await this.availableYears(filter.kind),
-      quarter_trend: [1, 2, 3, 4].map((quarter) => {
-        const period = cards.filter((card) => card.quarter === quarter);
-        return {
-          quarter: `Q${quarter}`,
-          cards: period.length,
-          initiatives: new Set(
-            period.map((card) => card.initiativeYear.initiativeId),
-          ).size,
-          total_weight: round(
-            period.reduce((sum, card) => sum + card.totalWeight.toNumber(), 0),
-          ),
-        };
+  async annualTrends(filter: AnalyticsFilterDto) {
+    const trendSelect = {
+      quarter: true,
+      statusId: true,
+      initiativeYear: { select: { year: true, initiativeId: true } },
+      status: { select: { name: true, color: true } },
+    } satisfies Prisma.QuarterCardSelect;
+    const [current, previous, history] = await Promise.all([
+      this.prisma.quarterCard.findMany({
+        where: this.cardWhere(filter),
+        select: trendSelect,
       }),
+      this.prisma.quarterCard.findMany({
+        where: this.cardWhere({ ...filter, year: filter.year - 1 }),
+        select: { quarter: true },
+      }),
+      this.prisma.quarterCard.findMany({
+        where: this.cardWhere(filter, undefined, { lte: filter.year }),
+        select: trendSelect,
+      }),
+    ]);
+    const byYear = new Map<number, typeof history>();
+    history.forEach((card) => {
+      const bucket = byYear.get(card.initiativeYear.year) ?? [];
+      bucket.push(card);
+      byYear.set(card.initiativeYear.year, bucket);
+    });
+    return {
+      generated_at: new Date().toISOString(),
       volume_trend: [1, 2, 3, 4].map((quarter) => ({
         quarter: `Q${quarter}`,
-        current: cards.filter((card) => card.quarter === quarter).length,
-        previous: previousYearCards.filter((card) => card.quarter === quarter)
-          .length,
+        current: current.filter((card) => card.quarter === quarter).length,
+        previous: previous.filter((card) => card.quarter === quarter).length,
       })),
-      period_comparison: [],
-      history,
-      preparation: {
-        total: preparationRecords.length,
-        ready: preparationRecords.filter((item) => item.ready).length,
-        records: preparationRecords,
-      },
+      history: [...byYear.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([year, cards]) => ({
+          year,
+          cards: cards.length,
+          initiatives: new Set(
+            cards.map((card) => card.initiativeYear.initiativeId),
+          ).size,
+          status_distribution: this.statusDistribution(cards),
+        })),
     };
   }
 
-  async drilldown(filter: AnalyticsDrilldownDto) {
-    const quarter =
-      filter.mode === "quarterly" && filter.quarter
-        ? Number(filter.quarter.slice(1))
-        : undefined;
-    let cards = await this.cards({ ...filter, quarter });
-    if (filter.card_ids) {
-      const ids = new Set(filter.card_ids.split(",").filter(Boolean));
-      cards = cards.filter((card) => ids.has(card.id));
-    }
-    if (filter.status_id)
-      cards = cards.filter((card) => card.statusId === filter.status_id);
-    const total = cards.length;
-    const start = (filter.page - 1) * filter.page_size;
+  async quarterlyPlanningHealth(filter: QuarterlyAnalyticsFilterDto) {
+    const base = this.cardWhere(filter, this.quarterNumber(filter.quarter));
+    const anyRisk: Prisma.QuarterCardWhereInput = {
+      AND: [base, { OR: RISK_TYPES.map((risk) => this.riskWhere(risk)) }],
+    };
+    const [total, counts, cards] = await Promise.all([
+      this.prisma.quarterCard.count({ where: anyRisk }),
+      Promise.all(
+        RISK_TYPES.map((risk) =>
+          this.prisma.quarterCard.count({
+            where: { AND: [base, this.riskWhere(risk)] },
+          }),
+        ),
+      ),
+      this.prisma.quarterCard.findMany({
+        where: anyRisk,
+        select: recordSelect,
+        orderBy: { createdAt: "asc" },
+        take: 10,
+      }),
+    ]);
     return {
-      records: cards
-        .slice(start, start + filter.page_size)
-        .map((card) => this.record(card)),
-      page: filter.page,
-      page_size: filter.page_size,
-      total,
+      generated_at: new Date().toISOString(),
+      risks: {
+        total,
+        by_type: RISK_TYPES.map((type, index) => ({
+          type,
+          count: counts[index],
+        })).filter((item) => item.count > 0),
+        preview: cards.map((card) => ({
+          id: card.id,
+          name: card.initiativeYear.initiative.name,
+          risks: this.risks(card),
+        })),
+      },
     };
   }
 
-  private cards(filter: Partial<AnalyticsFilterDto> & { quarter?: number }) {
-    return this.prisma.quarterCard.findMany({
-      where: {
-        quarter: filter.quarter,
-        managerId: filter.manager_id,
-        departments: filter.department_id
-          ? { some: { departmentId: filter.department_id } }
-          : undefined,
-        initiativeYear: {
-          year: filter.year,
-          initiative: filter.kind ? { kind: filter.kind } : undefined,
-        },
-      },
-      include: {
-        initiativeYear: { include: { initiative: true } },
-        manager: true,
-        priority: true,
-        status: true,
-        departments: true,
-        scopeItems: { include: { executors: true } },
-      },
-      orderBy: [
-        { initiativeYear: { year: "asc" } },
-        { quarter: "asc" },
-        { createdAt: "asc" },
-      ],
-    });
-  }
-
-  private filteredYears(filter: AnalyticsFilterDto) {
-    return this.prisma.initiativeYear.findMany({
+  async annualPlanningHealth(filter: AnalyticsFilterDto) {
+    const years = await this.prisma.initiativeYear.findMany({
       where: {
         year: filter.year,
         initiative: filter.kind ? { kind: filter.kind } : undefined,
+        quarterCards: { none: {} },
         preparationStage:
           filter.manager_id || filter.department_id
             ? {
@@ -213,12 +222,332 @@ export class AnalyticsService {
               }
             : undefined,
       },
-      include: {
-        initiative: true,
-        preparationStage: { include: { departments: true } },
-        quarterCards: { select: { id: true } },
+      select: {
+        preparationStage: {
+          select: {
+            managerId: true,
+            priorityId: true,
+            departments: { select: { departmentId: true } },
+          },
+        },
       },
     });
+    const ready = years.filter(
+      (year) =>
+        year.preparationStage?.managerId &&
+        year.preparationStage.priorityId &&
+        year.preparationStage.departments.length,
+    ).length;
+    return {
+      generated_at: new Date().toISOString(),
+      preparation: { total: years.length, ready, incomplete: years.length - ready },
+    };
+  }
+
+  async drilldown(filter: AnalyticsDrilldownDto) {
+    if (filter.view === "preparation") return this.preparationDrilldown(filter);
+    const quarter =
+      filter.mode === "quarterly" && filter.quarter
+        ? this.quarterNumber(filter.quarter)
+        : undefined;
+    const where = this.drilldownWhere(filter, quarter);
+    const skip = (filter.page - 1) * filter.page_size;
+    const [total, cards] = await Promise.all([
+      this.prisma.quarterCard.count({ where }),
+      this.prisma.quarterCard.findMany({
+        where,
+        select: recordSelect,
+        orderBy: [{ initiativeYear: { year: "asc" } }, { quarter: "asc" }, { createdAt: "asc" }],
+        skip,
+        take: filter.page_size,
+      }),
+    ]);
+    return {
+      records: cards.map((card) => this.record(card)),
+      page: filter.page,
+      page_size: filter.page_size,
+      total,
+    };
+  }
+
+  private async overview(filter: AnalyticsFilterDto, annual: boolean) {
+    const quarter = this.filterQuarter(filter);
+    const [cards, availableYears] = await Promise.all([
+      this.prisma.quarterCard.findMany({
+        where: this.cardWhere(filter, quarter),
+        select: overviewSelect,
+      }),
+      this.availableYears(filter.kind),
+    ]);
+    const scopeItems = cards.flatMap((card) => card.scopeItems);
+    const scopeStatusCounts = this.emptyCounts();
+    scopeItems.forEach((item) => {
+      scopeStatusCounts[this.status(item.statusCode)] += 1;
+    });
+    const cardProgress = cards.flatMap((card) =>
+      card.scopeItems.length ? [this.progress(card)] : [],
+    );
+    const progress = annual
+      ? scopeItems.length
+        ? Math.round(
+            (scopeItems.reduce(
+              (sum, item) => sum + this.scopeProgressValue(item.statusCode),
+              0,
+            ) /
+              scopeItems.length) *
+              100,
+          )
+        : 0
+      : cardProgress.length
+        ? Math.round(
+            cardProgress.reduce((sum, value) => sum + value, 0) /
+              cardProgress.length,
+          )
+        : 0;
+    const duration = new Map<string, number>();
+    cards.forEach((card) =>
+      duration.set(
+        card.initiativeYear.initiativeId,
+        (duration.get(card.initiativeYear.initiativeId) ?? 0) + 1,
+      ),
+    );
+    const sizes = new Map<string, number>();
+    const priorities = new Map<
+      string,
+      { priority_id: string | null; name: string; count: number; status_counts: Record<string, number> }
+    >();
+    cards.forEach((card) => {
+      const size = card.sizeSnapshotName ?? "Не визначено";
+      sizes.set(size, (sizes.get(size) ?? 0) + 1);
+      const key = card.priorityId ?? "NONE";
+      const priority = priorities.get(key) ?? {
+        priority_id: card.priorityId,
+        name: card.priority?.name ?? "Без пріоритету",
+        count: 0,
+        status_counts: {},
+      };
+      priority.count += 1;
+      priority.status_counts[card.statusId] =
+        (priority.status_counts[card.statusId] ?? 0) + 1;
+      priorities.set(key, priority);
+    });
+    return {
+      generated_at: new Date().toISOString(),
+      mode: annual ? "ANNUAL" : "QUARTERLY",
+      available_years: availableYears,
+      summary: {
+        cards: cards.length,
+        initiatives: duration.size,
+        total_weight: round(
+          cards.reduce((sum, card) => sum + card.totalWeight.toNumber(), 0),
+        ),
+        average_progress: progress,
+        average_duration:
+          annual && duration.size
+            ? round(
+                [...duration.values()].reduce((sum, value) => sum + value, 0) /
+                  duration.size,
+              )
+            : 0,
+      },
+      status_distribution: this.statusDistribution(cards),
+      ...(annual ? {} : { scope_status_counts: scopeStatusCounts }),
+      size_breakdown: [...sizes].map(([name, count]) => ({ name, count })),
+      priority_status_breakdown: [...priorities.values()].sort(
+        (a, b) => b.count - a.count,
+      ),
+    };
+  }
+
+  private async workload(filter: AnalyticsFilterDto, annual: boolean) {
+    const quarter = this.filterQuarter(filter);
+    const [cards, departments] = await Promise.all([
+      this.prisma.quarterCard.findMany({
+        where: this.cardWhere(filter, quarter),
+        select: workloadSelect,
+      }),
+      this.prisma.department.findMany({
+        where: filter.department_id ? { id: filter.department_id } : undefined,
+        select: { id: true, name: true, capacityLimitPoints: true },
+      }),
+    ]);
+    const loadsByQuarter = [1, 2, 3, 4].map((value) => ({
+      quarter: `Q${value}`,
+      loads: this.departmentLoads(cards.filter((card) => card.quarter === value)),
+    }));
+    const departmentRows = departments.map((department) => {
+      const quarters = loadsByQuarter.map((period) => ({
+        quarter: period.quarter,
+        load: period.loads.get(department.id) ?? 0,
+        limit: department.capacityLimitPoints.toNumber(),
+      }));
+      const load = annual
+        ? round(quarters.reduce((sum, period) => sum + period.load, 0))
+        : (quarters.find((period) => period.quarter === (filter as QuarterlyAnalyticsFilterDto).quarter)?.load ?? 0);
+      const limit = department.capacityLimitPoints.toNumber() * (annual ? 4 : 1);
+      return {
+        id: department.id,
+        name: department.name,
+        load,
+        limit,
+        reserve: round(limit - load),
+        is_over_capacity: load > limit,
+        ...(annual ? { quarters } : {}),
+      };
+    });
+    const managers = new Map<
+      string,
+      { manager_id: string; name: string; load: number; cards: number }
+    >();
+    cards.forEach((card) => {
+      if (!card.managerId) return;
+      const manager = managers.get(card.managerId) ?? {
+        manager_id: card.managerId,
+        name: card.manager?.name ?? "Невідомий менеджер",
+        load: 0,
+        cards: 0,
+      };
+      manager.load = round(manager.load + card.totalWeight.toNumber());
+      manager.cards += 1;
+      managers.set(card.managerId, manager);
+    });
+    return {
+      generated_at: new Date().toISOString(),
+      overloaded_departments: departmentRows.filter((item) => item.is_over_capacity).length,
+      departments: departmentRows,
+      managers: [...managers.values()].sort((a, b) => b.load - a.load),
+    };
+  }
+
+  private async preparationDrilldown(filter: AnalyticsDrilldownDto) {
+    const where: Prisma.InitiativeYearWhereInput = {
+      year: filter.year,
+      initiative: filter.kind ? { kind: filter.kind } : undefined,
+      quarterCards: { none: {} },
+      preparationStage:
+        filter.manager_id || filter.department_id
+          ? {
+              managerId: filter.manager_id,
+              departments: filter.department_id
+                ? { some: { departmentId: filter.department_id } }
+                : undefined,
+            }
+          : undefined,
+    };
+    const skip = (filter.page - 1) * filter.page_size;
+    const [total, years] = await Promise.all([
+      this.prisma.initiativeYear.count({ where }),
+      this.prisma.initiativeYear.findMany({
+        where,
+        skip,
+        take: filter.page_size,
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          year: true,
+          initiativeId: true,
+          initiative: { select: { kind: true, name: true } },
+          preparationStage: {
+            select: {
+              managerId: true,
+              priorityId: true,
+              manager: { select: { name: true } },
+              priority: { select: { name: true } },
+              departments: { select: { departmentId: true } },
+            },
+          },
+        },
+      }),
+    ]);
+    return {
+      records: years.map((year) => {
+        const ready = Boolean(
+          year.preparationStage?.managerId &&
+            year.preparationStage.priorityId &&
+            year.preparationStage.departments.length,
+        );
+        return {
+          id: year.id,
+          initiative_id: year.initiativeId,
+          kind: year.initiative.kind,
+          name: year.initiative.name,
+          year: year.year,
+          quarter: "Q1",
+          manager_id: year.preparationStage?.managerId ?? null,
+          manager_name: year.preparationStage?.manager?.name ?? null,
+          priority_id: year.preparationStage?.priorityId ?? null,
+          priority_name: year.preparationStage?.priority?.name ?? null,
+          department_ids:
+            year.preparationStage?.departments.map((item) => item.departmentId) ?? [],
+          status_id: "PREPARATION",
+          status_name: "Підготовчий етап",
+          status_color: "#94a3b8",
+          total_weight: 0,
+          size_name: "Підготовчий етап",
+          progress: ready ? 100 : 0,
+          scope_items: 0,
+          risks: ready ? [] : ["INCOMPLETE_PREPARATION"],
+        };
+      }),
+      page: filter.page,
+      page_size: filter.page_size,
+      total,
+    };
+  }
+
+  private cardWhere(
+    filter: Partial<AnalyticsFilterDto>,
+    quarter?: number,
+    year: number | Prisma.IntFilter | undefined = filter.year,
+  ): Prisma.QuarterCardWhereInput {
+    return {
+      quarter,
+      managerId: filter.manager_id,
+      departments: filter.department_id
+        ? { some: { departmentId: filter.department_id } }
+        : undefined,
+      initiativeYear: {
+        year,
+        initiative: filter.kind ? { kind: filter.kind } : undefined,
+      },
+    };
+  }
+
+  private drilldownWhere(
+    filter: AnalyticsDrilldownDto,
+    quarter?: number,
+  ): Prisma.QuarterCardWhereInput {
+    const dimensions: Prisma.QuarterCardWhereInput = {
+      ...this.cardWhere(filter, quarter),
+      id: filter.card_id,
+      statusId: filter.status_id,
+      sizeSnapshotName:
+        filter.size_name === "Не визначено" ? null : filter.size_name,
+      priorityId:
+        filter.priority_key === "NONE"
+          ? null
+          : filter.priority_key || undefined,
+    };
+    return filter.risk
+      ? { AND: [dimensions, this.riskWhere(filter.risk)] }
+      : dimensions;
+  }
+
+  private riskWhere(risk: RiskType): Prisma.QuarterCardWhereInput {
+    if (risk === "NO_MANAGER") return { managerId: null };
+    if (risk === "NO_PRIORITY") return { priorityId: null };
+    if (risk === "NO_SCOPE") return { scopeItems: { none: {} } };
+    return { scopeItems: { some: { executors: { none: {} } } } };
+  }
+
+  private filterQuarter(filter: AnalyticsFilterDto) {
+    return "quarter" in filter && typeof filter.quarter === "string"
+      ? this.quarterNumber(filter.quarter)
+      : undefined;
+  }
+
+  private quarterNumber(quarter: string) {
+    return Number(quarter.slice(1));
   }
 
   private async availableYears(kind?: AnalyticsFilterDto["kind"]) {
@@ -231,201 +560,7 @@ export class AnalyticsService {
     return rows.map((row) => row.year);
   }
 
-  private async aggregate(
-    cards: Card[],
-    annual: boolean,
-    departmentId?: string,
-    riskCards: Card[] = cards,
-  ) {
-    const loadsByQuarter = [1, 2, 3, 4].map((quarter) => ({
-      quarter: `Q${quarter}`,
-      loads: this.departmentLoads(
-        cards.filter((card) => card.quarter === quarter),
-      ),
-    }));
-    const departments = await this.prisma.department.findMany({
-      where: departmentId ? { id: departmentId } : undefined,
-    });
-    const capacity = departments.map((department) => {
-      const quarterly = loadsByQuarter.map(
-        (period) => period.loads.get(department.id) ?? 0,
-      );
-      const load = annual
-        ? round(quarterly.reduce((sum, value) => sum + value, 0))
-        : Math.max(...quarterly);
-      const limit =
-        department.capacityLimitPoints.toNumber() * (annual ? 4 : 1);
-      return {
-        department_id: department.id,
-        name: department.name,
-        load,
-        limit,
-        reserve: round(limit - load),
-        is_over_capacity: load > limit,
-      };
-    });
-    const managerMap = new Map<
-      string,
-      { manager_id: string; name: string; load: number; card_ids: string[] }
-    >();
-    cards.forEach((card) => {
-      if (!card.managerId) return;
-      const current = managerMap.get(card.managerId) ?? {
-        manager_id: card.managerId,
-        name: card.manager?.name ?? "Невідомий менеджер",
-        load: 0,
-        card_ids: [] as string[],
-      };
-      current.load = round(current.load + card.totalWeight.toNumber());
-      current.card_ids.push(card.id);
-      managerMap.set(card.managerId, current);
-    });
-    const scopeItems = cards.flatMap((card) => card.scopeItems);
-    const progress = annual
-      ? scopeItems.length
-        ? Math.round(
-            (scopeItems.reduce(
-              (sum, item) => sum + this.scopeProgressValue(item.statusCode),
-              0,
-            ) /
-              scopeItems.length) *
-              100,
-          )
-        : 0
-      : (() => {
-          const cardProgress = cards.flatMap((card) =>
-            card.scopeItems.length ? [this.progress(card)] : [],
-          );
-          return cardProgress.length
-            ? Math.round(
-                cardProgress.reduce((sum, value) => sum + value, 0) /
-                  cardProgress.length,
-              )
-            : 0;
-        })();
-    const scopeStatusCounts = this.emptyCounts();
-    scopeItems.forEach((item) => {
-      scopeStatusCounts[this.status(item.statusCode)] += 1;
-    });
-    const sizeMap = new Map<string, string[]>();
-    cards.forEach((card) => {
-      const name = card.sizeSnapshotName ?? "Не визначено";
-      sizeMap.set(name, [...(sizeMap.get(name) ?? []), card.id]);
-    });
-    const priorityMap = new Map<
-      string,
-      {
-        priority_id: string | null;
-        name: string;
-        total_weight: number;
-        card_ids: string[];
-      }
-    >();
-    cards.forEach((card) => {
-      const key = card.priorityId ?? "NONE";
-      const current = priorityMap.get(key) ?? {
-        priority_id: card.priorityId,
-        name: card.priority?.name ?? "Без пріоритету",
-        total_weight: 0,
-        card_ids: [] as string[],
-      };
-      current.total_weight = round(
-        current.total_weight + card.totalWeight.toNumber(),
-      );
-      current.card_ids.push(card.id);
-      priorityMap.set(key, current);
-    });
-    const priorityStatusMap = new Map<
-      string,
-      {
-        priority_id: string | null;
-        name: string;
-        card_ids: string[];
-        status_counts: Record<string, number>;
-      }
-    >();
-    cards.forEach((card) => {
-      const key = card.priorityId ?? "NONE";
-      const current = priorityStatusMap.get(key) ?? {
-        priority_id: card.priorityId,
-        name: card.priority?.name ?? "Без пріоритету",
-        card_ids: [] as string[],
-        status_counts: {},
-      };
-      current.card_ids.push(card.id);
-      current.status_counts[card.statusId] =
-        (current.status_counts[card.statusId] ?? 0) + 1;
-      priorityStatusMap.set(key, current);
-    });
-    const risks = riskCards
-      .map((card) => this.record(card))
-      .filter((record) => record.risks.length)
-      .map((record) => ({
-        id: record.id,
-        name: record.name,
-        risks: record.risks,
-      }));
-    const duration = new Map<string, number>();
-    cards.forEach((card) =>
-      duration.set(
-        card.initiativeYear.initiativeId,
-        (duration.get(card.initiativeYear.initiativeId) ?? 0) + 1,
-      ),
-    );
-    return {
-      summary: {
-        cards: cards.length,
-        initiatives: new Set(
-          cards.map((card) => card.initiativeYear.initiativeId),
-        ).size,
-        total_weight: round(
-          cards.reduce((sum, card) => sum + card.totalWeight.toNumber(), 0),
-        ),
-        average_progress: progress,
-        average_duration: duration.size
-          ? round(
-              [...duration.values()].reduce((sum, value) => sum + value, 0) /
-                duration.size,
-            )
-          : 0,
-        overloaded_departments: capacity.filter((item) => item.is_over_capacity)
-          .length,
-      },
-      status_distribution: this.statusDistribution(cards),
-      scope_status_counts: scopeStatusCounts,
-      size_breakdown: [...sizeMap].map(([name, card_ids]) => ({
-        name,
-        count: card_ids.length,
-        card_ids,
-      })),
-      priority_breakdown: [...priorityMap.values()].sort(
-        (a, b) => b.total_weight - a.total_weight,
-      ),
-      priority_status_breakdown: [...priorityStatusMap.values()].sort(
-        (a, b) => b.card_ids.length - a.card_ids.length,
-      ),
-      department_capacity: capacity,
-      capacity_by_quarter: loadsByQuarter.map((period) => ({
-        quarter: period.quarter,
-        departments: departments.map((department) => ({
-          department_id: department.id,
-          name: department.name,
-          load: period.loads.get(department.id) ?? 0,
-          limit: department.capacityLimitPoints.toNumber(),
-        })),
-      })),
-      manager_loads: [...managerMap.values()].sort((a, b) => b.load - a.load),
-      risks,
-    };
-  }
-
-  private record(card: Card) {
-    const risks: string[] = [];
-    if (!card.managerId) risks.push("NO_MANAGER");
-    if (!card.priorityId) risks.push("NO_PRIORITY");
-    if (!card.scopeItems.length) risks.push("NO_SCOPE");
-    if (card.scopeItems.some((item) => !item.executors.length))
-      risks.push("NO_EXECUTOR");
+  private record(card: RecordCard) {
     return {
       id: card.id,
       initiative_id: card.initiativeYear.initiativeId,
@@ -437,20 +572,29 @@ export class AnalyticsService {
       manager_name: card.manager?.name ?? null,
       priority_id: card.priorityId,
       priority_name: card.priority?.name ?? null,
-      department_ids: card.departments.map((link) => link.departmentId),
+      department_ids: card.departments.map((item) => item.departmentId),
       status_id: card.statusId,
-      status_code: card.status.code,
       status_name: card.status.name,
       status_color: card.status.color,
       total_weight: card.totalWeight.toNumber(),
       size_name: card.sizeSnapshotName ?? "Не визначено",
       progress: this.progress(card),
       scope_items: card.scopeItems.length,
-      risks,
+      risks: this.risks(card),
     };
   }
 
-  private progress(card: Card) {
+  private risks(card: Pick<RecordCard, "managerId" | "priorityId" | "scopeItems">) {
+    const risks: RiskType[] = [];
+    if (!card.managerId) risks.push("NO_MANAGER");
+    if (!card.priorityId) risks.push("NO_PRIORITY");
+    if (!card.scopeItems.length) risks.push("NO_SCOPE");
+    if (card.scopeItems.some((item) => !item.executors.length))
+      risks.push("NO_EXECUTOR");
+    return risks;
+  }
+
+  private progress(card: { scopeItems: Array<{ statusCode: string }> }) {
     return card.scopeItems.length
       ? Math.round(
           (card.scopeItems.reduce(
@@ -462,72 +606,64 @@ export class AnalyticsService {
         )
       : 0;
   }
+
   private scopeProgressValue(status: string) {
     return status === "GREEN" ? 1 : status === "YELLOW" ? 0.5 : 0;
   }
-  private statusDistribution(cards: Card[]) {
+
+  private statusDistribution<
+    T extends {
+      statusId: string;
+      status: { name: string; color: string };
+    },
+  >(cards: T[]) {
     const result = new Map<
       string,
-      {
-        status_id: string;
-        code: string;
-        name: string;
-        color: string;
-        count: number;
-        card_ids: string[];
-      }
+      { status_id: string; name: string; color: string; count: number }
     >();
     cards.forEach((card) => {
       const current = result.get(card.statusId) ?? {
         status_id: card.statusId,
-        code: card.status.code,
         name: card.status.name,
         color: card.status.color,
         count: 0,
-        card_ids: [],
       };
       current.count += 1;
-      current.card_ids.push(card.id);
       result.set(card.statusId, current);
     });
     return [...result.values()].sort(
       (a, b) => b.count - a.count || a.name.localeCompare(b.name, "uk"),
     );
   }
+
   private emptyCounts(): Record<ScopeStatus, number> {
     return { GREEN: 0, YELLOW: 0, RED: 0, DEFAULT: 0 };
   }
+
   private status(value: string): ScopeStatus {
     return SCOPE_STATUSES.includes(value as ScopeStatus)
       ? (value as ScopeStatus)
       : "DEFAULT";
   }
 
-  private departmentLoads(cards: Card[]) {
+  private departmentLoads(cards: WorkloadCard[]) {
     const loads = new Map<string, number>();
     cards.forEach((card) => {
-      const executors = new Set<string>(
+      const executors = new Set(
         card.scopeItems.flatMap((item) =>
           item.executors.map((link) => link.departmentId),
         ),
       );
       card.scopeItems.forEach((item) => {
-        const ids = [
-          ...new Set<string>(item.executors.map((link) => link.departmentId)),
-        ];
-        const share = ids.length
-          ? item.weightSnapshotValue.toNumber() / ids.length
-          : 0;
+        const ids = [...new Set(item.executors.map((link) => link.departmentId))];
+        const share = ids.length ? item.weightSnapshotValue.toNumber() / ids.length : 0;
         ids.forEach((id) => loads.set(id, round((loads.get(id) ?? 0) + share)));
       });
-      const involved: string[] = card.departments
+      const involved = card.departments
         .map((link) => link.departmentId)
         .filter((id) => !executors.has(id));
       if (card.scopeItems.length && involved.length) {
-        const share =
-          card.totalWeight.toNumber() /
-          card.scopeItems.length /
-          involved.length;
+        const share = card.totalWeight.toNumber() / card.scopeItems.length / involved.length;
         involved.forEach((id) =>
           loads.set(id, round((loads.get(id) ?? 0) + share)),
         );

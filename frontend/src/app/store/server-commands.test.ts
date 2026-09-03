@@ -169,8 +169,8 @@ describe("server command routing", () => {
   it("loads one filtered server analytics read-model", async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ success: true, data: {} }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
-    await loadAnalytics('quarterly', new URLSearchParams({ year: '2027', quarter: 'Q2', kind: 'PROJECT' }));
+    await loadAnalytics('quarterly', 'overview', new URLSearchParams({ year: '2027', quarter: 'Q2', kind: 'PROJECT' }));
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/analytics/quarterly/summary?year=2027&quarter=Q2&kind=PROJECT');
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/analytics/quarterly/overview?year=2027&quarter=Q2&kind=PROJECT');
   });
 });
