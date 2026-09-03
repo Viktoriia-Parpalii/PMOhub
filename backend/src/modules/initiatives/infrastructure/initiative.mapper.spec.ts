@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mapCardSummary } from './initiative.mapper';
 
 describe('mapCardSummary', () => {
-  it('keeps notes and the lightweight scope required by portfolio previews', () => {
+  it('keeps preview fields but omits detail-only scope state', () => {
     const result = mapCardSummary({
       id: 'card-1',
       initiativeYearId: 'year-1',
@@ -46,13 +46,13 @@ describe('mapCardSummary', () => {
 
     expect(result.notes).toBe('<ol><li>Перший пункт</li></ol>');
     expect(result.custom_fields).toEqual({ 'checkbox-field': true, 'unchecked-field': false });
-    expect(result.scope).toEqual([expect.objectContaining({
+    expect(result.scope).toEqual([{
       id: 'scope-1',
       text: 'Завдання',
       status_code: 'YELLOW',
-      weight_definition_id: 'weight-1',
       executor_department_ids: ['department-1'],
-      revision: 2,
-    })]);
+    }]);
+    expect(result.scope[0]).not.toHaveProperty('revision');
+    expect(result.scope[0]).not.toHaveProperty('weight_definition_id');
   });
 });

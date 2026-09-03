@@ -1,6 +1,8 @@
+import type { Prisma } from "../../../generated/prisma/client";
+import { isPeriodLocked, periodLockAt, Quarter } from "../domain/period.policy";
+
 const numberValue = (value: { toNumber(): number } | null | undefined) =>
   value?.toNumber() ?? null;
-import { isPeriodLocked, periodLockAt, Quarter } from "../domain/period.policy";
 
 const mapCustomFields = (values: any[]) =>
   Object.fromEntries(
@@ -64,6 +66,9 @@ export const cardSummaryInclude = {
   status: true,
   departments: { select: { departmentId: true } },
   customFieldValues: {
+    where: {
+      definition: { OR: [{ showInCards: true }, { showInTable: true }] },
+    },
     select: {
       definitionId: true,
       textValue: true,
@@ -76,18 +81,13 @@ export const cardSummaryInclude = {
   scopeItems: {
     select: {
       id: true,
-      lineageId: true,
       text: true,
       statusCode: true,
-      weightDefinitionId: true,
-      weightSnapshotName: true,
-      weightSnapshotValue: true,
-      revision: true,
       executors: { select: { departmentId: true } },
     },
     orderBy: { createdAt: "asc" as const },
   },
-} as const;
+} satisfies Prisma.QuarterCardInclude;
 
 export const yearInclude = {
   initiative: true,
@@ -320,21 +320,11 @@ export const mapCardSummary = (card: any) => {
     custom_fields: mapCustomFields(card.customFieldValues),
     scope: card.scopeItems.map((item: any) => ({
       id: item.id,
-      lineage_id: item.lineageId,
-      copied_from_item_id: null,
       text: item.text,
       status_code: item.statusCode,
-      weight_definition_id: item.weightDefinitionId,
-      weight_snapshot: {
-        name: item.weightSnapshotName,
-        value: numberValue(item.weightSnapshotValue) ?? 0,
-      },
       executor_department_ids: item.executors.map(
         (link: any) => link.departmentId,
       ),
-      executors: [],
-      moved_from_card_id: null,
-      revision: item.revision,
     })),
     moved_from: card.movedFromYear
       ? { year: card.movedFromYear, quarter: `Q${card.movedFromQuarter}` }

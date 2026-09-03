@@ -18,5 +18,5 @@ export class DictionaryDto {
   @IsOptional() @IsNumber() @Min(0) min_score?: number;
   @IsOptional() @IsNumber() @Min(0) max_score?: number;
   @IsOptional() @IsBoolean() is_active?: boolean;
-  @IsOptional() @IsString() @MaxLength(64) code?: string;
+  @IsOptional() @IsString() @MaxLength(32) code?: string;
 }

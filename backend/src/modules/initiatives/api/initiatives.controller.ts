@@ -27,6 +27,7 @@ import {
   QuarterCardResponseDto,
   QuarterCardsResponseDto,
   UpdateCardDto,
+  UpdateCardStatusDto,
   UpdateArchivedCardDto,
   UpdateBacklogDto,
   UpdateInitiativeDto,
@@ -173,6 +174,17 @@ export class QuarterCardsController {
   @ApiOkResponse({ type: QuarterCardResponseDto })
   get(@Param("id") id: string) {
     return this.queries.getCard(id);
+  }
+
+  @RequirePermissions("canCreateEditInitiatives")
+  @Patch(":id/status")
+  @ApiOkResponse({ type: QuarterCardResponseDto })
+  updateStatus(
+    @Param("id") id: string,
+    @Body() dto: UpdateCardStatusDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.initiatives.updateCardStatus(id, dto, user);
   }
 
   @RequirePermissions("canCreateEditInitiatives")

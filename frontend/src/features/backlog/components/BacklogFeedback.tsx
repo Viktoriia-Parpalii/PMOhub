@@ -1,5 +1,4 @@
 import { FolderOpen, X } from "lucide-react";
-import { getCurrentPeriod } from "../../../shared/utils";
 import styles from "../BacklogTab.module.css";
 
 interface Notice {
@@ -32,9 +31,11 @@ export const BacklogNotice = ({
 
 export const ArchiveBanner = ({
   year,
+  currentYear,
   onReturn,
 }: {
   year: number;
+  currentYear: number;
   onReturn: (year: number) => void;
 }) => (
   <section aria-label="Архівний період" className={styles.archiveBanner}>
@@ -47,7 +48,7 @@ export const ArchiveBanner = ({
     </div>
     <button
       type="button"
-      onClick={() => onReturn(getCurrentPeriod().year)}
+      onClick={() => onReturn(currentYear)}
       className={styles.archiveReturn}
     >
       <span aria-hidden="true">←</span> Повернутись на поточний рік

@@ -39,6 +39,7 @@ CREATE TABLE [dbo].[users] (
 CREATE TABLE [dbo].[refresh_tokens] (
     [id] UNIQUEIDENTIFIER NOT NULL,
     [user_id] UNIQUEIDENTIFIER NOT NULL,
+    [family_id] UNIQUEIDENTIFIER NOT NULL,
     [token_hash] VARCHAR(128) NOT NULL,
     [expires_at] DATETIME2 NOT NULL,
     [revoked_at] DATETIME2,
@@ -302,6 +303,9 @@ CREATE TABLE [dbo].[audit_events] (
 
 -- CreateIndex
 CREATE NONCLUSTERED INDEX [IX_refresh_tokens_user_id] ON [dbo].[refresh_tokens]([user_id]);
+
+-- CreateIndex
+CREATE NONCLUSTERED INDEX [IX_refresh_tokens_family_id] ON [dbo].[refresh_tokens]([family_id]);
 
 -- CreateIndex
 CREATE NONCLUSTERED INDEX [IX_initiatives_kind] ON [dbo].[initiatives]([kind]);

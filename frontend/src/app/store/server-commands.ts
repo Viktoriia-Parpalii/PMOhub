@@ -1,5 +1,5 @@
 import { command } from "../../api/apiClient";
-import { Quarter } from "../../shared/types";
+import { Quarter, QuarterCardReadModel } from "../../shared/types";
 import { DictionaryApiType } from "./dictionary-api";
 import type { components } from "../../api/generated/schema";
 import { uuidOrUndefined } from "./api-contract-mappers";
@@ -97,6 +97,12 @@ export const serverCommands = {
     }),
   updateCard: (id: string, body: Schemas["UpdateCardDto"]) =>
     command<CommandResult>(`/quarter-cards/${id}`, "PATCH", body),
+  updateCardStatus: (id: string, revision: number, statusId: string) =>
+    command<CommandResult<QuarterCardReadModel>>(
+      `/quarter-cards/${id}/status`,
+      "PATCH",
+      { revision, status_id: statusId },
+    ),
   updateArchivedCard: (
     id: string,
     body: {

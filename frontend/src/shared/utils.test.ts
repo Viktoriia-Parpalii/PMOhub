@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isBacklogLocked, isPeriodLocked } from './utils';
+import { isBacklogLocked, isPeriodLocked, isPeriodLockedAtBusinessDate } from './utils';
 
 describe('archive grace period', () => {
   it('keeps a finished quarter editable through the 14th day of the next quarter', () => {
@@ -13,5 +13,10 @@ describe('archive grace period', () => {
   it('uses the same grace period for the previous yearly backlog snapshot', () => {
     expect(isBacklogLocked(2025, new Date(2026, 0, 14, 12, 0, 0))).toBe(false);
     expect(isBacklogLocked(2025, new Date(2026, 0, 15, 0, 0, 0))).toBe(true);
+  });
+
+  it('uses the backend business date instead of the browser timezone', () => {
+    expect(isPeriodLockedAtBusinessDate(2026, 'Q1', '2026-04-14')).toBe(false);
+    expect(isPeriodLockedAtBusinessDate(2026, 'Q1', '2026-04-15')).toBe(true);
   });
 });

@@ -358,8 +358,8 @@ export const toQuarterCardViewModel = (
     weightId: item.weight_definition_id ?? undefined,
     weightSnapshot: {
       definitionId: item.weight_definition_id ?? undefined,
-      name: item.weight_snapshot.name,
-      value: item.weight_snapshot.value,
+      name: item.weight_snapshot?.name ?? "Не визначено",
+      value: item.weight_snapshot?.value ?? 0,
     },
     implementer_dept_ids: item.executor_department_ids,
   })),

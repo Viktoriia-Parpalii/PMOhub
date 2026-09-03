@@ -29,7 +29,7 @@ export const InitiativeStatusesSection = ({
   const add = async () => {
     if (!name.trim()) return;
     const result = await addInitiativeStatus({
-      id: Math.random().toString(36).substring(2, 10),
+      id: "",
       name,
       color,
       is_active: true,

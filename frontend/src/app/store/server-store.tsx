@@ -30,7 +30,6 @@ import {
   changePassword as changeApiPassword,
   loadBootstrap,
   loadInitiativeCardModel,
-  loadInitiativeYears,
   loadPermissions,
   loadQuarterCards,
   loadUsers,
@@ -69,7 +68,7 @@ import { activeReferenceId, uuidOrUndefined } from "./api-contract-mappers";
 import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
 import { notify } from "../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
-import { isPeriodLocked } from "../../shared/utils";
+import { getCurrentPeriod, isPeriodLocked } from "../../shared/utils";
 
 type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
@@ -249,9 +248,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const disableAdminData = useCallback(() => setAdminDataEnabled(false), []);
   const [dataScope, setInitiativeDataScope] =
     useState<InitiativeDataScope>(initialDataScope);
+  const [businessScopeReady, setBusinessScopeReady] = useState(false);
   const bootstrapQuery = useBootstrapQuery(
     authenticated && !sessionUser?.must_change_password,
   );
+  useEffect(() => {
+    const period = bootstrapQuery.data?.businessPeriod;
+    if (!authenticated || !period) {
+      setBusinessScopeReady(false);
+      return;
+    }
+    if (businessScopeReady) return;
+    setInitiativeDataScope((scope) => {
+      if (scope.mode === "projects" || scope.mode === "tasks")
+        return { ...scope, year: period.year, quarter: period.quarter };
+      if (scope.mode === "backlog") return { ...scope, year: period.year };
+      return scope;
+    });
+    setBusinessScopeReady(true);
+  }, [authenticated, bootstrapQuery.data?.businessPeriod, businessScopeReady]);
   const projectMode = dataScope.mode === "projects";
   const taskMode = dataScope.mode === "tasks";
   const projectBacklogMode =
@@ -265,33 +280,33 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const taskQuarter = taskMode ? dataScope.quarter : undefined;
   const projectYearsQuery = useInitiativeYearsQuery(
     "project",
-    authenticated && projectBacklogMode,
+    authenticated && businessScopeReady && projectBacklogMode,
     projectYear,
   );
   const taskYearsQuery = useInitiativeYearsQuery(
     "task",
-    authenticated && taskBacklogMode,
+    authenticated && businessScopeReady && taskBacklogMode,
     taskYear,
   );
   const projectNextYearsQuery = useInitiativeYearsQuery(
     "project",
-    authenticated && projectBacklogMode,
+    authenticated && businessScopeReady && projectBacklogMode,
     projectBacklogMode ? dataScope.year + 1 : undefined,
   );
   const taskNextYearsQuery = useInitiativeYearsQuery(
     "task",
-    authenticated && taskBacklogMode,
+    authenticated && businessScopeReady && taskBacklogMode,
     taskBacklogMode ? dataScope.year + 1 : undefined,
   );
   const projectCardsQuery = useQuarterCardsQuery(
     "project",
-    authenticated && (projectMode || projectBacklogMode),
+    authenticated && businessScopeReady && (projectMode || projectBacklogMode),
     projectYear,
     projectQuarter,
   );
   const taskCardsQuery = useQuarterCardsQuery(
     "task",
-    authenticated && (taskMode || taskBacklogMode),
+    authenticated && businessScopeReady && (taskMode || taskBacklogMode),
     taskYear,
     taskQuarter,
   );
@@ -316,50 +331,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     await Promise.all([refreshKind("project"), refreshKind("task")]);
   }, [refreshKind]);
   const refreshInitialData = useCallback(async () => {
-    const requests: Array<Promise<unknown>> = [refreshBootstrap()];
-    const loadKind = (
-      kind: InitiativeKind,
-      includeYears: boolean,
-      year?: number,
-      quarter?: Quarter,
-    ) => {
-      if (includeYears)
-        requests.push(
-          queryClient.fetchQuery({
-            queryKey: queryKeys.initiativeYears(kind, year),
-            queryFn: ({ signal }) => loadInitiativeYears(kind, signal, year),
-            staleTime: 0,
-          }),
-        );
-      requests.push(
-        queryClient.fetchQuery({
-          queryKey: queryKeys.portfolioCards(kind, year, quarter),
-          queryFn: ({ signal }) =>
-            loadQuarterCards(kind, signal, year, quarter),
-          staleTime: 0,
-        }),
-      );
-    };
-    if (dataScope.mode === "projects")
-      loadKind("project", false, dataScope.year, dataScope.quarter);
-    else if (dataScope.mode === "tasks")
-      loadKind("task", false, dataScope.year, dataScope.quarter);
-    else if (dataScope.mode === "backlog") {
-      loadKind(dataScope.kind, true, dataScope.year);
-      requests.push(
-        queryClient.fetchQuery({
-          queryKey: queryKeys.initiativeYears(
-            dataScope.kind,
-            dataScope.year + 1,
-          ),
-          queryFn: ({ signal }) =>
-            loadInitiativeYears(dataScope.kind, signal, dataScope.year + 1),
-          staleTime: 0,
-        }),
-      );
-    }
-    await Promise.all(requests);
-  }, [dataScope, queryClient, refreshBootstrap]);
+    // Feature queries are enabled only after bootstrap supplies the canonical
+    // business period, so an incorrect browser clock cannot start stale-period
+    // requests during session restoration.
+    await refreshBootstrap();
+  }, [refreshBootstrap]);
   const refreshUsers = useCallback(async () => {
     if (!adminDataEnabled) return;
     await queryClient.fetchQuery({
@@ -413,6 +389,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ))
     : undefined;
   const state: ReferenceDataState = {
+    businessPeriod: bootstrap?.businessPeriod ?? {
+      ...getCurrentPeriod(),
+      business_date: new Date().toISOString().slice(0, 10),
+      time_zone: "Europe/Kyiv",
+    },
     departments: bootstrap?.departments ?? [],
     priorities: bootstrap?.priorities ?? [],
     initiativeStatuses: bootstrap?.initiativeStatuses ?? [],
@@ -545,7 +526,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     typeof item?.revision === "number";
   const adminAllowed = () =>
     Boolean(
-      getPermissions(state.currentUser, state.rolePermissions)?.canAccessAdmin,
+      getPermissions(state.currentUser, state.rolePermissions)?.canAccessAdmin &&
+        !getPermissions(state.currentUser, state.rolePermissions)?.isReadOnly,
     );
   const authenticate = async (
     email: string,
@@ -695,6 +677,53 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           }),
         () => refreshKind(kind),
       );
+    }
+    const patchKeys = Object.keys(patch);
+    if (patchKeys.length === 1 && patchKeys[0] === "health_status") {
+      const statusId = healthStatusId(patch.health_status, record);
+      if (!statusId)
+        return Promise.resolve(fail("Не вдалося визначити обраний статус."));
+      let updatedCard: QuarterCardReadModel | undefined;
+      return executeRemote<QuarterCardReadModel>(
+        () =>
+          serverCommands
+            .updateCardStatus(id, record.revision!, statusId)
+            .then((response) => {
+              updatedCard = response.data;
+              return response;
+            }),
+        async () => {
+          if (!updatedCard)
+            throw new Error(SYSTEM_MESSAGES.api.canonicalCardMissing);
+          queryClient.setQueriesData<QuarterCardReadModel[]>(
+            { queryKey: ["quarter-cards", kind] },
+            (current) =>
+              current?.map((item) => (item.id === id ? updatedCard! : item)),
+          );
+          queryClient.setQueryData(queryKeys.initiativeCard(id), updatedCard);
+          queryClient.setQueriesData<InitiativeYearReadModel[]>(
+            { queryKey: ["initiative-years", kind] },
+            (years) =>
+              years?.map((year) => ({
+                ...year,
+                cards: year.cards.map((card) =>
+                  card.id === id
+                    ? {
+                        ...card,
+                        status_id: updatedCard!.status_id,
+                        status_code: updatedCard!.status_code,
+                        revision: updatedCard!.revision,
+                      }
+                    : card,
+                ),
+              })),
+          );
+          await queryClient.invalidateQueries({
+            queryKey: ["analytics"],
+            refetchType: "none",
+          });
+        },
+      ).then(({ data: _data, ...result }) => result);
     }
     const refreshCard = async () => {
       const response = await loadInitiativeCardModel(id);

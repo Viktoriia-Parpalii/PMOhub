@@ -47,7 +47,6 @@ export class PermissionsGuard implements CanActivate {
       required?.length &&
       (!permissions ||
         !permissions.roleDefinition.isActive ||
-        permissions.isReadOnly ||
         !required.every((key) => permissions[key] === true))
     ) {
       throw new ForbiddenException({

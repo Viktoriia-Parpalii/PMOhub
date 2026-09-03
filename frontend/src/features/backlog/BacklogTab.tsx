@@ -7,7 +7,7 @@ import {
   getYearSnapshot,
   materializeBacklogYear,
 } from "../../domain/initiatives";
-import { getCurrentPeriod, isBacklogLocked } from "../../shared/utils";
+import { isPeriodLockedAtBusinessDate } from "../../shared/utils";
 import { BacklogModal } from "./components/BacklogModal";
 import { PreparationStageModal } from "./components/PreparationStageModal";
 import { InitiativeCardModal } from "../initiatives/components/InitiativeCardModal";
@@ -51,9 +51,13 @@ export const BacklogTab = () => {
     deleteTask,
     createBacklogSnapshots,
     setInitiativeDataScope,
+    businessPeriod,
   } = useAppContext();
   const [activeTab, setActiveTab] = useState<Tab>("PROJECTS");
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState(businessPeriod.year);
+  useEffect(() => {
+    setSelectedYear(businessPeriod.year);
+  }, [businessPeriod.year]);
   const countsQuery = useInitiativeYearCountsQuery(selectedYear);
   useEffect(() => {
     setInitiativeDataScope({
@@ -99,13 +103,17 @@ export const BacklogTab = () => {
 
   const records: Initiative[] = activeTab === "PROJECTS" ? projects : tasks;
   const permission = getPermissions(currentUser, rolePermissions);
-  const archive = isBacklogLocked(selectedYear);
+  const archive = isPeriodLockedAtBusinessDate(
+    selectedYear,
+    "Q4",
+    businessPeriod.business_date,
+  );
   const canEdit = Boolean(
     permission?.canCreateEditInitiatives && !permission.isReadOnly && !archive,
   );
   const targetYear = selectedYear + 1;
   const visibleQuarters = quarterFilter === "ALL" ? quarters : [quarterFilter];
-  const currentPeriod = getCurrentPeriod();
+  const currentPeriod = businessPeriod;
   const periodIndex = (year: number, quarter: Quarter) =>
     year * 10 + Number(quarter.slice(1));
   const isPastQuarter = (quarter: Quarter) =>
@@ -319,7 +327,13 @@ export const BacklogTab = () => {
       {notice && (
         <BacklogNotice notice={notice} onClose={() => setNotice(null)} />
       )}
-      {archive && <ArchiveBanner year={selectedYear} onReturn={changeYear} />}
+      {archive && (
+        <ArchiveBanner
+          year={selectedYear}
+          currentYear={businessPeriod.year}
+          onReturn={changeYear}
+        />
+      )}
 
       <section className={styles.dataSection}>
         <BacklogFilters

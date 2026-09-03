@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
+import { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import cookieParser from "cookie-parser";
 import { json, urlencoded } from "express";
@@ -11,8 +12,14 @@ import { AppExceptionFilter } from "./common/filters/app-exception.filter";
 import { validationExceptionFactory } from "./common/validation/validation-exception.factory";
 
 export async function createApp() {
-  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
   const config = app.get(ConfigService);
+  // The only trusted reverse proxy in the supported deployment is nginx.
+  // This makes req.ip (and therefore request throttling) resolve to the real
+  // client address without trusting an arbitrary forwarded chain.
+  app.set("trust proxy", 1);
   const bodyLimit = config.get<string>("HTTP_BODY_LIMIT", "10mb");
   app.use(json({ limit: bodyLimit }));
   app.use(urlencoded({ limit: bodyLimit, extended: true }));

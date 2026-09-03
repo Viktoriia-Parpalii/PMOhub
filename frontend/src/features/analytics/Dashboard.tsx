@@ -17,7 +17,6 @@ import {
 import { X } from "lucide-react";
 import { useAppContext } from "../../app/store";
 import { useAnalyticsDrilldownQuery, useAnalyticsQuery } from "../../api/hooks";
-import { getCurrentQuarter } from "../../shared/utils";
 import { Quarter } from "../../shared/types";
 import {
   analyticsKindLabels,
@@ -70,19 +69,25 @@ type Drilldown =
   | null;
 
 export const Dashboard = () => {
-  const { departments, managers, setInitiativeDataScope } = useAppContext();
+  const { departments, managers, businessPeriod, setInitiativeDataScope } = useAppContext();
   useEffect(() => {
     setInitiativeDataScope({ mode: "dashboard" });
   }, [setInitiativeDataScope]);
-  const now = new Date();
   const [mode, setMode] = useState<AnalyticsMode>("quarterly");
   const [filters, setFilters] = useState<AnalyticsFilters>({
-    year: now.getFullYear(),
-    quarter: getCurrentQuarter(),
+    year: businessPeriod.year,
+    quarter: businessPeriod.quarter,
     kind: "ALL",
     departmentId: "",
     managerId: "",
   });
+  useEffect(() => {
+    setFilters((current) => ({
+      ...current,
+      year: businessPeriod.year,
+      quarter: businessPeriod.quarter,
+    }));
+  }, [businessPeriod.quarter, businessPeriod.year]);
   const [drilldown, setDrilldown] = useState<Drilldown>(null);
   const params = useMemo(() => {
     const result = analyticsQueryParams(filters);
@@ -123,7 +128,7 @@ export const Dashboard = () => {
     new Set([
       ...(data?.available_years ?? []),
       filters.year,
-      now.getFullYear(),
+      businessPeriod.year,
     ]),
   ).sort((a, b) => a - b);
   const statusData = data?.status_distribution ?? [];
@@ -293,14 +298,14 @@ export const Dashboard = () => {
               onClick={() => openRecords("Картки, що формують сумарну вагу")}
             />
             <Kpi
-              title={`${mode === "annual" ? "Загальне виконання scope" : "Середній прогрес"} ${kindLabels.genitive}`}
+              title={`${mode === "annual" ? "Загальне виконання скоупу" : "Середній прогрес"} ${kindLabels.genitive}`}
               value={`${summary.average_progress}%`}
               accent="#6366f1"
               progress={summary.average_progress}
               onClick={() =>
                 openRecords(
                   mode === "annual"
-                    ? "Картки, що формують загальне виконання scope"
+                    ? "Картки, що формують загальне виконання скоупу"
                     : "Картки, що формують середній прогрес",
                 )
               }
@@ -573,7 +578,7 @@ const Kpi = ({
           />
         </div>
       )}
-      {onClick && <span className={styles.kpiHint}>Переглянути деталі →</span>}
+      {onClick && <span className={styles.kpiHint}>Деталі →</span>}
       {loading && <WidgetLoader compact />}
     </Tag>
   );

@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ConfigModule } from "@nestjs/config";
+import { ConfigService } from "@nestjs/config";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { environmentSchema } from "./config/environment";
 import { DatabaseModule } from "./infrastructure/database/database.module";
@@ -30,7 +31,15 @@ import { ExportsModule } from "./modules/exports/exports.module";
       isGlobal: true,
       validationSchema: environmentSchema,
     }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: config.get<number>("THROTTLE_TTL_MS", 60_000),
+          limit: config.get<number>("THROTTLE_LIMIT", 300),
+        },
+      ],
+    }),
     DatabaseModule,
     AuthModule,
     HealthModule,

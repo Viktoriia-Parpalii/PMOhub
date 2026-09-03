@@ -28,8 +28,11 @@ export const calculateProgress = (checklist: any[]): number | null => {
 export const generateId = (prefix: string = "ID") =>
   `${prefix}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
 
-export const getAvailableYears = (startOffset = 3, endOffset = 5): number[] => {
-  const currentYear = new Date().getFullYear();
+export const getAvailableYears = (
+  startOffset = 3,
+  endOffset = 5,
+  currentYear = new Date().getFullYear(),
+): number[] => {
   const years = [];
   for (let y = currentYear - startOffset; y <= currentYear + endOffset; y++) {
     years.push(y);
@@ -92,6 +95,19 @@ export const isPeriodLocked = (
   }
 
   return true;
+};
+
+/** Uses the calendar date supplied by the API in the business time zone. */
+export const isPeriodLockedAtBusinessDate = (
+  year: number,
+  quarter: string,
+  businessDate: string,
+): boolean => {
+  const qNum = Math.max(1, Math.min(4, Number(quarter.slice(1)) || 4));
+  const lockYear = qNum === 4 ? year + 1 : year;
+  const lockMonth = qNum === 4 ? 1 : qNum * 3 + 1;
+  const lockDate = `${lockYear}-${String(lockMonth).padStart(2, "0")}-15`;
+  return businessDate >= lockDate;
 };
 
 export const stripHtml = (html: string) => {
@@ -194,9 +210,11 @@ export const getCurrentPeriod = (): {
   };
 };
 
-export const getValidYears = (itemYear?: number): number[] => {
-  const currentYear = new Date().getFullYear();
-  return getAvailableYears().filter(
+export const getValidYears = (
+  itemYear?: number,
+  currentYear = new Date().getFullYear(),
+): number[] => {
+  return getAvailableYears(3, 5, currentYear).filter(
     (y) => y >= currentYear || (itemYear !== undefined && y === itemYear),
   );
 };

@@ -28,11 +28,15 @@ const navigation: Array<{
 
 /** Coordinates administration sections while each section owns its own state and UI. */
 export const AdminTab = () => {
-  const { setInitiativeDataScope } = useAppContext();
+  const { currentUser, rolePermissions, setInitiativeDataScope } = useAppContext();
   useEffect(() => {
     setInitiativeDataScope({ mode: "none" });
   }, [setInitiativeDataScope]);
   const [activeSection, setActiveSection] = useState<AdminSection>("dicts");
+  const readOnly = Boolean(
+    rolePermissions.find((permission) => permission.role === currentUser?.role)
+      ?.isReadOnly,
+  );
 
   return (
     <div className={styles.root}>
@@ -53,9 +57,16 @@ export const AdminTab = () => {
       </header>
 
       <div className={styles.content}>
-        {activeSection === "dicts" && <DictionariesSection />}
-        {activeSection === "rbac" && <RbacSection />}
-        {activeSection === "fields" && <CustomFieldsSection />}
+        {readOnly && activeSection !== "exports" && (
+          <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Режим лише для читання: перегляд доступний, зміни вимкнені.
+          </p>
+        )}
+        <fieldset disabled={readOnly && activeSection !== "exports"} className="contents">
+          {activeSection === "dicts" && <DictionariesSection />}
+          {activeSection === "rbac" && <RbacSection />}
+          {activeSection === "fields" && <CustomFieldsSection />}
+        </fieldset>
         {activeSection === "exports" && (
           <Suspense fallback={<AppLoader label="Завантаження експорту…" />}>
             <ExportSection />

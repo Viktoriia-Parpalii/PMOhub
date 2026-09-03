@@ -6,7 +6,9 @@ services:
     env_file:
       - ./.env.docker
     ports:
-      - "${API_PORT:-4000}:4000"
+      # Keep the API reachable for local diagnostics but not directly from the
+      # network; client traffic must pass through the trusted nginx hop.
+      - "127.0.0.1:${API_PORT:-4000}:4000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:

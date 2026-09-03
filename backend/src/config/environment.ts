@@ -12,6 +12,8 @@ export const environmentSchema = Joi.object({
     .pattern(/^\d+(kb|mb)$/i)
     .default("10mb"),
   PORT: Joi.number().port().default(4000),
+  THROTTLE_TTL_MS: Joi.number().integer().min(1_000).default(60_000),
+  THROTTLE_LIMIT: Joi.number().integer().min(10).default(300),
   DATABASE_URL: Joi.string().required(),
   FRONTEND_ORIGIN: Joi.string().default("http://localhost:3000"),
   FRONTEND_ORIGINS: Joi.string().optional(),

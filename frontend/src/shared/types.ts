@@ -53,16 +53,16 @@ export interface InitiativeYearReadModel {
 
 export interface ScopeItemReadModel {
   id: string;
-  lineage_id: string;
-  copied_from_item_id: string | null;
+  lineage_id?: string;
+  copied_from_item_id?: string | null;
   text: string;
   status_code: ScopeStatusCode;
-  weight_definition_id: string;
-  weight_snapshot: { name: string; value: number };
+  weight_definition_id?: string;
+  weight_snapshot?: { name: string; value: number };
   executor_department_ids: string[];
-  executors: Array<{ id: string; name: string }>;
-  moved_from_card_id: string | null;
-  revision: number;
+  executors?: Array<{ id: string; name: string }>;
+  moved_from_card_id?: string | null;
+  revision?: number;
 }
 
 export interface QuarterCardReadModel {
@@ -278,6 +278,12 @@ export interface InitiativeSizeDef {
 }
 
 export interface ReferenceDataState {
+  businessPeriod: {
+    year: number;
+    quarter: Quarter;
+    business_date: string;
+    time_zone: "Europe/Kyiv";
+  };
   departments: Department[];
   priorities: PriorityDef[];
   initiativeStatuses: InitiativeStatusDef[];

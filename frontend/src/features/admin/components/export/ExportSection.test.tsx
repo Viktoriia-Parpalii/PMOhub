@@ -12,7 +12,15 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../../app/store", () => ({
-  useAppContext: () => ({ currentUser: { id: "user", role: "SUPER_ADMIN" } }),
+  useAppContext: () => ({
+    currentUser: { id: "user", role: "SUPER_ADMIN" },
+    businessPeriod: {
+      year: 2026,
+      quarter: "Q3",
+      business_date: "2026-09-03",
+      time_zone: "Europe/Kyiv",
+    },
+  }),
 }));
 vi.mock("./exportApi", () => ({
   loadExportAvailability: api.availability,

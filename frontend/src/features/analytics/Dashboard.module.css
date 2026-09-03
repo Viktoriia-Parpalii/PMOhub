@@ -176,7 +176,7 @@ button.kpi:hover {
 .panelTitle {
   color: #60738f;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 795;
   letter-spacing: .115em;
   text-transform: uppercase;
 }
@@ -185,7 +185,7 @@ button.kpi:hover {
   margin-top: 11px;
   color: var(--accent, #1e293b);
   font-size: 33px;
-  font-weight: 750;
+  font-weight: 645;
   line-height: 1;
 }
 
@@ -200,7 +200,8 @@ button.kpi:hover {
 
 .kpiTrack {
   height: 6px;
-  margin-top: 20px;
+  margin-top: 10px;
+  margin-bottom: 10px;
   overflow: hidden;
   border-radius: 999px;
   background: #edf1f6;

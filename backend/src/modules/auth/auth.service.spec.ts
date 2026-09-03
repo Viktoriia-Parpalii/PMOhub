@@ -128,3 +128,79 @@ describe("AuthService forced password change", () => {
     ).rejects.toMatchObject({ code: "INVALID_CURRENT_PASSWORD", status: 401 });
   });
 });
+
+describe("AuthService refresh-token rotation", () => {
+  const storedToken = {
+    id: "00000000-0000-4000-8000-000000000020",
+    familyId: "00000000-0000-4000-8000-000000000021",
+    userId: user.id,
+    expiresAt: new Date(Date.now() + 60_000),
+    revokedAt: null as Date | null,
+    user,
+  };
+
+  const rotationService = (claimCount = 1, stored = storedToken) => {
+    const tx = {
+      refreshToken: {
+        updateMany: vi.fn(async () => ({ count: claimCount })),
+        create: vi.fn(async () => ({})),
+      },
+    };
+    const prisma: any = {
+      refreshToken: {
+        findUnique: vi.fn(async () => stored),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    };
+    const jwt: any = {
+      verifyAsync: vi.fn(async () => ({ sub: user.id, jti: stored.id, type: "refresh" })),
+      signAsync: vi
+        .fn()
+        .mockResolvedValueOnce("new-access-token")
+        .mockResolvedValueOnce("new-refresh-token"),
+    };
+    const config: any = {
+      get: vi.fn((key: string, fallback?: unknown) =>
+        key === "ACCESS_TOKEN_TTL" ? "15m" : key === "REFRESH_TOKEN_DAYS" ? 7 : fallback,
+      ),
+      getOrThrow: vi.fn((key: string) => key),
+    };
+    return { service: new AuthService(prisma, jwt, config), prisma, tx };
+  };
+
+  it("keeps replacement tokens in the same family", async () => {
+    const { service, tx } = rotationService();
+    await service.refresh("old-refresh-token");
+    expect(tx.refreshToken.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ familyId: storedToken.familyId }),
+    });
+  });
+
+  it("revokes only the compromised family when a token is reused", async () => {
+    const { service, prisma } = rotationService(1, {
+      ...storedToken,
+      revokedAt: new Date(),
+    });
+    await expect(service.refresh("old-refresh-token")).rejects.toMatchObject({
+      code: "REFRESH_TOKEN_REUSE",
+    });
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { familyId: storedToken.familyId, revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  it("detects a concurrent refresh that loses the atomic claim", async () => {
+    const { service, prisma } = rotationService(0);
+    await expect(service.refresh("old-refresh-token")).rejects.toMatchObject({
+      code: "REFRESH_TOKEN_REUSE",
+    });
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { familyId: storedToken.familyId, revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+});

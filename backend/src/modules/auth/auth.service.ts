@@ -83,7 +83,7 @@ export class AuthService {
     });
     if (stored?.revokedAt) {
       await this.prisma.refreshToken.updateMany({
-        where: { userId: stored.userId, revokedAt: null },
+        where: { familyId: stored.familyId, revokedAt: null },
         data: { revokedAt: new Date() },
       });
       throw new AppError(
@@ -94,6 +94,8 @@ export class AuthService {
     }
     if (
       !stored ||
+      payload.sub !== stored.userId ||
+      payload.jti !== stored.id ||
       stored.expiresAt <= new Date() ||
       !stored.user.isActive ||
       !stored.user.roleDefinition.isActive
@@ -104,7 +106,10 @@ export class AuthService {
         HttpStatus.UNAUTHORIZED,
       );
     }
-    return this.issueSession(stored.user, userAgent, stored.id);
+    return this.issueSession(stored.user, userAgent, {
+      id: stored.id,
+      familyId: stored.familyId,
+    });
   }
 
   async logout(refreshToken?: string) {
@@ -178,7 +183,7 @@ export class AuthService {
       mustChangePassword: boolean;
     },
     userAgent?: string,
-    replacedTokenId?: string,
+    replacedToken?: { id: string; familyId: string },
   ) {
     const accessTtl = this.config.get<string>("ACCESS_TOKEN_TTL") ?? "15m";
     const accessToken = await this.jwt.signAsync(
@@ -203,22 +208,44 @@ export class AuthService {
         expiresIn: `${refreshDays}d` as never,
       },
     );
-    await this.prisma.$transaction(async (tx) => {
-      if (replacedTokenId)
-        await tx.refreshToken.update({
-          where: { id: replacedTokenId },
-          data: { revokedAt: new Date(), replacedBy: refreshId },
-        });
-      await tx.refreshToken.create({
-        data: {
-          id: refreshId,
-          userId: user.id,
-          tokenHash: digest(refreshToken),
-          expiresAt,
-          userAgent,
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          if (replacedToken) {
+            const claimed = await tx.refreshToken.updateMany({
+              where: { id: replacedToken.id, revokedAt: null },
+              data: { revokedAt: new Date(), replacedBy: refreshId },
+            });
+            if (claimed.count !== 1)
+              throw new AppError(
+                "REFRESH_TOKEN_REUSE",
+                "Сесію відкликано через повторне використання токена оновлення",
+                HttpStatus.UNAUTHORIZED,
+              );
+          }
+          await tx.refreshToken.create({
+            data: {
+              id: refreshId,
+              userId: user.id,
+              familyId: replacedToken?.familyId ?? refreshId,
+              tokenHash: digest(refreshToken),
+              expiresAt,
+              userAgent,
+            },
+          });
         },
-      });
-    });
+        { isolationLevel: "Serializable" },
+      );
+    } catch (error) {
+      if (error instanceof AppError && error.code === "REFRESH_TOKEN_REUSE") {
+        if (replacedToken)
+          await this.prisma.refreshToken.updateMany({
+            where: { familyId: replacedToken.familyId, revokedAt: null },
+            data: { revokedAt: new Date() },
+          });
+      }
+      throw error;
+    }
     return {
       access_token: accessToken,
       refresh_token: refreshToken,

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import {
   getAvailableYears,
   truncateText,
-  isPeriodLocked,
+  isPeriodLockedAtBusinessDate,
 } from "../../../shared/utils";
 import { useAppContext } from "../../../app/store";
 import { ProjectCard } from "./ProjectCard";
@@ -29,6 +29,7 @@ export const ProjectsTab = () => {
     rolePermissions,
     createBacklogWithCards,
     setInitiativeDataScope,
+    businessPeriod,
   } = useAppContext();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,20 +37,15 @@ export const ProjectsTab = () => {
     useState<InitiativeViewModel | null>(null);
   const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth();
-  const currentQuarter = (
-    currentMonth < 3
-      ? "Q1"
-      : currentMonth < 6
-        ? "Q2"
-        : currentMonth < 9
-          ? "Q3"
-          : "Q4"
-  ) as import("../../../shared/types").Quarter;
+  const currentYear = businessPeriod.year;
+  const currentQuarter = businessPeriod.quarter;
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedQuarter, setSelectedQuarter] =
     useState<import("../../../shared/types").Quarter>(currentQuarter);
+  useEffect(() => {
+    setSelectedYear(businessPeriod.year);
+    setSelectedQuarter(businessPeriod.quarter);
+  }, [businessPeriod.quarter, businessPeriod.year]);
   useEffect(() => {
     setInitiativeDataScope({
       mode: "projects",
@@ -57,7 +53,11 @@ export const ProjectsTab = () => {
       quarter: selectedQuarter,
     });
   }, [selectedQuarter, selectedYear, setInitiativeDataScope]);
-  const isArchive = isPeriodLocked(selectedYear, selectedQuarter);
+  const isArchive = isPeriodLockedAtBusinessDate(
+    selectedYear,
+    selectedQuarter,
+    businessPeriod.business_date,
+  );
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
 
   const [filterManager, setFilterManager] = useState<string>("");
@@ -174,7 +174,7 @@ export const ProjectsTab = () => {
               onChange={(e) => setSelectedYear(Number(e.target.value))}
               className={styles.compactSelect}
             >
-              {getAvailableYears().map((y) => (
+              {getAvailableYears(3, 5, businessPeriod.year).map((y) => (
                 <option key={y} value={y} title={String(y)}>
                   {truncateText(y, 70)}
                 </option>

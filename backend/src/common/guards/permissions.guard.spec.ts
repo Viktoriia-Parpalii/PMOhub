@@ -9,11 +9,11 @@ const context = (role: 'SUPER_ADMIN' | 'ADMIN' | 'USER') => ({
 }) as any;
 
 describe('PermissionsGuard security invariants', () => {
-  it('rejects a read-only role even when the requested flag is true', async () => {
+  it('allows a read-only role to use read operations covered by its permission flag', async () => {
     const reflector = { getAllAndOverride: vi.fn((key) => key === PERMISSIONS_KEY ? ['canAccessAdmin'] : undefined) };
     const prisma = { rolePermission: { findUnique: vi.fn(async () => ({ canAccessAdmin: true, isReadOnly: true, roleDefinition: { isActive: true } })) } };
     const guard = new PermissionsGuard(reflector as any, prisma as any);
-    await expect(guard.canActivate(context('ADMIN'))).rejects.toMatchObject({ status: 403 });
+    await expect(guard.canActivate(context('ADMIN'))).resolves.toBe(true);
   });
 
   it('rejects permissions inherited from an inactive role', async () => {

@@ -12,10 +12,8 @@ import {
   Quarter,
 } from "../../../shared/types";
 import {
-  getCurrentPeriod,
-  getCurrentQuarter,
   getValidYears,
-  isPeriodLocked,
+  isPeriodLockedAtBusinessDate,
   qToNum,
 } from "../../../shared/utils";
 import {
@@ -106,10 +104,11 @@ export const InitiativeCardModal = ({
     copyScopeItem,
     currentUser,
     rolePermissions,
+    businessPeriod,
   } = useAppContext();
   const records = kind === "project" ? projects : tasks;
-  const year = item?.year ?? defaultYear ?? new Date().getFullYear();
-  const quarter = item?.quarter ?? defaultQuarter ?? getCurrentQuarter();
+  const year = item?.year ?? defaultYear ?? businessPeriod.year;
+  const quarter = item?.quarter ?? defaultQuarter ?? businessPeriod.quarter;
   const noun = kind === "project" ? "проєкту" : "операційної задачі";
   const canSwitchToEdit = Boolean(
     item && !locked && canEditInitiative(item, currentUser, rolePermissions),
@@ -125,7 +124,13 @@ export const InitiativeCardModal = ({
     ),
   );
   const scopeWeightLocked = Boolean(
-    item && (item.is_locked ?? isPeriodLocked(year, quarter)),
+    item &&
+      (item.is_locked ??
+        isPeriodLockedAtBusinessDate(
+          year,
+          quarter,
+          businessPeriod.business_date,
+        )),
   );
   const [name, setName] = useState(item?.name ?? "");
   const [goal, setGoal] = useState(item?.strategic_goal ?? "");
@@ -155,7 +160,7 @@ export const InitiativeCardModal = ({
     quarter === "Q4"
       ? { year: year + 1, quarter: "Q1" as Quarter }
       : { year, quarter: quarters[quarters.indexOf(quarter) + 1] };
-  const currentPeriod = getCurrentPeriod();
+  const currentPeriod = businessPeriod;
   const nextIndex = nextPeriod.year * 10 + qToNum(nextPeriod.quarter);
   const currentIndex = currentPeriod.year * 10 + qToNum(currentPeriod.quarter);
   const initialMovePeriod =
@@ -473,7 +478,7 @@ export const InitiativeCardModal = ({
     );
   };
   const movePanel = (scopeMove: boolean) => {
-    const current = getCurrentPeriod();
+    const current = businessPeriod;
     const isContinuationPeriod = (
       candidateYear: number,
       candidateQuarter: Quarter,
@@ -485,8 +490,8 @@ export const InitiativeCardModal = ({
       );
     };
     const years = scopeMove
-      ? getValidYears(year)
-      : getValidYears().filter((candidateYear) =>
+      ? getValidYears(year, businessPeriod.year)
+      : getValidYears(undefined, businessPeriod.year).filter((candidateYear) =>
           quarters.some((candidateQuarter) =>
             isContinuationPeriod(candidateYear, candidateQuarter),
           ),

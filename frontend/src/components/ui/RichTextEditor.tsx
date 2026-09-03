@@ -181,12 +181,14 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (contentRef.current && contentRef.current.innerHTML !== value) {
-      contentRef.current.innerHTML = value;
+    const safeValue = sanitizeRichText(value);
+    if (contentRef.current && contentRef.current.innerHTML !== safeValue) {
+      contentRef.current.innerHTML = safeValue;
     }
   }, [value]);
 
-  const updateValue = () => onChange(contentRef.current?.innerHTML ?? "");
+  const updateValue = () =>
+    onChange(sanitizeRichText(contentRef.current?.innerHTML ?? ""));
   const format = (command: string, commandValue?: string) => {
     if (disabled) return;
     contentRef.current?.focus();

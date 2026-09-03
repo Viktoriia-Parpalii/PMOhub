@@ -292,6 +292,22 @@ export interface paths {
         patch: operations["QuarterCardsController_update"];
         trace?: never;
     };
+    "/api/v1/quarter-cards/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["QuarterCardsController_updateStatus"];
+        trace?: never;
+    };
     "/api/v1/quarter-cards/{id}/archive": {
         parameters: {
             query?: never;
@@ -858,17 +874,17 @@ export interface components {
         };
         ScopeItemReadModelDto: {
             id: string;
-            lineage_id: string;
-            copied_from_item_id: string | null;
+            lineage_id?: string;
+            copied_from_item_id?: string | null;
             text: string;
             /** @enum {string} */
             status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
-            weight_definition_id: string;
-            weight_snapshot: Record<string, never>;
+            weight_definition_id?: string;
+            weight_snapshot?: Record<string, never>;
             executor_department_ids: string[];
-            executors: Record<string, never>[];
-            moved_from_card_id: string | null;
-            revision: number;
+            executors?: Record<string, never>[];
+            moved_from_card_id?: string | null;
+            revision?: number;
         };
         QuarterCardReadModelDto: {
             id: string;
@@ -915,6 +931,10 @@ export interface components {
             success: true;
             message: string;
             data: components["schemas"]["QuarterCardReadModelDto"];
+        };
+        UpdateCardStatusDto: {
+            revision: number;
+            status_id: string;
         };
         ScopeItemDto: {
             lineage_id?: string;
@@ -1654,6 +1674,31 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    QuarterCardsController_updateStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCardStatusDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuarterCardResponseDto"];
+                };
             };
         };
     };

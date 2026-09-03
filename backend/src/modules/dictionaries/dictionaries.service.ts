@@ -135,7 +135,9 @@ export class DictionariesService {
             case "statuses":
               created = await tx.initiativeStatus.create({
                 data: {
-                  code: dto.code?.trim() || crypto.randomUUID(),
+                  // `code` is an internal, stable analytics/export key. The UI
+                  // identifies a status by UUID and does not need to supply it.
+                  code: dto.code?.trim() || crypto.randomUUID().replaceAll("-", ""),
                   name: dto.name!,
                   normalizedName: normalize(dto.name!),
                   color: dto.color ?? "#94a3b8",

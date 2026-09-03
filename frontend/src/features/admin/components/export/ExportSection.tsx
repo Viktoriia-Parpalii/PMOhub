@@ -74,13 +74,13 @@ const useDebounced = <T,>(value: T, delay: number) => {
 };
 
 export const ExportSection = () => {
-  const { currentUser } = useAppContext();
+  const { currentUser, businessPeriod } = useAppContext();
   const availability = useQuery({
     queryKey: ["exports", "availability"],
     queryFn: ({ signal }) => loadExportAvailability(signal),
     staleTime: 60_000,
   });
-  const currentYear = new Date().getFullYear();
+  const currentYear = businessPeriod?.year ?? new Date().getFullYear();
   const years = availability.data?.years ?? [];
   const firstYear = years[0] ?? currentYear;
   const lastYear = years[years.length - 1] ?? currentYear;

@@ -106,6 +106,11 @@ export class UpdateCardDto {
   scope: ScopeItemDto[] = [];
 }
 
+export class UpdateCardStatusDto {
+  @IsInt() @Min(1) revision!: number;
+  @IsUniqueIdentifier() status_id!: string;
+}
+
 export class ArchiveScopeStatusDto {
   @IsUniqueIdentifier() id!: string;
   @IsInt() @Min(1) revision!: number;
@@ -201,23 +206,23 @@ export class InitiativeYearReadModelDto {
 
 export class ScopeItemReadModelDto {
   @ApiProperty() id!: string;
-  @ApiProperty() lineage_id!: string;
-  @ApiProperty({ nullable: true }) copied_from_item_id!: string | null;
+  @ApiProperty({ required: false }) lineage_id?: string;
+  @ApiProperty({ nullable: true, required: false }) copied_from_item_id?: string | null;
   @ApiProperty() text!: string;
   @ApiProperty({ enum: ["DEFAULT", "GREEN", "YELLOW", "RED"] })
   status_code!: string;
-  @ApiProperty() weight_definition_id!: string;
-  @ApiProperty({ type: Object }) weight_snapshot!: {
+  @ApiProperty({ required: false }) weight_definition_id?: string;
+  @ApiProperty({ type: Object, required: false }) weight_snapshot?: {
     name: string;
     value: number;
   };
   @ApiProperty({ type: [String] }) executor_department_ids!: string[];
-  @ApiProperty({ type: [Object] }) executors!: Array<{
+  @ApiProperty({ type: [Object], required: false }) executors?: Array<{
     id: string;
     name: string;
   }>;
-  @ApiProperty({ nullable: true }) moved_from_card_id!: string | null;
-  @ApiProperty() revision!: number;
+  @ApiProperty({ nullable: true, required: false }) moved_from_card_id?: string | null;
+  @ApiProperty({ required: false }) revision?: number;
 }
 
 export class QuarterCardReadModelDto {

@@ -12,6 +12,7 @@ import {
   PeriodCommandDto,
   QuarterDto,
   UpdateCardDto,
+  UpdateCardStatusDto,
   UpdateArchivedCardDto,
   UpdateBacklogDto,
   UpdateInitiativeDto,
@@ -19,6 +20,8 @@ import {
   UpdatePreparationDto,
 } from "../api/initiative.dto";
 import { currentPeriod, isPeriodLocked } from "../domain/period.policy";
+import { sanitizeRichText } from "../../../common/security/rich-text";
+import { cardInclude, mapCard } from "../infrastructure/initiative.mapper";
 
 type Tx = Prisma.TransactionClient;
 type Defaults = {
@@ -440,7 +443,7 @@ export class InitiativesService {
             managerId: dto.manager_id ?? null,
             priorityId: dto.priority_id ?? null,
             statusId: dto.status_id,
-            notes: dto.notes?.trim() || null,
+            notes: dto.notes ? sanitizeRichText(dto.notes) || null : null,
             revision: { increment: 1 },
           },
         });
@@ -544,6 +547,46 @@ export class InitiativesService {
     return ok("Картку збережено", result);
   }
 
+  async updateCardStatus(
+    id: string,
+    dto: UpdateCardStatusDto,
+    actor: AuthUser,
+  ) {
+    const current = await this.prisma.quarterCard.findUnique({
+      where: { id },
+      include: { initiativeYear: true },
+    });
+    if (!current) throw this.notFound("Картку");
+    if (isPeriodLocked(current.initiativeYear.year, qs(current.quarter)))
+      await this.assertCanEditArchive(actor);
+    else await this.assertCanEdit(actor);
+
+    const card = await this.prisma.$transaction(
+      async (tx) => {
+        await this.assertCardStatus(tx, dto.status_id);
+        const changed = await tx.quarterCard.updateMany({
+          where: { id, revision: dto.revision },
+          data: { statusId: dto.status_id, revision: { increment: 1 } },
+        });
+        if (!changed.count) await this.throwConflict(tx, "QuarterCard", id);
+        await this.audit(
+          tx,
+          "QuarterCard",
+          id,
+          "CARD_STATUS_UPDATED",
+          "Оновлено статус квартальної картки",
+          actor,
+        );
+        return tx.quarterCard.findUniqueOrThrow({
+          where: { id },
+          include: cardInclude,
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+    return ok("Статус картки оновлено", mapCard(card));
+  }
+
   async updateArchivedCard(
     id: string,
     dto: UpdateArchivedCardDto,
@@ -569,7 +612,7 @@ export class InitiativesService {
           where: { id, revision: dto.revision },
           data: {
             ...(dto.notes !== undefined
-              ? { notes: dto.notes.trim() || null }
+              ? { notes: sanitizeRichText(dto.notes) || null }
               : {}),
             ...(dto.status_id ? { statusId: dto.status_id } : {}),
             revision: { increment: 1 },
@@ -786,7 +829,9 @@ export class InitiativesService {
             initiativeYear: { include: { initiative: true } },
             departments: true,
             scopeItems: { include: { executors: true } },
-            customFieldValues: true,
+            customFieldValues: {
+              include: { definition: { select: { fieldType: true } } },
+            },
           },
         });
         if (!source) throw this.notFound("Картку");
@@ -832,7 +877,10 @@ export class InitiativesService {
             data: source.customFieldValues.map((value) => ({
               quarterCardId: card.id,
               definitionId: value.definitionId,
-              textValue: value.textValue,
+              textValue:
+                value.definition.fieldType === "RICHTEXT" && value.textValue
+                  ? sanitizeRichText(value.textValue)
+                  : value.textValue,
               numberValue: value.numberValue,
               booleanValue: value.booleanValue,
               dateValue: value.dateValue,
@@ -983,7 +1031,9 @@ export class InitiativesService {
             initiativeYear: { include: { initiative: true } },
             departments: true,
             scopeItems: { include: { executors: true } },
-            customFieldValues: true,
+            customFieldValues: {
+              include: { definition: { select: { fieldType: true } } },
+            },
           },
         });
         if (!source) throw this.notFound("Картку");
@@ -1057,7 +1107,10 @@ export class InitiativesService {
               data: source.customFieldValues.map((value) => ({
                 quarterCardId: target!.id,
                 definitionId: value.definitionId,
-                textValue: value.textValue,
+                textValue:
+                  value.definition.fieldType === "RICHTEXT" && value.textValue
+                    ? sanitizeRichText(value.textValue)
+                    : value.textValue,
                 numberValue: value.numberValue,
                 booleanValue: value.booleanValue,
                 dateValue: value.dateValue,
@@ -1304,7 +1357,7 @@ export class InitiativesService {
         quarter,
         managerId: defaults.managerId,
         priorityId: defaults.priorityId,
-        notes: notes ?? null,
+        notes: notes ? sanitizeRichText(notes) || null : null,
         statusId: status.id,
         totalWeight: 0,
         sizeSnapshotName: "Не визначено",
@@ -1503,6 +1556,8 @@ export class InitiativesService {
         return { ...empty, booleanValue: value };
       case "SELECT":
         return { ...empty, optionValue: String(value) };
+      case "RICHTEXT":
+        return { ...empty, textValue: sanitizeRichText(String(value)) };
       default:
         return { ...empty, textValue: String(value) };
     }

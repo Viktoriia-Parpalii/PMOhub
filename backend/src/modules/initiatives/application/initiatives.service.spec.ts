@@ -4,6 +4,69 @@ import { InitiativesService } from './initiatives.service';
 const actor = { id: '00000000-0000-4000-8000-000000000099', name: 'Admin', email: 'admin@example.com', role: 'SUPER_ADMIN' as const, must_change_password: false };
 
 describe('InitiativesService transactional rules', () => {
+  it('updates status with a small command and returns exactly the updated card', async () => {
+    const card = {
+      id: 'card-1',
+      initiativeYearId: 'year-1',
+      initiativeYear: {
+        initiativeId: 'initiative-1',
+        year: 2099,
+        strategicGoal: null,
+        initiative: { id: 'initiative-1', kind: 'PROJECT', name: 'Card' },
+      },
+      quarter: 1,
+      managerId: null,
+      manager: null,
+      priorityId: null,
+      priority: null,
+      departments: [],
+      statusId: 'status-new',
+      status: { id: 'status-new', code: 'ACTIVE', name: 'Активний', color: '#123456' },
+      sizeDefinitionId: null,
+      sizeDefinition: null,
+      sizeSnapshotName: 'Не визначено',
+      sizeSnapshotMin: null,
+      sizeSnapshotMax: null,
+      totalWeight: { toNumber: () => 0 },
+      notes: null,
+      customFieldValues: [],
+      scopeItems: [],
+      movedFromYear: null,
+      movedFromQuarter: null,
+      revision: 2,
+    };
+    const tx: any = {
+      initiativeStatus: { findFirst: vi.fn(async () => ({ id: 'status-new', isActive: true })) },
+      quarterCard: {
+        updateMany: vi.fn(async () => ({ count: 1 })),
+        findUniqueOrThrow: vi.fn(async () => card),
+      },
+      auditEvent: { create: vi.fn(async () => ({})) },
+    };
+    const prisma: any = {
+      quarterCard: {
+        findUnique: vi.fn(async () => ({ id: 'card-1', quarter: 1, initiativeYear: { year: 2099 } })),
+      },
+      rolePermission: {
+        findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })),
+      },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+
+    const result = await new InitiativesService(prisma).updateCardStatus(
+      'card-1',
+      { revision: 1, status_id: 'status-new' },
+      actor,
+    );
+
+    expect(result.data).toMatchObject({ id: 'card-1', status_id: 'status-new', revision: 2 });
+    expect(Array.isArray(result.data)).toBe(false);
+    expect(tx.quarterCard.updateMany).toHaveBeenCalledWith({
+      where: { id: 'card-1', revision: 1 },
+      data: { statusId: 'status-new', revision: { increment: 1 } },
+    });
+  });
+
   it('creates the root, year, preparation and initial card inside one transaction', async () => {
     const tx: any = {
       initiative: {

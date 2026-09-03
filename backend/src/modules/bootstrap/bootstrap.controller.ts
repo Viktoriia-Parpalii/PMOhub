@@ -7,6 +7,7 @@ import { PrismaService } from "../../infrastructure/database/prisma.service";
 import { DictionariesService } from "../dictionaries/dictionaries.service";
 import { CustomFieldsService } from "../custom-fields/custom-fields.service";
 import { currentPeriod } from "../initiatives/domain/period.policy";
+import { DateTime } from "luxon";
 
 @ApiTags("bootstrap")
 @ApiBearerAuth()
@@ -72,7 +73,11 @@ export class BootstrapController {
               },
             ]
           : [],
-        businessPeriod: { ...currentPeriod(), time_zone: "Europe/Kyiv" },
+        businessPeriod: {
+          ...currentPeriod(),
+          business_date: DateTime.now().setZone("Europe/Kyiv").toISODate(),
+          time_zone: "Europe/Kyiv",
+        },
       },
     };
   }

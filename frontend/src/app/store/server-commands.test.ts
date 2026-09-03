@@ -19,6 +19,26 @@ describe("server command routing", () => {
     expect(String(fetchMock.mock.calls[0][0])).not.toContain("/backups/import");
   });
 
+  it("sends only revision and status for a portfolio status change", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(JSON.stringify({ success: true, data: { id: "card-id" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await serverCommands.updateCardStatus("card-id", 7, "status-id");
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      "/quarter-cards/card-id/status",
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      revision: 7,
+      status_id: "status-id",
+    });
+  });
+
   it("uses the canonical role-permissions route", async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ success: true }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);

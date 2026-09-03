@@ -700,6 +700,51 @@
         ]
       }
     },
+    "/api/v1/quarter-cards/{id}/status": {
+      "patch": {
+        "operationId": "QuarterCardsController_updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCardStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuarterCardResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "quarter-cards"
+        ]
+      }
+    },
     "/api/v1/quarter-cards/{id}/archive": {
       "patch": {
         "operationId": "QuarterCardsController_updateArchive",
@@ -2682,16 +2727,9 @@
         },
         "required": [
           "id",
-          "lineage_id",
-          "copied_from_item_id",
           "text",
           "status_code",
-          "weight_definition_id",
-          "weight_snapshot",
-          "executor_department_ids",
-          "executors",
-          "moved_from_card_id",
-          "revision"
+          "executor_department_ids"
         ]
       },
       "QuarterCardReadModelDto": {
@@ -2878,6 +2916,22 @@
           "success",
           "message",
           "data"
+        ]
+      },
+      "UpdateCardStatusDto": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "number",
+            "minimum": 1
+          },
+          "status_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "status_id"
         ]
       },
       "ScopeItemDto": {
@@ -3160,7 +3214,7 @@
           },
           "code": {
             "type": "string",
-            "maxLength": 64
+            "maxLength": 32
           }
         }
       },
