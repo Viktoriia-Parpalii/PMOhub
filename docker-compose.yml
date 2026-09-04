@@ -1,0 +1,33 @@
+services:
+  api:
+    build:
+      context: ./backend
+      target: runtime
+    env_file:
+      - ./.env.docker
+    ports:
+      # Keep the API reachable for local diagnostics but not directly from the
+      # network; client traffic must pass through the trusted nginx hop.
+      - "127.0.0.1:${API_PORT:-4000}:4000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/v1/health/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped

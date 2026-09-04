@@ -1,0 +1,84 @@
+import { Controller, Get } from "@nestjs/common";
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import { ApiSuccessDto } from "../../common/dto/api-response.dto";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { AuthUser } from "../../common/auth/auth-user";
+import { PrismaService } from "../../infrastructure/database/prisma.service";
+import { DictionariesService } from "../dictionaries/dictionaries.service";
+import { CustomFieldsService } from "../custom-fields/custom-fields.service";
+import { currentPeriod } from "../initiatives/domain/period.policy";
+import { DateTime } from "luxon";
+
+@ApiTags("bootstrap")
+@ApiBearerAuth()
+@ApiOkResponse({ type: ApiSuccessDto })
+@Controller("bootstrap")
+export class BootstrapController {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly dictionaries: DictionariesService,
+    private readonly fields: CustomFieldsService,
+  ) {}
+
+  @Get()
+  async get(@CurrentUser() currentUser: AuthUser) {
+    const [
+      departments,
+      managers,
+      priorities,
+      initiativeStatuses,
+      taskWeights,
+      initiativeSizes,
+      customFields,
+      currentRolePermission,
+    ] = await Promise.all([
+      this.dictionaries.list("departments"),
+      this.dictionaries.list("managers"),
+      this.dictionaries.list("priorities"),
+      this.dictionaries.list("statuses"),
+      this.dictionaries.list("weights"),
+      this.dictionaries.list("sizes"),
+      this.fields.list(),
+      this.prisma.rolePermission.findUnique({
+        where: { role: currentUser.role },
+        include: { roleDefinition: true },
+      }),
+    ]);
+    return {
+      success: true,
+      data: {
+        currentUser,
+        departments,
+        managers,
+        priorities,
+        initiativeStatuses,
+        taskWeights,
+        initiativeSizes,
+        customFields,
+        rolePermissions: currentRolePermission
+          ? [
+              {
+                role: currentRolePermission.role,
+                roleName: currentRolePermission.roleDefinition.name,
+                isSystem: currentRolePermission.roleDefinition.isSystem,
+                isDefault: currentRolePermission.roleDefinition.isDefault,
+                isActive: currentRolePermission.roleDefinition.isActive,
+                canCreateEditInitiatives:
+                  currentRolePermission.canCreateEditInitiatives,
+                canDeleteInitiatives:
+                  currentRolePermission.canDeleteInitiatives,
+                canAccessAdmin: currentRolePermission.canAccessAdmin,
+                isReadOnly: currentRolePermission.isReadOnly,
+                canEditArchive: currentRolePermission.canEditArchive,
+              },
+            ]
+          : [],
+        businessPeriod: {
+          ...currentPeriod(),
+          business_date: DateTime.now().setZone("Europe/Kyiv").toISODate(),
+          time_zone: "Europe/Kyiv",
+        },
+      },
+    };
+  }
+}
