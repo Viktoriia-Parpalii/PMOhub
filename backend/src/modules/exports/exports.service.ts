@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { AuthUser } from "../../common/auth/auth-user";
-import { AiJsonExportDto, ExportAvailabilityQueryDto, InitiativeExportFilterDto } from "./export.dto";
+import {
+  AiJsonExportDto,
+  ExcelExportDto,
+  ExportAvailabilityQueryDto,
+  InitiativeExportFilterDto,
+} from "./export.dto";
 import { DatabaseSnapshotQueryService } from "./database-snapshot-query.service";
 import { ExcelWorkbookBuilder } from "./excel-workbook.builder";
 import { ExportAuditService } from "./export-audit.service";
@@ -29,7 +34,7 @@ export class ExportsService {
     return this.initiatives.preview(filter);
   }
 
-  async buildExcel(actor: AuthUser, filter: InitiativeExportFilterDto) {
+  async buildExcel(actor: AuthUser, filter: ExcelExportDto) {
     await this.authorization.assertAdmin(actor);
     try {
       const dataset = await this.initiatives.load(filter);

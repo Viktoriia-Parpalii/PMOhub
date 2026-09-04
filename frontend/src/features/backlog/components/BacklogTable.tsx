@@ -14,9 +14,21 @@ import {
 import { getPriorityBadgeStyle } from "../../../domain/priority";
 import { isCompletedItem } from "../../../domain/initiatives";
 import { BacklogInitiative, BacklogTabKind } from "../backlogTypes";
+import { filterBacklogCards } from "../backlogFiltering";
+import type { BacklogCardFilters } from "../backlogFiltering";
+import { useBacklogQuarterCardSummariesQuery } from "../../../api/hooks";
+import { toBacklogQuarterCardViewModel } from "../../../api/apiClient";
 import styles from "../BacklogTab.module.css";
 
 const getScopeProgress = (card: BacklogInitiative) => {
+  if (card.scope_summary) {
+    const { total, completed } = card.scope_summary;
+    return {
+      total,
+      completed,
+      percent: total ? Math.round((completed / total) * 100) : 0,
+    };
+  }
   const total = card.checklist.length;
   const completed = card.checklist.filter(isCompletedItem).length;
   return {
@@ -40,7 +52,8 @@ interface BacklogTableProps {
   selectedYear: number;
   visibleQuarters: Quarter[];
   cardsFor: (id: string) => BacklogInitiative[];
-  visibleCardsFor: (id: string) => BacklogInitiative[];
+  cardFilters: BacklogCardFilters;
+  highlightedQuarter?: Quarter;
   managers: Manager[];
   priorities: PriorityDef[];
   departments: Department[];
@@ -101,7 +114,6 @@ export const BacklogTable = (props: BacklogTableProps) => {
         <tbody className={styles.tableBody}>
           {props.masters.map((master) => {
             const cards = props.cardsFor(master.id);
-            const visibleCards = props.visibleCardsFor(master.id);
             const eligible = props.eligibleIds.has(master.id);
             const selected = props.selectedIds.includes(master.id);
             return (
@@ -167,7 +179,7 @@ export const BacklogTable = (props: BacklogTableProps) => {
                                 : "Створити картку"
                           }
                           aria-label={`${card ? "Прибрати" : "Створити"} картку ${quarter}`}
-                          className={`${styles.quarterToggle} ${locked ? styles.lockedToggle : card ? styles.cardToggle : styles.emptyToggle}`}
+                          className={`${styles.quarterToggle} ${card ? styles.cardToggle : styles.emptyToggle} ${locked ? styles.lockedToggle : ""}`}
                         >
                           {card ? (
                             <Check size={17} strokeWidth={2.7} />
@@ -208,31 +220,17 @@ export const BacklogTable = (props: BacklogTableProps) => {
                 {props.expandedId === master.id && (
                   <tr>
                     <td colSpan={columns} className={styles.expandedCell}>
-                      <div className={styles.periodCards}>
-                        {visibleCards.length ? (
-                          [...visibleCards]
-                            .sort((a, b) => a.quarter.localeCompare(b.quarter))
-                            .map((card) => (
-                              <QuarterCard
-                                key={card.id}
-                                card={card}
-                                managers={props.managers}
-                                priorities={props.priorities}
-                                departments={props.departments}
-                                statuses={props.initiativeStatuses}
-                                onOpen={props.onOpenCard}
-                              />
-                            ))
-                        ) : (
-                          <PreparationCard
-                            item={master}
-                            managers={props.managers}
-                            priorities={props.priorities}
-                            departments={props.departments}
-                            onOpen={props.onOpenPreparation}
-                          />
-                        )}
-                      </div>
+                      <ExpandedPeriodCards
+                        master={master}
+                        filters={props.cardFilters}
+                        highlightedQuarter={props.highlightedQuarter}
+                        managers={props.managers}
+                        priorities={props.priorities}
+                        departments={props.departments}
+                        statuses={props.initiativeStatuses}
+                        onOpenCard={props.onOpenCard}
+                        onOpenPreparation={props.onOpenPreparation}
+                      />
                     </td>
                   </tr>
                 )}
@@ -252,26 +250,84 @@ export const BacklogTable = (props: BacklogTableProps) => {
   );
 };
 
-const Details = ({
-  managerId,
-  priorityId,
-  departmentIds,
+const ExpandedPeriodCards = ({
+  master,
+  filters,
+  highlightedQuarter,
   managers,
   priorities,
   departments,
+  statuses,
+  onOpenCard,
+  onOpenPreparation,
 }: {
-  managerId?: string;
-  priorityId?: string;
-  departmentIds: string[];
+  master: BacklogInitiative;
+  filters: BacklogCardFilters;
+  highlightedQuarter?: Quarter;
   managers: Manager[];
   priorities: PriorityDef[];
   departments: Department[];
+  statuses: InitiativeStatusDef[];
+  onOpenCard: (item: BacklogInitiative) => void;
+  onOpenPreparation: (item: BacklogInitiative) => void;
+}) => {
+  const cardsQuery = useBacklogQuarterCardSummariesQuery(master.id);
+  if (cardsQuery.isPending)
+    return <div className={styles.accordionState}>Завантаження карток…</div>;
+  if (cardsQuery.isError)
+    return (
+      <div className={styles.accordionState}>Не вдалося завантажити картки.</div>
+    );
+
+  const allCards = (cardsQuery.data ?? []).map(toBacklogQuarterCardViewModel);
+  const cards = filterBacklogCards(allCards, { ...filters, quarter: "ALL" });
+  return (
+    <div className={styles.periodCards}>
+      {cards.length ? (
+        [...cards]
+          .sort((a, b) => a.quarter.localeCompare(b.quarter))
+          .map((card) => (
+            <QuarterCard
+              key={card.id}
+              card={card}
+              highlighted={card.quarter === highlightedQuarter}
+              managers={managers}
+              priorities={priorities}
+              departments={departments}
+              statuses={statuses}
+              onOpen={onOpenCard}
+            />
+          ))
+      ) : allCards.length ? (
+        <div className={styles.accordionState}>
+          Немає карток за вибраними менеджером і пріоритетом.
+        </div>
+      ) : (
+        <PreparationCard
+          item={master}
+          managers={managers}
+          priorities={priorities}
+          departments={departments}
+          onOpen={onOpenPreparation}
+        />
+      )}
+    </div>
+  );
+};
+
+const Details = ({
+  managerId,
+  priorityId,
+  managers,
+  priorities,
+}: {
+  managerId?: string;
+  priorityId?: string;
+  managers: Manager[];
+  priorities: PriorityDef[];
 }) => {
   const manager = managers.find((item) => item.id === managerId);
   const priority = priorities.find((item) => item.id === priorityId);
-  const involved = departmentIds.map(
-    (id) => departments.find((department) => department.id === id)?.name ?? id,
-  );
   return (
     <div className={styles.periodDetails}>
       <p>
@@ -286,10 +342,26 @@ const Details = ({
           {priority?.name ?? "—"}
         </span>
       </p>
-      <p title={involved.join(", ")} className={styles.involvedLine}>
-        <strong>Залучені:</strong> {involved.length ? involved.join(", ") : "—"}
-      </p>
     </div>
+  );
+};
+
+const InvolvedDepartments = ({
+  departmentIds,
+  departments,
+}: {
+  departmentIds: string[];
+  departments: Department[];
+}) => {
+  const involved = departmentIds.map(
+    (id) => departments.find((department) => department.id === id)?.name ?? id,
+  );
+  const label = involved.length ? involved.join(", ") : "—";
+  return (
+    <p className={styles.involvedFooter} title={label}>
+      <strong>Залучені:</strong>
+      <span className={styles.involvedText}>{label}</span>
+    </p>
   );
 };
 
@@ -300,6 +372,7 @@ const QuarterCard = ({
   departments,
   statuses,
   onOpen,
+  highlighted,
 }: {
   card: BacklogInitiative;
   managers: Manager[];
@@ -307,6 +380,7 @@ const QuarterCard = ({
   departments: Department[];
   statuses: InitiativeStatusDef[];
   onOpen: (item: BacklogInitiative) => void;
+  highlighted: boolean;
 }) => {
   const status = getInitiativeStatus(card.health_status, statuses);
   const scope = getScopeProgress(card);
@@ -314,7 +388,7 @@ const QuarterCard = ({
     <button
       type="button"
       onClick={() => onOpen(card)}
-      className={styles.periodCard}
+      className={`${styles.periodCard} ${highlighted ? styles.periodCardHighlighted : ""}`}
       aria-label={`Переглянути ${card.quarter} ${card.year}`}
     >
       <div className={styles.periodTop}>
@@ -331,10 +405,8 @@ const QuarterCard = ({
       <Details
         managerId={card.manager_id}
         priorityId={card.priority}
-        departmentIds={card.cross_functional_dept_ids}
         managers={managers}
         priorities={priorities}
-        departments={departments}
       />
       <div className={styles.periodMetric}>
         <span>{taskCountLabel(scope.total)}</span>
@@ -355,6 +427,10 @@ const QuarterCard = ({
           style={{ width: `${scope.percent}%`, backgroundColor: status.color }}
         />
       </div>
+      <InvolvedDepartments
+        departmentIds={card.cross_functional_dept_ids}
+        departments={departments}
+      />
     </button>
   );
 };
@@ -389,9 +465,11 @@ const PreparationCard = ({
       <Details
         managerId={stage?.manager_id}
         priorityId={stage?.priority}
-        departmentIds={stage?.cross_functional_dept_ids ?? []}
         managers={managers}
         priorities={priorities}
+      />
+      <InvolvedDepartments
+        departmentIds={stage?.cross_functional_dept_ids ?? []}
         departments={departments}
       />
     </button>

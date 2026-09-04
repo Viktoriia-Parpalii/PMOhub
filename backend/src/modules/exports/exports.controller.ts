@@ -14,6 +14,7 @@ import {
   AiJsonExportDto,
   ExportAvailabilityQueryDto,
   ExportAvailabilityResponseDto,
+  ExcelExportDto,
   ExportPreviewResponseDto,
   InitiativeExportFilterDto,
 } from "./export.dto";
@@ -59,7 +60,7 @@ export class ExportsController {
   @ApiOkResponse({ schema: { type: "string", format: "binary" } })
   async excel(
     @CurrentUser() actor: AuthUser,
-    @Body() filter: InitiativeExportFilterDto,
+    @Body() filter: ExcelExportDto,
     @Res() response: Response,
   ) {
     const body = await this.exportsService.buildExcel(actor, filter);

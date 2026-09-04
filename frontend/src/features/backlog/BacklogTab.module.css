@@ -61,17 +61,19 @@
 }
 
 .quarterFilter {
-    display: flex;
-    height: 52px;
+    display: grid;
+    min-height: 52px;
     min-width: 0;
+    grid-template-columns: minmax(0, 1.7fr) repeat(4, minmax(0, 1fr));
     align-items: center;
-    justify-content: space-between;
+    gap: .125rem;
     border-radius: 1rem;
     background: #f1f5f9;
     padding: .375rem;
 }
 
 .quarterFilterButton {
+    min-width: 0;
     height: 40px;
     white-space: nowrap;
     border: 0;
@@ -82,6 +84,11 @@
     font-weight: 800;
     color: #64748b;
     transition: .15s;
+}
+
+.quarterFilterButton:first-child {
+    white-space: normal;
+    line-height: 1.1;
 }
 
 .quarterFilterButton:hover {
@@ -97,15 +104,18 @@
 .extendButton,
 .addButton {
     display: flex;
-    height: 52px;
+    min-height: 52px;
     min-width: 0;
     align-items: center;
     justify-content: center;
     gap: .5rem;
-    white-space: nowrap;
+    white-space: normal;
     border-radius: 1rem;
     font-size: 14px;
     font-weight: 800;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    text-align: center;
     transition: .15s;
 }
 
@@ -418,8 +428,14 @@
 
 .selectionHeader {
     width: 4rem;
-    padding: 1rem;
+    padding: 1rem 0;
     text-align: center;
+}
+
+.selectionHeader .selectBox,
+.selectionCell .selectBox {
+    display: block;
+    margin: 0 auto;
 }
 
 .tableBody>tr+tr {
@@ -538,6 +554,12 @@
     color: #cbd5e1;
 }
 
+.lockedToggle.cardToggle {
+    background: #e2e8f0;
+    color: #4f46e5;
+    box-shadow: none;
+}
+
 .cardToggle {
     background: #4f46e5;
     color: #fff;
@@ -557,6 +579,11 @@
 .quarterToggle:disabled:hover {
     background: #f1f5f9;
     color: #cbd5e1;
+}
+
+.quarterToggle.lockedToggle.cardToggle:disabled:hover {
+    background: #e2e8f0;
+    color: #4f46e5;
 }
 
 .actionsCell {
@@ -598,13 +625,22 @@
 }
 
 .periodCards {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: .75rem;
 }
 
+.accordionState {
+    grid-column: 1 / -1;
+    padding: 2rem 1rem;
+    color: #64748b;
+    text-align: center;
+    font-size: .875rem;
+}
+
 .periodCard {
-    min-width: 292px;
+    width: 100%;
+    min-width: 0;
     border: 1px solid #e2e8f0;
     border-radius: 1rem;
     background: #fff;
@@ -617,6 +653,12 @@
 .periodCard:hover {
     border-color: #a5b4fc;
     box-shadow: 0 4px 6px rgb(15 23 42 / .1);
+}
+
+.periodCardHighlighted,
+.periodCardHighlighted:hover {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgb(99 102 241 / 14%), 0 4px 10px rgb(79 70 229 / 10%);
 }
 
 .preparationCard {
@@ -693,11 +735,30 @@
     font-weight: 700;
 }
 
-.involvedLine {
-    display: -webkit-box;
+.involvedFooter {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: .375rem;
+    margin: .75rem 0 0;
+    border-top: 1px solid #f1f5f9;
+    padding-top: .625rem;
+    color: #475569;
+    font-size: .75rem;
+    line-height: 1.25rem;
+}
+
+.involvedFooter strong {
+    flex: none;
+    color: #334155;
+}
+
+.involvedText {
+    min-width: 0;
+    flex: 1;
     overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .periodMetric {
@@ -827,8 +888,8 @@
     }
 
     .quarterFilterButton {
-        padding: 0 1rem;
-        font-size: 16px;
+        padding: 0 .625rem;
+        font-size: 14px;
     }
 
     .extensionConfirmation {
@@ -887,7 +948,7 @@
     }
 
     .headerControlsDefault {
-        grid-template-columns: 160px minmax(270px, 1fr) minmax(300px, 1.12fr) 174px;
+        grid-template-columns: 150px minmax(320px, 1.3fr) minmax(220px, 1fr) minmax(160px, .72fr);
     }
 
     .headerControlsSelecting {
@@ -896,5 +957,17 @@
 
     .extensionConfirmation {
         grid-column: span 1;
+    }
+}
+
+@media (max-width: 1100px) {
+    .periodCards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .periodCards {
+        grid-template-columns: 1fr;
     }
 }

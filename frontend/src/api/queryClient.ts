@@ -8,6 +8,8 @@ export const queryKeys = {
     ["initiative-years", "counts", year] as const,
   portfolioCards: (kind: "project" | "task", year?: number, quarter?: string) =>
     ["quarter-cards", kind, year ?? "all", quarter ?? "all"] as const,
+  backlogCardSummaries: (initiativeYearId: string) =>
+    ["backlog-card-summaries", initiativeYearId] as const,
   initiativeCard: (id: string) => ["quarter-cards", "detail", id] as const,
   initiativeYear: (id: string) => ["initiative-years", "detail", id] as const,
   audit: (aggregateType: string, aggregateId: string) =>

@@ -38,6 +38,7 @@ import {
   refreshSession,
   setAuthFailureHandler,
   toInitiativeYearViewModel,
+  toInitiativeYearCardViewModels,
   toQuarterCardViewModel,
 } from "../../api/apiClient";
 import { queryKeys } from "../../api/queryClient";
@@ -300,13 +301,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   );
   const projectCardsQuery = useQuarterCardsQuery(
     "project",
-    authenticated && businessScopeReady && (projectMode || projectBacklogMode),
+    authenticated && businessScopeReady && projectMode,
     projectYear,
     projectQuarter,
   );
   const taskCardsQuery = useQuarterCardsQuery(
     "task",
-    authenticated && businessScopeReady && (taskMode || taskBacklogMode),
+    authenticated && businessScopeReady && taskMode,
     taskYear,
     taskQuarter,
   );
@@ -409,14 +410,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ...(projectBacklogMode
         ? (projectNextYearsQuery.data ?? []).map(toInitiativeYearViewModel)
         : []),
-      ...(projectCardsQuery.data ?? []).map(toQuarterCardViewModel),
+      ...(projectMode
+        ? (projectCardsQuery.data ?? []).map(toQuarterCardViewModel)
+        : [
+            ...(projectYearsQuery.data ?? []),
+            ...(projectBacklogMode ? (projectNextYearsQuery.data ?? []) : []),
+          ].flatMap(toInitiativeYearCardViewModels)),
     ],
     tasks: [
       ...(taskYearsQuery.data ?? []).map(toInitiativeYearViewModel),
       ...(taskBacklogMode
         ? (taskNextYearsQuery.data ?? []).map(toInitiativeYearViewModel)
         : []),
-      ...(taskCardsQuery.data ?? []).map(toQuarterCardViewModel),
+      ...(taskMode
+        ? (taskCardsQuery.data ?? []).map(toQuarterCardViewModel)
+        : [
+            ...(taskYearsQuery.data ?? []),
+            ...(taskBacklogMode ? (taskNextYearsQuery.data ?? []) : []),
+          ].flatMap(toInitiativeYearCardViewModels)),
     ],
   };
   const recordsFor = (kind: InitiativeKind): Initiative[] =>

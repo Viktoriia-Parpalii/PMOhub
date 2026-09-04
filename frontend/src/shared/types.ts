@@ -30,6 +30,8 @@ export interface QuarterCardSummary {
   quarter: Quarter;
   status_id: string;
   status_code: string;
+  manager_id: string | null;
+  priority_id: string | null;
   revision: number;
   total_weight: number;
   is_locked: boolean;
@@ -94,6 +96,28 @@ export interface QuarterCardReadModel {
   custom_fields: Record<string, unknown>;
   scope: ScopeItemReadModel[];
   moved_from: { year: number; quarter: Quarter } | null;
+  revision: number;
+  is_locked: boolean;
+  locked_at: string;
+}
+
+export interface BacklogQuarterCardSummary {
+  id: string;
+  initiative_year_id: string;
+  initiative_id: string;
+  kind: InitiativeKind;
+  name: string;
+  year: number;
+  quarter: Quarter;
+  manager_id: string | null;
+  priority_id: string | null;
+  effective_involved_department_ids: string[];
+  status_id: string;
+  status_code: string;
+  status: { id: string; code: string; name: string; color: string };
+  scope_total: number;
+  scope_completed: number;
+  total_weight: number;
   revision: number;
   is_locked: boolean;
   locked_at: string;
@@ -237,6 +261,7 @@ export interface InitiativeViewModel extends InitiativeMetadata {
   health_status_id?: string;
   health_status_code?: string;
   checklist: ChecklistItem[];
+  scope_summary?: { total: number; completed: number };
   record_type: "YEAR" | "CARD";
   moved_from?: string;
   history?: HistoryEvent[];

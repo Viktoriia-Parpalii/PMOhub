@@ -4,6 +4,7 @@ import {
   InitiativeYearReadModel,
   InitiativeViewModel,
   QuarterCardReadModel,
+  BacklogQuarterCardSummary,
   User,
 } from "../shared/types";
 import type {
@@ -282,6 +283,14 @@ export const loadQuarterCards = (
     `/quarter-cards?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}${quarter ? `&quarter=${quarter}` : ""}`,
     { signal },
   ).then((response) => response.data);
+export const loadBacklogQuarterCardSummaries = (
+  initiativeYearId: string,
+  signal?: AbortSignal,
+) =>
+  apiRequest<ApiResponse<BacklogQuarterCardSummary[]>>(
+    `/quarter-cards/backlog-summaries/${initiativeYearId}`,
+    { signal },
+  ).then((response) => response.data);
 export const loadAnalytics = (
   mode: AnalyticsMode,
   section: AnalyticsSection,
@@ -330,6 +339,36 @@ export const toInitiativeYearViewModel = (
   },
 });
 
+export const toInitiativeYearCardViewModels = (
+  year: InitiativeYearReadModel,
+): InitiativeViewModel[] =>
+  year.cards.map((card) => ({
+    id: card.id,
+    initiative_id: year.initiative_id,
+    initiative_year_id: year.id,
+    revision: card.revision,
+    name: year.name,
+    strategic_goal: year.strategic_goal ?? undefined,
+    implementer_dept_ids: [],
+    cross_functional_dept_ids: [],
+    year: year.year,
+    quarter: card.quarter,
+    manager_id: card.manager_id ?? undefined,
+    priority: card.priority_id ?? undefined,
+    health_status: card.status_id,
+    health_status_id: card.status_id,
+    health_status_code: card.status_code,
+    checklist: [],
+    record_type: "CARD",
+    history: [],
+    sizeSnapshot: {
+      name: "Не визначено",
+      totalWeight: card.total_weight,
+    },
+    is_locked: card.is_locked,
+    locked_at: card.locked_at,
+  }));
+
 export const toQuarterCardViewModel = (
   card: QuarterCardReadModel,
 ): InitiativeViewModel => ({
@@ -373,6 +412,38 @@ export const toQuarterCardViewModel = (
   sizeSnapshot: {
     definitionId: card.size_snapshot.definition_id ?? undefined,
     name: card.size_snapshot.name,
+    totalWeight: card.total_weight,
+  },
+  is_locked: card.is_locked,
+  locked_at: card.locked_at,
+});
+
+export const toBacklogQuarterCardViewModel = (
+  card: BacklogQuarterCardSummary,
+): InitiativeViewModel => ({
+  id: card.id,
+  initiative_id: card.initiative_id,
+  initiative_year_id: card.initiative_year_id,
+  revision: card.revision,
+  name: card.name,
+  implementer_dept_ids: [],
+  cross_functional_dept_ids: card.effective_involved_department_ids,
+  year: card.year,
+  quarter: card.quarter,
+  manager_id: card.manager_id ?? undefined,
+  priority: card.priority_id ?? undefined,
+  health_status: card.status_id,
+  health_status_id: card.status_id,
+  health_status_code: card.status_code,
+  checklist: [],
+  scope_summary: {
+    total: card.scope_total,
+    completed: card.scope_completed,
+  },
+  record_type: "CARD",
+  history: [],
+  sizeSnapshot: {
+    name: "Не визначено",
     totalWeight: card.total_weight,
   },
   is_locked: card.is_locked,

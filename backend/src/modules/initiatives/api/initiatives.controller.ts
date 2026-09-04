@@ -26,6 +26,7 @@ import {
   InitiativeYearsResponseDto,
   QuarterCardResponseDto,
   QuarterCardsResponseDto,
+  BacklogQuarterCardSummariesResponseDto,
   UpdateCardDto,
   UpdateCardStatusDto,
   UpdateArchivedCardDto,
@@ -168,6 +169,14 @@ export class QuarterCardsController {
       year: year ? Number(year) : undefined,
       quarter,
     });
+  }
+
+  @Get("backlog-summaries/:initiativeYearId")
+  @ApiOkResponse({ type: BacklogQuarterCardSummariesResponseDto })
+  listBacklogSummaries(
+    @Param("initiativeYearId") initiativeYearId: string,
+  ) {
+    return this.queries.listBacklogCardSummaries(initiativeYearId);
   }
 
   @Get(":id")

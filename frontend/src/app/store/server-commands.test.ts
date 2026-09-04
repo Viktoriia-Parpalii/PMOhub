@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { serverCommands } from "./server-commands";
-import { loadAnalytics, loadInitiativeYears, loadQuarterCards, loginSession, logoutSession, setAuthFailureHandler } from "../../api/apiClient";
+import { loadAnalytics, loadBacklogQuarterCardSummaries, loadInitiativeYears, loadQuarterCards, loginSession, logoutSession, setAuthFailureHandler } from "../../api/apiClient";
 
 describe("server command routing", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -111,9 +111,13 @@ describe("server command routing", () => {
 
     await loadInitiativeYears("project", undefined, 2027);
     await loadQuarterCards("task", undefined, 2027, "Q3");
+    await loadBacklogQuarterCardSummaries("year-id");
 
     expect(String(fetchMock.mock.calls[0][0])).toContain("kind=PROJECT&year=2027");
     expect(String(fetchMock.mock.calls[1][0])).toContain("kind=OPERATIONAL_TASK&year=2027&quarter=Q3");
+    expect(String(fetchMock.mock.calls[2][0])).toContain(
+      "/quarter-cards/backlog-summaries/year-id",
+    );
   });
 
   it("covers the login-create-edit-move-delete-logout smoke flow", async () => {

@@ -181,6 +181,8 @@ export class QuarterCardSummaryDto {
   @ApiProperty({ enum: QUARTERS }) quarter!: QuarterDto;
   @ApiProperty() status_id!: string;
   @ApiProperty() status_code!: string;
+  @ApiProperty({ nullable: true }) manager_id!: string | null;
+  @ApiProperty({ nullable: true }) priority_id!: string | null;
   @ApiProperty() revision!: number;
   @ApiProperty() total_weight!: number;
   @ApiProperty() is_locked!: boolean;
@@ -270,6 +272,33 @@ export class QuarterCardReadModelDto {
   @ApiProperty() locked_at!: string;
 }
 
+export class BacklogQuarterCardSummaryDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() initiative_year_id!: string;
+  @ApiProperty() initiative_id!: string;
+  @ApiProperty({ enum: ["PROJECT", "OPERATIONAL_TASK"] }) kind!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() year!: number;
+  @ApiProperty({ enum: QUARTERS }) quarter!: QuarterDto;
+  @ApiProperty({ nullable: true }) manager_id!: string | null;
+  @ApiProperty({ nullable: true }) priority_id!: string | null;
+  @ApiProperty({ type: [String] }) effective_involved_department_ids!: string[];
+  @ApiProperty() status_id!: string;
+  @ApiProperty() status_code!: string;
+  @ApiProperty({ type: Object }) status!: {
+    id: string;
+    code: string;
+    name: string;
+    color: string;
+  };
+  @ApiProperty() scope_total!: number;
+  @ApiProperty() scope_completed!: number;
+  @ApiProperty() total_weight!: number;
+  @ApiProperty() revision!: number;
+  @ApiProperty() is_locked!: boolean;
+  @ApiProperty() locked_at!: string;
+}
+
 export class InitiativeYearResponseDto {
   @ApiProperty({ enum: [true] }) success!: true;
   @ApiProperty() message!: string;
@@ -296,4 +325,11 @@ export class QuarterCardsResponseDto {
   @ApiProperty() message!: string;
   @ApiProperty({ type: [QuarterCardReadModelDto] })
   data!: QuarterCardReadModelDto[];
+}
+
+export class BacklogQuarterCardSummariesResponseDto {
+  @ApiProperty({ enum: [true] }) success!: true;
+  @ApiProperty() message!: string;
+  @ApiProperty({ type: [BacklogQuarterCardSummaryDto] })
+  data!: BacklogQuarterCardSummaryDto[];
 }

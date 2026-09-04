@@ -5,7 +5,9 @@ import { HttpStatus } from "@nestjs/common";
 import { QuarterDto } from "../api/initiative.dto";
 import {
   cardInclude,
+  backlogCardSummaryInclude,
   cardSummaryInclude,
+  mapBacklogCardSummary,
   mapCard,
   mapCardSummary,
   mapYear,
@@ -80,6 +82,24 @@ export class InitiativeQueryService {
       ],
     });
     return ok("Квартальні картки завантажено", cards.map(mapCardSummary));
+  }
+
+  async listBacklogCardSummaries(initiativeYearId: string) {
+    const cards = await this.prisma.quarterCard.findMany({
+      where: {
+        initiativeYearId,
+      },
+      include: backlogCardSummaryInclude,
+      orderBy: [
+        { initiativeYear: { year: "desc" } },
+        { quarter: "asc" },
+        { createdAt: "desc" },
+      ],
+    });
+    return ok(
+      "Квартальні картки беклогу завантажено",
+      cards.map(mapBacklogCardSummary),
+    );
   }
 
   async getYear(id: string) {

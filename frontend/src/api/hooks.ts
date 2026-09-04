@@ -4,6 +4,7 @@ import {
   apiRequest,
   loadAnalyticsDrilldown,
   loadBootstrap,
+  loadBacklogQuarterCardSummaries,
   loadInitiativeCardModel,
   loadInitiativeYearCounts,
   loadInitiativeYearModel,
@@ -54,6 +55,19 @@ export const useQuarterCardsQuery = (
     queryKey: queryKeys.portfolioCards(kind, year, quarter),
     queryFn: ({ signal }) => loadQuarterCards(kind, signal, year, quarter),
     enabled,
+  });
+export const useBacklogQuarterCardSummariesQuery = (
+  initiativeYearId: string,
+  enabled = true,
+) =>
+  useQuery({
+    queryKey: queryKeys.backlogCardSummaries(initiativeYearId),
+    // Keep this small lazy request alive if the accordion is briefly remounted
+    // (for example by React StrictMode), so the first request can populate cache
+    // instead of appearing as a cancelled duplicate in DevTools.
+    queryFn: () => loadBacklogQuarterCardSummaries(initiativeYearId),
+    enabled,
+    staleTime: 5 * 60_000,
   });
 export const useQuarterCardDetailQuery = (id?: string) =>
   useQuery({

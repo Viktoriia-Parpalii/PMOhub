@@ -15,8 +15,22 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export const EXPORT_PERIODS = ["BACKLOG", "Q1", "Q2", "Q3", "Q4"] as const;
 export const EXPORT_KINDS = ["PROJECT", "OPERATIONAL_TASK"] as const;
+export const EXCEL_FIELDS = [
+  "NAME",
+  "STRATEGIC_GOAL",
+  "MANAGER",
+  "PRIORITY",
+  "DEPARTMENTS",
+  "STATUS",
+  "SIZE",
+  "TOTAL_WEIGHT",
+  "PROGRESS",
+  "SCOPE",
+  "NOTES",
+] as const;
 export type ExportPeriod = (typeof EXPORT_PERIODS)[number];
 export type ExportKind = (typeof EXPORT_KINDS)[number];
+export type ExcelField = (typeof EXCEL_FIELDS)[number];
 
 export class ExportYearRangeDto {
   @ApiProperty({ example: 2026 })
@@ -51,6 +65,27 @@ export class InitiativeExportFilterDto {
   @ArrayNotEmpty()
   @IsIn(EXPORT_KINDS, { each: true })
   kinds!: ExportKind[];
+}
+
+export class ExcelExportOptionsDto {
+  @ApiProperty({ enum: EXCEL_FIELDS, isArray: true })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsIn(EXCEL_FIELDS, { each: true })
+  selected_fields!: ExcelField[];
+
+  @ApiProperty({ type: [String], format: "uuid", default: [] })
+  @IsArray()
+  @IsUUID("4", { each: true })
+  selected_custom_field_ids!: string[];
+}
+
+export class ExcelExportDto extends InitiativeExportFilterDto {
+  @ApiPropertyOptional({ type: ExcelExportOptionsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ExcelExportOptionsDto)
+  columns?: ExcelExportOptionsDto;
 }
 
 export class AiExportPrivacyDto {

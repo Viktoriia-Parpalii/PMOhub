@@ -23,6 +23,18 @@ describe("ExcelWorkbookBuilder", () => {
           preparationStage: null,
           quarterCards: [{ id: "card", quarter: 1, status }],
         },
+        {
+          id: "year-2",
+          year: 2026,
+          strategicGoal: null,
+          initiative: {
+            id: "initiative-2",
+            kind: "PROJECT",
+            name: "Друга ініціатива",
+          },
+          preparationStage: null,
+          quarterCards: [],
+        },
       ],
       departments: [{ id: "department", name: "IT", capacityLimitPoints: decimal(20) }],
       customFields: [],
@@ -56,16 +68,17 @@ describe("ExcelWorkbookBuilder", () => {
         },
       ],
     };
+    const actor = {
+      id: "actor",
+      name: "Адміністратор",
+      email: "admin@example.com",
+      role: "SUPER_ADMIN",
+      must_change_password: false,
+    } as const;
     const buffer = await builder.build(
       dataset as never,
       { years: { from: 2026, to: 2026 }, periods: ["BACKLOG", "Q1"], kinds: ["PROJECT"] },
-      {
-        id: "actor",
-        name: "Адміністратор",
-        email: "admin@example.com",
-        role: "SUPER_ADMIN",
-        must_change_password: false,
-      },
+      actor,
     );
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(
@@ -81,5 +94,32 @@ describe("ExcelWorkbookBuilder", () => {
     expect((quarter.getCell("B2").fill as ExcelJS.FillPattern).fgColor?.argb).toBe("FFF59E0B");
     expect(JSON.stringify(quarter.getCell("K2").value)).toContain("Підготувати реліз");
     expect(JSON.stringify(quarter.getCell("L2").value)).toContain("Важлива");
+
+    const selectedBuffer = await builder.build(
+      dataset as never,
+      {
+        years: { from: 2026, to: 2026 },
+        periods: ["Q1"],
+        kinds: ["PROJECT"],
+        columns: {
+          selected_fields: ["NAME", "PROGRESS"],
+          selected_custom_field_ids: [],
+        },
+      },
+      actor,
+    );
+    const selectedWorkbook = new ExcelJS.Workbook();
+    await selectedWorkbook.xlsx.load(
+      selectedBuffer.buffer.slice(
+        selectedBuffer.byteOffset,
+        selectedBuffer.byteOffset + selectedBuffer.byteLength,
+      ) as ArrayBuffer,
+    );
+    expect(selectedWorkbook.getWorksheet("Q1_2026_Проєкти")!.getRow(1).values).toEqual([
+      undefined,
+      "№",
+      "Назва",
+      "Прогрес",
+    ]);
   });
 });

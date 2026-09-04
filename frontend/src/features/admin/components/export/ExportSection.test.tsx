@@ -60,6 +60,7 @@ describe("ExportSection", () => {
       by_kind: { PROJECT: 2 },
       matrix: [],
     });
+    api.excel.mockResolvedValue({ blob: new Blob(), filename: "PMO_Hub.xlsx" });
   });
 
   const renderSection = () => {
@@ -89,5 +90,22 @@ describe("ExportSection", () => {
       target: { value: "ЕКСПОРТУВАТИ" },
     });
     expect(confirm).toBeEnabled();
+  });
+
+  it("sends selected Excel fields with the download request", async () => {
+    renderSection();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Налаштувати поля Excel/i }),
+    );
+    fireEvent.click(screen.getByLabelText("Примітки"));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Завантажити Excel/i }),
+    );
+
+    await waitFor(() => expect(api.excel).toHaveBeenCalledTimes(1));
+    const request = api.excel.mock.calls[0][0];
+    expect(request.columns.selected_fields).toContain("NAME");
+    expect(request.columns.selected_fields).not.toContain("NOTES");
+    expect(request.columns.selected_custom_field_ids).toEqual([]);
   });
 });

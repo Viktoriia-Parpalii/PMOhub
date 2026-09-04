@@ -2,6 +2,7 @@ import { ApiResponse, apiDownload, apiRequest, DownloadedFile } from "../../../.
 import {
   AiExportPrivacy,
   ExportAvailability,
+  ExcelExportRequest,
   ExportKind,
   ExportPreview,
   InitiativeExportFilter,
@@ -29,8 +30,8 @@ export const loadExportPreview = (filter: InitiativeExportFilter, signal?: Abort
     signal,
   }).then((response) => response.data);
 
-export const downloadExcel = (filter: InitiativeExportFilter, signal?: AbortSignal) =>
-  apiDownload("/exports/excel", filter, "PMO_Hub.xlsx", signal);
+export const downloadExcel = (request: ExcelExportRequest, signal?: AbortSignal) =>
+  apiDownload("/exports/excel", request, "PMO_Hub.xlsx", signal);
 
 export const downloadAiJson = (
   filter: InitiativeExportFilter,

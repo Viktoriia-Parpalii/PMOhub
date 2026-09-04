@@ -26,6 +26,7 @@ import {
 } from "./exportApi";
 import {
   AiExportPrivacy,
+  ExcelField,
   ExportKind,
   ExportPeriod,
   InitiativeExportFilter,
@@ -51,6 +52,32 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   SELECT: "Список",
   CHECKBOX: "Так / Ні",
   RICHTEXT: "Форматований текст",
+};
+const ALL_EXCEL_FIELDS: ExcelField[] = [
+  "NAME",
+  "STRATEGIC_GOAL",
+  "MANAGER",
+  "PRIORITY",
+  "DEPARTMENTS",
+  "STATUS",
+  "SIZE",
+  "TOTAL_WEIGHT",
+  "PROGRESS",
+  "SCOPE",
+  "NOTES",
+];
+const EXCEL_FIELD_LABELS: Record<ExcelField, string> = {
+  NAME: "Назва ініціативи",
+  STRATEGIC_GOAL: "Стратегічна ціль",
+  MANAGER: "Менеджер",
+  PRIORITY: "Пріоритет",
+  DEPARTMENTS: "Залучені підрозділи",
+  STATUS: "Статус",
+  SIZE: "Розмір",
+  TOTAL_WEIGHT: "Загальна вага",
+  PROGRESS: "Прогрес",
+  SCOPE: "Скоуп",
+  NOTES: "Примітки",
 };
 
 const defaultPrivacy: AiExportPrivacy = {
@@ -88,6 +115,9 @@ export const ExportSection = () => {
   const [toYear, setToYear] = useState(lastYear);
   const [kindMode, setKindMode] = useState<KindMode>("ALL");
   const [periods, setPeriods] = useState<ExportPeriod[]>(ALL_PERIODS);
+  const [excelOpen, setExcelOpen] = useState(false);
+  const [excelFields, setExcelFields] = useState<ExcelField[]>(ALL_EXCEL_FIELDS);
+  const [excelCustomFieldIds, setExcelCustomFieldIds] = useState<string[]>([]);
   const [aiOpen, setAiOpen] = useState(false);
   const [privacy, setPrivacy] = useState(defaultPrivacy);
   const [fieldSearch, setFieldSearch] = useState("");
@@ -120,7 +150,7 @@ export const ExportSection = () => {
   const fieldsQuery = useQuery({
     queryKey: ["exports", "custom-fields", kinds],
     queryFn: ({ signal }) => loadExportAvailability(signal, true, kinds),
-    enabled: aiOpen,
+    enabled: aiOpen || excelOpen,
     staleTime: 60_000,
   });
 
@@ -138,7 +168,17 @@ export const ExportSection = () => {
       downloadController.current?.abort();
       const controller = new AbortController();
       downloadController.current = controller;
-      if (request === "EXCEL") return downloadExcel(filter, controller.signal);
+      if (request === "EXCEL")
+        return downloadExcel(
+          {
+            ...filter,
+            columns: {
+              selected_fields: excelFields,
+              selected_custom_field_ids: excelCustomFieldIds,
+            },
+          },
+          controller.signal,
+        );
       if (request === "AI") return downloadAiJson(filter, privacy, controller.signal);
       return downloadFullJson(controller.signal);
     },
@@ -176,9 +216,22 @@ export const ExportSection = () => {
         ? current.selected_custom_field_ids.filter((item) => item !== id)
         : [...current.selected_custom_field_ids, id],
     }));
+  const toggleExcelField = (field: ExcelField) =>
+    setExcelFields((current) =>
+      current.includes(field)
+        ? current.filter((item) => item !== field)
+        : ALL_EXCEL_FIELDS.filter((item) => [...current, field].includes(item)),
+    );
+  const toggleExcelCustomField = (id: string) =>
+    setExcelCustomFieldIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
 
   const noData = !preview.isPending && (preview.data?.total ?? 0) === 0;
   const exportDisabled = !filterValid || noData || fileMutation.isPending;
+  const excelDisabled = exportDisabled || excelFields.length === 0;
   const matrixRows = useMemo(() => {
     const rows = new Map<string, { year: number; period: ExportPeriod; PROJECT: number; OPERATIONAL_TASK: number }>();
     (preview.data?.matrix ?? []).forEach((cell) => {
@@ -283,7 +336,44 @@ export const ExportSection = () => {
             <div><h4>Excel-звіт</h4><p>Зведення, беклог і квартальні аркуші зі стилями та форматуванням.</p></div>
           </div>
           <ul><li>Статуси та скоуп у кольорах PMO Hub</li><li>Вага й виконавці біля кожного завдання</li><li>Зведена аналітика на першому аркуші</li></ul>
-          <button className={styles.primaryButton} type="button" disabled={exportDisabled} onClick={() => fileMutation.mutate("EXCEL")}><Download size={18} /> Завантажити Excel</button>
+          <button type="button" className={styles.settingsToggle} onClick={() => setExcelOpen((value) => !value)}>Налаштувати поля Excel <ChevronDown size={17} className={excelOpen ? styles.chevronOpen : ""} /></button>
+          {excelOpen && (
+            <div className={styles.aiSettings}>
+              <div className={styles.customFieldsHeader}>
+                <div><strong>Стандартні поля</strong><small className={styles.neutralHint}>Оберіть щонайменше одне поле.</small></div>
+                <button type="button" onClick={() => setExcelFields(excelFields.length === ALL_EXCEL_FIELDS.length ? [] : ALL_EXCEL_FIELDS)}>{excelFields.length === ALL_EXCEL_FIELDS.length ? "Очистити" : "Обрати всі"}</button>
+              </div>
+              <div className={styles.excelFieldList}>
+                {ALL_EXCEL_FIELDS.map((field) => {
+                  const checked = excelFields.includes(field);
+                  return (
+                    <label key={field} className={styles.customFieldRow}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleExcelField(field)} />
+                      <span className={styles.checkboxVisual}>{checked && <Check size={14} />}</span>
+                      <span><strong>{EXCEL_FIELD_LABELS[field]}</strong></span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className={styles.customFieldsHeader}>
+                <div><strong>Додаткові поля</strong><small className={styles.neutralHint}>Додаються окремими колонками квартальних аркушів.</small></div>
+                <button type="button" onClick={() => setExcelCustomFieldIds([])}>Очистити</button>
+              </div>
+              <div className={styles.customFieldList}>
+                {fieldsQuery.isPending ? <p>Завантаження полів…</p> : (fieldsQuery.data?.custom_fields ?? []).length ? (fieldsQuery.data?.custom_fields ?? []).map((field) => {
+                  const checked = excelCustomFieldIds.includes(field.id);
+                  return (
+                    <label key={field.id} className={styles.customFieldRow}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleExcelCustomField(field.id)} />
+                      <span className={styles.checkboxVisual}>{checked && <Check size={14} />}</span>
+                      <span><strong>{field.name}</strong><small>{field.entity_type === "project" ? "Проєкти" : "Операційні задачі"} · {FIELD_TYPE_LABELS[field.field_type] ?? field.field_type}</small></span>
+                    </label>
+                  );
+                }) : <p>Додаткових полів не знайдено.</p>}
+              </div>
+            </div>
+          )}
+          <button className={styles.primaryButton} type="button" disabled={excelDisabled} onClick={() => fileMutation.mutate("EXCEL")}><Download size={18} /> Завантажити Excel</button>
         </article>
 
         <article className={styles.exportCard}>

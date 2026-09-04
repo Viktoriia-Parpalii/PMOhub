@@ -77,11 +77,11 @@ export const BacklogHeader = ({
             className={styles.extendButton}
             title={
               !extensionAvailable
-                ? `Усі ініціативи вже продовжено на ${targetYear} рік`
+                ? "Немає ініціатив для продовження"
                 : undefined
             }
           >
-            Продовжити на наступний період
+            Продовжити на {targetYear} рік
           </button>
         )}
         {canEdit && isSelectingForExtension && (

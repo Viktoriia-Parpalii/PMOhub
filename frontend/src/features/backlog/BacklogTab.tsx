@@ -30,10 +30,7 @@ import {
   toQuarterCardViewModel,
 } from "../../api/apiClient";
 import { useInitiativeYearCountsQuery } from "../../api/hooks";
-import {
-  filterBacklogCards,
-  matchesBacklogDimensions,
-} from "./backlogFiltering";
+import { matchesBacklogDimensions } from "./backlogFiltering";
 
 const quarters: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 
@@ -166,8 +163,12 @@ export const BacklogTab = () => {
     priorityId: priorityFilter,
   };
   const cardsFor = (masterId: string) => cardsByMaster.get(masterId) ?? [];
-  const visibleCardsFor = (masterId: string) =>
-    filterBacklogCards(cardsFor(masterId), cardFilters);
+  const highlightedQuarter =
+    quarterFilter !== "ALL"
+      ? quarterFilter
+      : selectedYear === currentPeriod.year
+        ? currentPeriod.quarter
+        : undefined;
 
   const masters = useMemo(
     () =>
@@ -333,7 +334,7 @@ export const BacklogTab = () => {
         selectedCount={selectedIds.length}
         canConfirmExtension={selectedIds.length > 0}
         canEdit={canEdit}
-        extensionAvailable={eligibleIds.size > 0}
+        extensionAvailable={allMasters.length > 0}
         targetYear={targetYear}
         onYearChange={changeYear}
         onQuarterChange={setQuarterFilter}
@@ -387,7 +388,8 @@ export const BacklogTab = () => {
           selectedYear={selectedYear}
           visibleQuarters={visibleQuarters}
           cardsFor={cardsFor}
-          visibleCardsFor={visibleCardsFor}
+          cardFilters={cardFilters}
+          highlightedQuarter={highlightedQuarter}
           managers={managers}
           priorities={priorities}
           departments={departments}

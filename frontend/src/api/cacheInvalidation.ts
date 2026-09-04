@@ -24,6 +24,10 @@ export async function invalidateInitiativeCaches(
       queryKey: ["quarter-cards", kind],
       refetchType: "none",
     }),
+    client.invalidateQueries({
+      queryKey: ["backlog-card-summaries"],
+      refetchType: "none",
+    }),
     client.invalidateQueries({ queryKey: ["analytics"], refetchType: "none" }),
   ]);
   await Promise.all([
@@ -37,6 +41,10 @@ export async function invalidateInitiativeCaches(
     }),
     client.refetchQueries({
       queryKey: ["quarter-cards", kind],
+      type: "active",
+    }),
+    client.refetchQueries({
+      queryKey: ["backlog-card-summaries"],
       type: "active",
     }),
     client.refetchQueries({ queryKey: ["analytics"], type: "active" }),

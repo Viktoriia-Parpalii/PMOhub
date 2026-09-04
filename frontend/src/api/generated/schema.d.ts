@@ -276,6 +276,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/quarter-cards/backlog-summaries/{initiativeYearId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["QuarterCardsController_listBacklogSummaries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/quarter-cards/{id}": {
         parameters: {
             query?: never;
@@ -907,6 +923,8 @@ export interface components {
             quarter: "Q1" | "Q2" | "Q3" | "Q4";
             status_id: string;
             status_code: string;
+            manager_id: string | null;
+            priority_id: string | null;
             revision: number;
             total_weight: number;
             is_locked: boolean;
@@ -1021,6 +1039,35 @@ export interface components {
             success: true;
             message: string;
             data: components["schemas"]["QuarterCardReadModelDto"][];
+        };
+        BacklogQuarterCardSummaryDto: {
+            id: string;
+            initiative_year_id: string;
+            initiative_id: string;
+            /** @enum {string} */
+            kind: "PROJECT" | "OPERATIONAL_TASK";
+            name: string;
+            year: number;
+            /** @enum {string} */
+            quarter: "Q1" | "Q2" | "Q3" | "Q4";
+            manager_id: string | null;
+            priority_id: string | null;
+            effective_involved_department_ids: string[];
+            status_id: string;
+            status_code: string;
+            status: Record<string, never>;
+            scope_total: number;
+            scope_completed: number;
+            total_weight: number;
+            revision: number;
+            is_locked: boolean;
+            locked_at: string;
+        };
+        BacklogQuarterCardSummariesResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message: string;
+            data: components["schemas"]["BacklogQuarterCardSummaryDto"][];
         };
         QuarterCardResponseDto: {
             /** @enum {boolean} */
@@ -1227,6 +1274,17 @@ export interface components {
             /** @example true */
             success: boolean;
             data: components["schemas"]["ExportPreviewDto"];
+        };
+        ExcelExportOptionsDto: {
+            selected_fields: ("NAME" | "STRATEGIC_GOAL" | "MANAGER" | "PRIORITY" | "DEPARTMENTS" | "STATUS" | "SIZE" | "TOTAL_WEIGHT" | "PROGRESS" | "SCOPE" | "NOTES")[];
+            /** @default [] */
+            selected_custom_field_ids: string[];
+        };
+        ExcelExportDto: {
+            years: components["schemas"]["ExportYearRangeDto"];
+            periods: ("BACKLOG" | "Q1" | "Q2" | "Q3" | "Q4")[];
+            kinds: ("PROJECT" | "OPERATIONAL_TASK")[];
+            columns?: components["schemas"]["ExcelExportOptionsDto"];
         };
         AiExportPrivacyDto: {
             /** @default true */
@@ -1669,6 +1727,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuarterCardsResponseDto"];
+                };
+            };
+        };
+    };
+    QuarterCardsController_listBacklogSummaries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                initiativeYearId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BacklogQuarterCardSummariesResponseDto"];
                 };
             };
         };
@@ -2624,7 +2703,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["InitiativeExportFilterDto"];
+                "application/json": components["schemas"]["ExcelExportDto"];
             };
         };
         responses: {

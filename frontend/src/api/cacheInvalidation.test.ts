@@ -14,6 +14,7 @@ describe('initiative cache invalidation policy', () => {
       { queryKey: ['initiative-years', 'project'], refetchType: 'none' },
       { queryKey: ['initiative-years', 'counts'], refetchType: 'none' },
       { queryKey: ['quarter-cards', 'project'], refetchType: 'none' },
+      { queryKey: ['backlog-card-summaries'], refetchType: 'none' },
       { queryKey: ['analytics'], refetchType: 'none' },
     ]);
     expect(client.refetchQueries.mock.calls.every(([arg]) => arg.type === 'active')).toBe(true);

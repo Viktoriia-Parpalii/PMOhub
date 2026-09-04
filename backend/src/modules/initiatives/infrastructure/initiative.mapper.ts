@@ -89,6 +89,24 @@ export const cardSummaryInclude = {
   },
 } satisfies Prisma.QuarterCardInclude;
 
+export const backlogCardSummaryInclude = {
+  initiativeYear: {
+    select: {
+      initiativeId: true,
+      year: true,
+      initiative: { select: { kind: true, name: true } },
+    },
+  },
+  status: { select: { id: true, code: true, name: true, color: true } },
+  departments: { select: { departmentId: true } },
+  scopeItems: {
+    select: {
+      statusCode: true,
+      executors: { select: { departmentId: true } },
+    },
+  },
+} satisfies Prisma.QuarterCardInclude;
+
 export const yearInclude = {
   initiative: true,
   preparationStage: { include: preparationInclude },
@@ -97,6 +115,8 @@ export const yearInclude = {
       id: true,
       quarter: true,
       statusId: true,
+      managerId: true,
+      priorityId: true,
       revision: true,
       totalWeight: true,
       status: { select: { code: true } },
@@ -341,6 +361,46 @@ export const mapCardSummary = (card: any) => {
   };
 };
 
+export const mapBacklogCardSummary = (card: any) => {
+  const executorIds = new Set<string>(
+    card.scopeItems.flatMap((item: any) =>
+      item.executors.map((link: any) => link.departmentId),
+    ),
+  );
+  const departmentIds = card.departments.map((link: any) => link.departmentId);
+  const quarter = `Q${card.quarter}` as Quarter;
+  return {
+    id: card.id,
+    initiative_year_id: card.initiativeYearId,
+    initiative_id: card.initiativeYear.initiativeId,
+    kind: card.initiativeYear.initiative.kind,
+    name: card.initiativeYear.initiative.name,
+    year: card.initiativeYear.year,
+    quarter,
+    manager_id: card.managerId ?? null,
+    priority_id: card.priorityId ?? null,
+    effective_involved_department_ids: departmentIds.filter(
+      (id: string) => !executorIds.has(id),
+    ),
+    status_id: card.statusId,
+    status_code: card.status.code,
+    status: {
+      id: card.status.id,
+      code: card.status.code,
+      name: card.status.name,
+      color: card.status.color,
+    },
+    scope_total: card.scopeItems.length,
+    scope_completed: card.scopeItems.filter(
+      (item: any) => item.statusCode === "GREEN",
+    ).length,
+    total_weight: numberValue(card.totalWeight) ?? 0,
+    revision: card.revision,
+    is_locked: isPeriodLocked(card.initiativeYear.year, quarter),
+    locked_at: periodLockAt(card.initiativeYear.year, quarter).toISO(),
+  };
+};
+
 export const mapYear = (year: any) => ({
   id: year.id,
   initiative_id: year.initiativeId,
@@ -356,6 +416,8 @@ export const mapYear = (year: any) => ({
     quarter: `Q${card.quarter}`,
     status_id: card.statusId,
     status_code: card.status.code,
+    manager_id: card.managerId ?? null,
+    priority_id: card.priorityId ?? null,
     revision: card.revision,
     total_weight: numberValue(card.totalWeight) ?? 0,
     is_locked: isPeriodLocked(year.year, `Q${card.quarter}` as Quarter),

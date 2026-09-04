@@ -2,6 +2,9 @@ import type { components } from "../../../../api/generated/schema";
 
 export type InitiativeExportFilter = components["schemas"]["InitiativeExportFilterDto"];
 export type AiExportPrivacy = components["schemas"]["AiExportPrivacyDto"];
+export type ExcelExportRequest = components["schemas"]["ExcelExportDto"];
+export type ExcelExportOptions = components["schemas"]["ExcelExportOptionsDto"];
+export type ExcelField = ExcelExportOptions["selected_fields"][number];
 export type ExportCustomField = components["schemas"]["ExportCustomFieldDto"];
 export type ExportKind = InitiativeExportFilter["kinds"][number];
 export type ExportPeriod = InitiativeExportFilter["periods"][number];

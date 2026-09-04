@@ -1,7 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import ExcelJS from "exceljs";
 import { AuthUser } from "../../common/auth/auth-user";
-import { InitiativeExportFilterDto, ExportKind } from "./export.dto";
+import {
+  EXCEL_FIELDS,
+  ExcelExportDto,
+  ExcelField,
+  InitiativeExportFilterDto,
+  ExportKind,
+} from "./export.dto";
 import {
   ExportCard,
   ExportCustomField,
@@ -59,7 +65,7 @@ export class ExcelWorkbookBuilder {
     private readonly notes: HtmlToExcelRichTextConverter,
   ) {}
 
-  async build(dataset: InitiativeExportDataset, filter: InitiativeExportFilterDto, actor: AuthUser) {
+  async build(dataset: InitiativeExportDataset, filter: ExcelExportDto, actor: AuthUser) {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "PMO Hub";
     workbook.created = new Date();
@@ -67,10 +73,11 @@ export class ExcelWorkbookBuilder {
     this.addSummary(workbook, dataset, filter, actor);
     for (let year = filter.years.from; year <= filter.years.to; year += 1) {
       for (const kind of filter.kinds) {
-        if (filter.periods.includes("BACKLOG")) this.addBacklog(workbook, dataset, year, kind);
+        if (filter.periods.includes("BACKLOG"))
+          this.addBacklog(workbook, dataset, filter, year, kind);
         for (const quarter of [1, 2, 3, 4]) {
           if (filter.periods.includes(`Q${quarter}` as "Q1")) {
-            this.addQuarter(workbook, dataset, year, quarter, kind);
+            this.addQuarter(workbook, dataset, filter, year, quarter, kind);
           }
         }
       }
@@ -127,39 +134,75 @@ export class ExcelWorkbookBuilder {
   private addBacklog(
     workbook: ExcelJS.Workbook,
     dataset: InitiativeExportDataset,
+    filter: ExcelExportDto,
     year: number,
     kind: ExportKind,
   ) {
     const rows = dataset.years.filter((item) => item.year === year && item.initiative.kind === kind);
     if (!rows.length) return;
+    const selected = this.selectedFields(filter);
+    const availableColumns: Array<{
+      field: ExcelField;
+      header: string;
+      width: number;
+      value: (item: (typeof rows)[number]) => string | number;
+    }> = [
+      { field: "NAME", header: "Назва", width: 42, value: (item) => safeText(item.initiative.name) },
+      { field: "STRATEGIC_GOAL", header: "Стратегічна ціль", width: 48, value: (item) => safeText(item.strategicGoal) },
+      { field: "MANAGER", header: "Менеджер", width: 24, value: (item) => safeText(item.preparationStage?.manager?.name) },
+      { field: "PRIORITY", header: "Пріоритет", width: 18, value: (item) => safeText(item.preparationStage?.priority?.name) },
+      {
+        field: "DEPARTMENTS",
+        header: "Залучені підрозділи",
+        width: 34,
+        value: (item) => safeText(item.preparationStage?.departments.map((link) => link.department.name).join(", ")),
+      },
+    ];
+    const columns = availableColumns.filter((column) => selected.has(column.field));
+    const includeStatuses = selected.has("STATUS");
+    const headers = [
+      "№",
+      ...columns.map((column) => column.header),
+      ...(includeStatuses ? ["Q1", "Q2", "Q3", "Q4"] : []),
+    ];
+    const widths = [
+      7,
+      ...columns.map((column) => column.width),
+      ...(includeStatuses ? [18, 18, 18, 18] : []),
+    ];
     const sheet = workbook.addWorksheet(this.sheetName(`Беклог_${year}_${KIND_LABEL[kind]}`, workbook));
-    this.configureDataSheet(sheet, [7, 42, 48, 18, 18, 18, 18]);
-    this.addHeader(sheet, ["№", "Назва", "Стратегічна ціль", "Q1", "Q2", "Q3", "Q4"]);
+    this.configureDataSheet(sheet, widths);
+    this.addHeader(sheet, headers);
     rows.forEach((item, index) => {
       const row = sheet.addRow([
         index + 1,
-        safeText(item.initiative.name),
-        safeText(item.strategicGoal),
-        ...[1, 2, 3, 4].map((quarter) => {
-          const card = item.quarterCards.find((candidate) => candidate.quarter === quarter);
-          return card ? card.status.name : "—";
-        }),
+        ...columns.map((column) => column.value(item)),
+        ...(includeStatuses
+          ? [1, 2, 3, 4].map((quarter) => {
+              const card = item.quarterCards.find((candidate) => candidate.quarter === quarter);
+              return card ? card.status.name : "—";
+            })
+          : []),
       ]);
-      [1, 2, 3, 4].forEach((quarter, offset) => {
+      if (includeStatuses) [1, 2, 3, 4].forEach((quarter, offset) => {
         const card = item.quarterCards.find((candidate) => candidate.quarter === quarter);
         if (!card || card.status.code === "DEFAULT") return;
-        const cell = row.getCell(4 + offset);
+        const cell = row.getCell(2 + columns.length + offset);
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: argb(card.status.color) } };
         cell.font = { bold: true, color: { argb: contrastingText(card.status.color) } };
       });
       this.styleDataRow(row, index);
     });
-    sheet.autoFilter = { from: "A1", to: "G1" };
+    sheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: headers.length },
+    };
   }
 
   private addQuarter(
     workbook: ExcelJS.Workbook,
     dataset: InitiativeExportDataset,
+    filter: ExcelExportDto,
     year: number,
     quarter: number,
     kind: ExportKind,
@@ -169,52 +212,84 @@ export class ExcelWorkbookBuilder {
     );
     if (!cards.length) return;
     const entityType = kind === "PROJECT" ? "project" : "task";
+    const selected = this.selectedFields(filter);
+    const selectedCustomFields = filter.columns?.selected_custom_field_ids;
     const customFields = dataset.customFields.filter(
       (field) => field.entityType === entityType &&
-        (field.isActive || cards.some((card) => card.customFieldValues.some((value) => value.definitionId === field.id))),
+        (selectedCustomFields
+          ? selectedCustomFields.includes(field.id)
+          : field.isActive || cards.some((card) => card.customFieldValues.some((value) => value.definitionId === field.id))),
     );
-    const headers = [
-      "№", "Назва", "Стратегічна ціль", "Менеджер", "Пріоритет", "Залучені підрозділи",
-      "Статус", "Розмір", "Загальна вага", "Прогрес", "Скоуп", "Примітки",
-      ...customFields.map((field) => field.name),
+    const availableStandardColumns: Array<{
+      field: ExcelField;
+      header: string;
+      width: number;
+      value: (card: ExportCard) => string | number;
+    }> = [
+      { field: "NAME", header: "Назва", width: 38, value: (card) => safeText(card.initiativeYear.initiative.name) },
+      { field: "STRATEGIC_GOAL", header: "Стратегічна ціль", width: 42, value: (card) => safeText(card.initiativeYear.strategicGoal) },
+      { field: "MANAGER", header: "Менеджер", width: 24, value: (card) => safeText(card.manager?.name) },
+      { field: "PRIORITY", header: "Пріоритет", width: 18, value: (card) => safeText(card.priority?.name) },
+      { field: "DEPARTMENTS", header: "Залучені підрозділи", width: 34, value: (card) => safeText(this.involvedDepartments(card)) },
+      { field: "STATUS", header: "Статус", width: 18, value: (card) => safeText(card.status.name) },
+      { field: "SIZE", header: "Розмір", width: 14, value: (card) => safeText(card.sizeSnapshotName || "Не визначено") },
+      { field: "TOTAL_WEIGHT", header: "Загальна вага", width: 16, value: (card) => card.totalWeight.toNumber() },
+      { field: "PROGRESS", header: "Прогрес", width: 13, value: (card) => this.summaries.cardProgress(card) / 100 },
+      { field: "SCOPE", header: "Скоуп", width: 64, value: () => "" },
+      { field: "NOTES", header: "Примітки", width: 54, value: () => "" },
     ];
-    const widths = [7, 38, 42, 24, 18, 34, 18, 14, 16, 13, 64, 54, ...customFields.map(() => 24)];
+    const standardColumns = availableStandardColumns.filter((column) =>
+      selected.has(column.field),
+    );
+    const headers = ["№", ...standardColumns.map((column) => column.header), ...customFields.map((field) => field.name)];
+    const widths = [7, ...standardColumns.map((column) => column.width), ...customFields.map(() => 24)];
     const sheet = workbook.addWorksheet(this.sheetName(`Q${quarter}_${year}_${KIND_LABEL[kind]}`, workbook));
     this.configureDataSheet(sheet, widths);
     this.addHeader(sheet, headers);
     cards.forEach((card, index) => {
-      const executors = new Set(card.scopeItems.flatMap((item) => item.executors.map((link) => link.departmentId)));
-      const involved = card.departments
-        .filter((link) => !executors.has(link.departmentId))
-        .map((link) => link.department.name)
-        .join(", ");
       const row = sheet.addRow([
         index + 1,
-        safeText(card.initiativeYear.initiative.name),
-        safeText(card.initiativeYear.strategicGoal),
-        safeText(card.manager?.name),
-        safeText(card.priority?.name),
-        safeText(involved),
-        safeText(card.status.name),
-        safeText(card.sizeSnapshotName || "Не визначено"),
-        card.totalWeight.toNumber(),
-        this.summaries.cardProgress(card) / 100,
-        "",
-        "",
+        ...standardColumns.map((column) => column.value(card)),
         ...customFields.map((field) => this.customFieldValue(card, field)),
       ]);
-      row.getCell(10).numFmt = "0%";
-      row.getCell(11).value = { richText: this.scopeRichText(card) };
-      const noteRuns = this.notes.convert(card.notes);
-      row.getCell(12).value = noteRuns.length ? { richText: noteRuns } : "";
-      if (card.status.code !== "DEFAULT") {
-        row.getCell(2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: argb(card.status.color) } };
-        row.getCell(2).font = { bold: true, color: { argb: contrastingText(card.status.color) } };
+      const columnIndex = (field: ExcelField) => {
+        const index = standardColumns.findIndex((column) => column.field === field);
+        return index < 0 ? undefined : index + 2;
+      };
+      const progressColumn = columnIndex("PROGRESS");
+      if (progressColumn) row.getCell(progressColumn).numFmt = "0%";
+      const scopeColumn = columnIndex("SCOPE");
+      if (scopeColumn) row.getCell(scopeColumn).value = { richText: this.scopeRichText(card) };
+      const notesColumn = columnIndex("NOTES");
+      if (notesColumn) {
+        const noteRuns = this.notes.convert(card.notes);
+        row.getCell(notesColumn).value = noteRuns.length ? { richText: noteRuns } : "";
       }
-      row.height = Math.min(180, Math.max(34, card.scopeItems.length * 34));
+      if (card.status.code !== "DEFAULT") {
+        const highlightedColumn = columnIndex("NAME") ?? columnIndex("STATUS");
+        if (highlightedColumn) {
+          row.getCell(highlightedColumn).fill = { type: "pattern", pattern: "solid", fgColor: { argb: argb(card.status.color) } };
+          row.getCell(highlightedColumn).font = { bold: true, color: { argb: contrastingText(card.status.color) } };
+        }
+      }
+      if (scopeColumn) row.height = Math.min(180, Math.max(34, card.scopeItems.length * 34));
       this.styleDataRow(row, index);
     });
     sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: headers.length } };
+  }
+
+  private selectedFields(filter: ExcelExportDto) {
+    return new Set<ExcelField>(filter.columns?.selected_fields ?? EXCEL_FIELDS);
+  }
+
+  private involvedDepartments(card: ExportCard) {
+    const executors = new Set(
+      card.scopeItems.flatMap((item) => item.executors.map((link) => link.departmentId)),
+    );
+    return card.departments
+      .filter((link) => !executors.has(link.departmentId))
+      .map((link) => link.department.name)
+      .join(", ");
   }
 
   private scopeRichText(card: ExportCard): ExcelJS.RichText[] {
@@ -258,7 +333,7 @@ export class ExcelWorkbookBuilder {
 
   private styleDataRow(row: ExcelJS.Row, index: number) {
     row.eachCell({ includeEmpty: true }, (cell) => {
-      if (index % 2 === 1 && !cell.fill.type) {
+      if (index % 2 === 1 && !cell.fill?.type) {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLORS.slate50 } };
       }
       cell.alignment = { vertical: "top", wrapText: true };
