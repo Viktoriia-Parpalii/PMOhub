@@ -431,11 +431,35 @@ export class InitiativesService {
           ...dto.scope.flatMap((item) => item.executor_department_ids),
         ]);
         await this.assertCardStatus(tx, dto.status_id);
+        this.assertScopePayload(current.scopeItems, dto.scope);
+        const currentScopeById = new Map(
+          current.scopeItems.map((item) => [item.id, item]),
+        );
         const weights = await this.loadWeights(
           tx,
-          dto.scope.map((item) => item.weight_definition_id),
+          dto.scope
+            .filter(
+              (item) =>
+                !item.id ||
+                currentScopeById.get(item.id)?.weightDefinitionId !==
+                  item.weight_definition_id,
+            )
+            .map((item) => item.weight_definition_id),
         );
-        this.assertScopePayload(current.scopeItems, dto.scope);
+
+        const incomingIds = new Set(
+          dto.scope.flatMap((item) => (item.id ? [item.id] : [])),
+        );
+        const removesCompletedScope = current.scopeItems.some(
+          (item) =>
+            item.statusCode === "GREEN" && !incomingIds.has(item.id),
+        );
+        if (removesCompletedScope)
+          throw new AppError(
+            "COMPLETED_SCOPE_DELETE_FORBIDDEN",
+            "Виконане завдання не можна видалити зі скоупу.",
+            HttpStatus.CONFLICT,
+          );
 
         const changed = await tx.quarterCard.updateMany({
           where: { id, revision: dto.revision },
@@ -449,9 +473,6 @@ export class InitiativesService {
         });
         if (!changed.count) await this.throwConflict(tx, "QuarterCard", id);
 
-        const incomingIds = new Set(
-          dto.scope.flatMap((item) => (item.id ? [item.id] : [])),
-        );
         const removedIds = current.scopeItems
           .filter((item) => !incomingIds.has(item.id))
           .map((item) => item.id);
@@ -465,8 +486,13 @@ export class InitiativesService {
           where: { quarterCardId: id, id: { notIn: [...incomingIds] } },
         });
         for (const item of dto.scope) {
-          const weight = weights.get(item.weight_definition_id)!;
           if (item.id) {
+            const currentScope = currentScopeById.get(item.id)!;
+            const weightChanged =
+              currentScope.weightDefinitionId !== item.weight_definition_id;
+            const weight = weightChanged
+              ? weights.get(item.weight_definition_id)!
+              : undefined;
             const updated = await tx.scopeItem.updateMany({
               where: {
                 id: item.id,
@@ -476,9 +502,13 @@ export class InitiativesService {
               data: {
                 text: item.text.trim(),
                 statusCode: item.status_code,
-                weightDefinitionId: weight.id,
-                weightSnapshotName: weight.name,
-                weightSnapshotValue: weight.weight,
+                ...(weight
+                  ? {
+                      weightDefinitionId: weight.id,
+                      weightSnapshotName: weight.name,
+                      weightSnapshotValue: weight.weight,
+                    }
+                  : {}),
                 revision: { increment: 1 },
               },
             });
@@ -497,6 +527,7 @@ export class InitiativesService {
               currentExecutorIds,
             );
           } else {
+            const weight = weights.get(item.weight_definition_id)!;
             await tx.scopeItem.create({
               data: {
                 quarterCardId: id,
@@ -1225,8 +1256,8 @@ export class InitiativesService {
           source.id,
           mode === "MOVE" ? "SCOPE_MOVED_OUT" : "SCOPE_COPIED_OUT",
           mode === "MOVE"
-            ? "Із картки перенесено завдання scope"
-            : "Із картки скопійовано завдання scope",
+            ? "Із картки перенесено завдання"
+            : "Із картки скопійовано завдання",
           actor,
           source.initiativeYear.year,
           qs(source.quarter),
@@ -1240,8 +1271,8 @@ export class InitiativesService {
             target.id,
             mode === "MOVE" ? "SCOPE_MOVED_IN" : "SCOPE_COPIED_IN",
             mode === "MOVE"
-              ? "До картки перенесено завдання scope"
-              : "До картки скопійовано завдання scope",
+              ? "До картки перенесено завдання"
+              : "До картки скопійовано завдання",
             actor,
             source.initiativeYear.year,
             qs(source.quarter),

@@ -7,6 +7,19 @@ export interface HistoryEvent {
 
 export type CapacityWeight = string;
 export type Quarter = "Q1" | "Q2" | "Q3" | "Q4";
+
+export interface InitiativeListFilters {
+  name?: string;
+  strategic_goal?: string;
+  manager_id?: string;
+  priority_id?: string;
+  quarter?: Quarter;
+}
+
+export interface BacklogCounts {
+  projects: { filtered: number; total: number };
+  operational_tasks: { filtered: number; total: number };
+}
 export type HealthStatus = string;
 /** Stable role code supplied by the backend roles dictionary. */
 export type UserRole = string;

@@ -1,33 +1,5 @@
-import { FolderOpen, X } from "lucide-react";
+import { FolderOpen } from "lucide-react";
 import styles from "../BacklogTab.module.css";
-
-interface Notice {
-  type: "success" | "error";
-  message: string;
-}
-
-export const BacklogNotice = ({
-  notice,
-  onClose,
-}: {
-  notice: Notice;
-  onClose: () => void;
-}) => (
-  <div
-    role="status"
-    className={`${styles.notice} ${notice.type === "success" ? styles.noticeSuccess : styles.noticeError}`}
-  >
-    <span>{notice.message}</span>
-    <button
-      type="button"
-      onClick={onClose}
-      aria-label="Закрити повідомлення"
-      className={styles.noticeClose}
-    >
-      <X size={16} />
-    </button>
-  </div>
-);
 
 export const ArchiveBanner = ({
   year,

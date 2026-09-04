@@ -9,7 +9,7 @@ import {
 export type InitiativeRecord = InitiativeViewModel;
 
 export const isCompletedItem = (item: ChecklistItem) =>
-  item.is_completed || item.color === "GREEN";
+  item.is_completed || item.color === "GREEN" || item.status_code === "GREEN";
 
 export const metadataFrom = (
   record: InitiativeMetadata,

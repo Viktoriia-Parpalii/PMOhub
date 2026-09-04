@@ -1,5 +1,8 @@
 .root {
   display: grid;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
   gap: 1.25rem;
   color: #1e293b;
 }
@@ -29,7 +32,9 @@
   font-size: 1.35rem;
   font-weight: 700;
 }
-
+.intro p {
+  font-weight: 700;
+}
 .intro p,
 .cardHeading p,
 .modal p {
@@ -127,7 +132,6 @@
 }
 
 .field select,
-.search,
 .modal input {
   min-height: 2.75rem;
   border: 1px solid #cbd5e1;
@@ -142,7 +146,6 @@
 }
 
 .field select:focus,
-.search:focus-within,
 .modal input:focus {
   border-color: #6366f1;
   outline: 3px solid rgb(99 102 241 / 13%);
@@ -210,7 +213,7 @@
 
 .preview {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: .85rem;
 }
 
@@ -240,6 +243,7 @@
   margin: 0;
   color: #0f172a;
   font-size: .95rem;
+   font-weight: 700;
 }
 
 .matrixHeading p {
@@ -287,7 +291,7 @@
 
 .exportGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 
@@ -362,15 +366,14 @@
   transform: rotate(180deg);
 }
 
-.aiSettings {
-  display: grid;
-  gap: .85rem;
-}
-
 .switchList {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: .55rem;
+}
+
+.aiStandardFields {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .switchRow {
@@ -417,26 +420,29 @@
   gap: .35rem;
 }
 
+.excelSettingsColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, .85fr);
+  gap: 1.25rem;
+}
+
+.excelSettingsSection {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: .85rem;
+}
+
+.excelCustomFieldsSection {
+  min-width: 0;
+  border-left: 1px solid #e2e8f0;
+  padding-left: 1.25rem;
+}
+
 .customFieldsHeader button,
 .selectVisible {
   color: #4f46e5;
   font-size: .78rem;
-}
-
-.search {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  padding: 0 .7rem;
-  color: #94a3b8;
-}
-
-.search input {
-  min-width: 0;
-  flex: 1;
-  border: 0;
-  outline: 0;
-  font: inherit;
 }
 
 .customFieldList {
@@ -672,6 +678,17 @@
   .fullCard {
     grid-column: auto;
   }
+
+  .excelSettingsColumns {
+    grid-template-columns: 1fr;
+  }
+
+  .excelCustomFieldsSection {
+    border-top: 1px solid #e2e8f0;
+    border-left: 0;
+    padding-top: 1rem;
+    padding-left: 0;
+  }
 }
 
 @media (max-width: 620px) {
@@ -681,6 +698,10 @@
   }
 
   .filterGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .excelFieldList {
     grid-template-columns: 1fr;
   }
 

@@ -180,6 +180,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/initiative-years/available-years": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InitiativeYearsController_availableYears"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/initiative-years/{id}": {
         parameters: {
             query?: never;
@@ -951,6 +967,26 @@ export interface components {
             message: string;
             data: components["schemas"]["InitiativeYearReadModelDto"][];
         };
+        InitiativeYearCountDto: {
+            filtered: number;
+            total: number;
+        };
+        InitiativeYearCountsDto: {
+            projects: components["schemas"]["InitiativeYearCountDto"];
+            operational_tasks: components["schemas"]["InitiativeYearCountDto"];
+        };
+        InitiativeYearCountsResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message: string;
+            data: components["schemas"]["InitiativeYearCountsDto"];
+        };
+        InitiativeAvailableYearsResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message: string;
+            data: number[];
+        };
         InitiativeYearResponseDto: {
             /** @enum {boolean} */
             success: true;
@@ -1499,8 +1535,13 @@ export interface operations {
     InitiativeYearsController_list: {
         parameters: {
             query?: {
-                kind?: string;
-                year?: string;
+                name?: string;
+                strategic_goal?: string;
+                manager_id?: string;
+                priority_id?: string;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                year?: number;
+                quarter?: "Q1" | "Q2" | "Q3" | "Q4";
             };
             header?: never;
             path?: never;
@@ -1521,7 +1562,12 @@ export interface operations {
     InitiativeYearsController_counts: {
         parameters: {
             query: {
-                year: string;
+                name?: string;
+                strategic_goal?: string;
+                manager_id?: string;
+                priority_id?: string;
+                year: number;
+                quarter?: "Q1" | "Q2" | "Q3" | "Q4";
             };
             header?: never;
             path?: never;
@@ -1533,7 +1579,28 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["InitiativeYearCountsResponseDto"];
+                };
+            };
+        };
+    };
+    InitiativeYearsController_availableYears: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InitiativeAvailableYearsResponseDto"];
+                };
             };
         };
     };
@@ -1711,9 +1778,13 @@ export interface operations {
     QuarterCardsController_list: {
         parameters: {
             query?: {
-                kind?: string;
-                year?: string;
-                quarter?: string;
+                name?: string;
+                strategic_goal?: string;
+                manager_id?: string;
+                priority_id?: string;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                year?: number;
+                quarter?: "Q1" | "Q2" | "Q3" | "Q4";
             };
             header?: never;
             path?: never;
@@ -1733,7 +1804,10 @@ export interface operations {
     };
     QuarterCardsController_listBacklogSummaries: {
         parameters: {
-            query?: never;
+            query?: {
+                manager_id?: string;
+                priority_id?: string;
+            };
             header?: never;
             path: {
                 initiativeYearId: string;

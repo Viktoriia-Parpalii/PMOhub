@@ -17,6 +17,7 @@ import {
   InitiativeSizeDef,
   InitiativeStatusDef,
   InitiativeViewModel,
+  InitiativeListFilters,
   Manager,
   MutationResult,
   PriorityDef,
@@ -76,8 +77,18 @@ type InitiativeKind = "project" | "task";
 export type InitiativeDataScope =
   | { mode: "dashboard" }
   | { mode: "none" }
-  | { mode: "projects" | "tasks"; year: number; quarter: Quarter }
-  | { mode: "backlog"; kind: InitiativeKind; year: number };
+  | {
+      mode: "projects" | "tasks";
+      year: number;
+      quarter: Quarter;
+      filters?: InitiativeListFilters;
+    }
+  | {
+      mode: "backlog";
+      kind: InitiativeKind;
+      year: number;
+      filters?: InitiativeListFilters;
+    };
 
 const initialDataScope = (): InitiativeDataScope => {
   const tab =
@@ -100,6 +111,11 @@ export interface AppContextType extends ReferenceDataState {
   enableAdminData: () => void;
   disableAdminData: () => void;
   setInitiativeDataScope: (scope: InitiativeDataScope) => void;
+  initiativeListState: {
+    isFetching: boolean;
+    isError: boolean;
+    retry: () => void;
+  };
   authenticate: (email: string, password: string) => Promise<MutationResult>;
   changePassword: (
     currentPassword: string | undefined,
@@ -279,37 +295,46 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const taskYear = taskMode || taskBacklogMode ? dataScope.year : undefined;
   const projectQuarter = projectMode ? dataScope.quarter : undefined;
   const taskQuarter = taskMode ? dataScope.quarter : undefined;
+  const projectFilters =
+    projectMode || projectBacklogMode ? dataScope.filters ?? {} : {};
+  const taskFilters = taskMode || taskBacklogMode ? dataScope.filters ?? {} : {};
   const projectYearsQuery = useInitiativeYearsQuery(
     "project",
     authenticated && businessScopeReady && projectBacklogMode,
     projectYear,
+    projectFilters,
   );
   const taskYearsQuery = useInitiativeYearsQuery(
     "task",
     authenticated && businessScopeReady && taskBacklogMode,
     taskYear,
+    taskFilters,
   );
   const projectNextYearsQuery = useInitiativeYearsQuery(
     "project",
     authenticated && businessScopeReady && projectBacklogMode,
     projectBacklogMode ? dataScope.year + 1 : undefined,
+    {},
   );
   const taskNextYearsQuery = useInitiativeYearsQuery(
     "task",
     authenticated && businessScopeReady && taskBacklogMode,
     taskBacklogMode ? dataScope.year + 1 : undefined,
+    {},
   );
   const projectCardsQuery = useQuarterCardsQuery(
     "project",
     authenticated && businessScopeReady && projectMode,
     projectYear,
     projectQuarter,
+    projectFilters,
   );
   const taskCardsQuery = useQuarterCardsQuery(
     "task",
     authenticated && businessScopeReady && taskMode,
     taskYear,
     taskQuarter,
+    taskFilters,
   );
   const usersQuery = useUsersQuery(authenticated && adminDataEnabled);
   const permissionsQuery = usePermissionsQuery(
@@ -430,6 +455,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           ].flatMap(toInitiativeYearCardViewModels)),
     ],
   };
+  const activeInitiativeListQuery = projectMode
+    ? projectCardsQuery
+    : taskMode
+      ? taskCardsQuery
+      : projectBacklogMode
+        ? projectYearsQuery
+        : taskBacklogMode
+          ? taskYearsQuery
+          : null;
+  const initiativeListState = {
+    isFetching: activeInitiativeListQuery?.isFetching ?? false,
+    isError: activeInitiativeListQuery?.isError ?? false,
+    retry: () => {
+      void activeInitiativeListQuery?.refetch();
+    },
+  };
   const recordsFor = (kind: InitiativeKind): Initiative[] =>
     kind === "project" ? state.projects : state.tasks;
   const wireKind = (kind: InitiativeKind) =>
@@ -452,6 +493,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     fallbackWeightId?: string,
   ) => {
     const selectedId = item.weightId ?? item.weightSnapshot?.definitionId;
+    // Existing scope items own immutable snapshots. A no-op card save must
+    // retain the original definition even if it was edited or deactivated.
+    if (
+      uuidOrUndefined(item.id) &&
+      selectedId &&
+      selectedId === item.weightSnapshot?.definitionId
+    )
+      return selectedId;
     return (
       activeReferenceId(selectedId, state.taskWeights, fallbackWeightId) ?? ""
     );
@@ -733,6 +782,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             queryKey: ["analytics"],
             refetchType: "none",
           });
+          await queryClient.invalidateQueries({
+            queryKey: ["backlog-card-summaries"],
+            refetchType: "active",
+          });
         },
       ).then(({ data: _data, ...result }) => result);
     }
@@ -755,6 +808,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           queryKey: ["analytics"],
           refetchType: "none",
         }),
+        queryClient.invalidateQueries({
+          queryKey: ["backlog-card-summaries"],
+          refetchType: "none",
+        }),
       ]);
       await Promise.all([
         queryClient.refetchQueries({
@@ -766,6 +823,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           type: "active",
         }),
         queryClient.refetchQueries({ queryKey: ["analytics"], type: "active" }),
+        queryClient.refetchQueries({
+          queryKey: ["backlog-card-summaries"],
+          type: "active",
+        }),
       ]);
     };
     const updatedRecord = { ...record, ...patch };
@@ -1110,6 +1171,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     enableAdminData,
     disableAdminData,
     setInitiativeDataScope,
+    initiativeListState,
     authenticate,
     changePassword,
     login: () => fail(SYSTEM_MESSAGES.auth.localLoginDisabled),

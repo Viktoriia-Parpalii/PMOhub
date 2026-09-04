@@ -8,7 +8,6 @@ import {
   Download,
   FileJson,
   FileSpreadsheet,
-  Search,
   ShieldAlert,
   X,
 } from "lucide-react";
@@ -120,7 +119,6 @@ export const ExportSection = () => {
   const [excelCustomFieldIds, setExcelCustomFieldIds] = useState<string[]>([]);
   const [aiOpen, setAiOpen] = useState(false);
   const [privacy, setPrivacy] = useState(defaultPrivacy);
-  const [fieldSearch, setFieldSearch] = useState("");
   const [fullConfirmOpen, setFullConfirmOpen] = useState(false);
   const [confirmation, setConfirmation] = useState("");
   const downloadController = useRef<AbortController | null>(null);
@@ -158,9 +156,9 @@ export const ExportSection = () => {
     () =>
       (fieldsQuery.data?.custom_fields ?? []).filter((field) => {
         const expected = field.entity_type === "project" ? "PROJECT" : "OPERATIONAL_TASK";
-        return kinds.includes(expected) && field.name.toLocaleLowerCase("uk-UA").includes(fieldSearch.trim().toLocaleLowerCase("uk-UA"));
+        return kinds.includes(expected);
       }),
-    [fieldSearch, fieldsQuery.data?.custom_fields, kinds],
+    [fieldsQuery.data?.custom_fields, kinds],
   );
 
   const fileMutation = useMutation({
@@ -306,7 +304,6 @@ export const ExportSection = () => {
         <article><span>Усього записів</span><strong>{preview.isFetching ? "…" : preview.data?.total ?? 0}</strong></article>
         <article><span>Записи беклогу</span><strong>{preview.data?.backlog_records ?? 0}</strong></article>
         <article><span>Квартальні картки</span><strong>{preview.data?.quarter_cards ?? 0}</strong></article>
-        <article><span>Обрано полів для AI</span><strong>{privacy.selected_custom_field_ids.length}</strong></article>
       </div>
 
       {!!matrixRows.length && (
@@ -335,42 +332,45 @@ export const ExportSection = () => {
             <div className={`${styles.headingIcon} ${styles.excelIcon}`}><FileSpreadsheet size={22} /></div>
             <div><h4>Excel-звіт</h4><p>Зведення, беклог і квартальні аркуші зі стилями та форматуванням.</p></div>
           </div>
-          <ul><li>Статуси та скоуп у кольорах PMO Hub</li><li>Вага й виконавці біля кожного завдання</li><li>Зведена аналітика на першому аркуші</li></ul>
           <button type="button" className={styles.settingsToggle} onClick={() => setExcelOpen((value) => !value)}>Налаштувати поля Excel <ChevronDown size={17} className={excelOpen ? styles.chevronOpen : ""} /></button>
           {excelOpen && (
-            <div className={styles.aiSettings}>
-              <div className={styles.customFieldsHeader}>
-                <div><strong>Стандартні поля</strong><small className={styles.neutralHint}>Оберіть щонайменше одне поле.</small></div>
-                <button type="button" onClick={() => setExcelFields(excelFields.length === ALL_EXCEL_FIELDS.length ? [] : ALL_EXCEL_FIELDS)}>{excelFields.length === ALL_EXCEL_FIELDS.length ? "Очистити" : "Обрати всі"}</button>
-              </div>
-              <div className={styles.excelFieldList}>
-                {ALL_EXCEL_FIELDS.map((field) => {
-                  const checked = excelFields.includes(field);
-                  return (
-                    <label key={field} className={styles.customFieldRow}>
-                      <input type="checkbox" checked={checked} onChange={() => toggleExcelField(field)} />
-                      <span className={styles.checkboxVisual}>{checked && <Check size={14} />}</span>
-                      <span><strong>{EXCEL_FIELD_LABELS[field]}</strong></span>
-                    </label>
-                  );
-                })}
-              </div>
-              <div className={styles.customFieldsHeader}>
-                <div><strong>Додаткові поля</strong><small className={styles.neutralHint}>Додаються окремими колонками квартальних аркушів.</small></div>
-                <button type="button" onClick={() => setExcelCustomFieldIds([])}>Очистити</button>
-              </div>
-              <div className={styles.customFieldList}>
-                {fieldsQuery.isPending ? <p>Завантаження полів…</p> : (fieldsQuery.data?.custom_fields ?? []).length ? (fieldsQuery.data?.custom_fields ?? []).map((field) => {
-                  const checked = excelCustomFieldIds.includes(field.id);
-                  return (
-                    <label key={field.id} className={styles.customFieldRow}>
-                      <input type="checkbox" checked={checked} onChange={() => toggleExcelCustomField(field.id)} />
-                      <span className={styles.checkboxVisual}>{checked && <Check size={14} />}</span>
-                      <span><strong>{field.name}</strong><small>{field.entity_type === "project" ? "Проєкти" : "Операційні задачі"} · {FIELD_TYPE_LABELS[field.field_type] ?? field.field_type}</small></span>
-                    </label>
-                  );
-                }) : <p>Додаткових полів не знайдено.</p>}
-              </div>
+            <div className={styles.excelSettingsColumns}>
+              <section className={styles.excelSettingsSection}>
+                <div className={styles.customFieldsHeader}>
+                  <div><strong>Стандартні поля</strong><small className={styles.neutralHint}>Оберіть щонайменше одне поле.</small></div>
+                  <button type="button" onClick={() => setExcelFields(excelFields.length === ALL_EXCEL_FIELDS.length ? [] : ALL_EXCEL_FIELDS)}>{excelFields.length === ALL_EXCEL_FIELDS.length ? "Очистити" : "Обрати всі"}</button>
+                </div>
+                <div className={styles.excelFieldList}>
+                  {ALL_EXCEL_FIELDS.map((field) => {
+                    const checked = excelFields.includes(field);
+                    return (
+                      <label key={field} className={styles.customFieldRow}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleExcelField(field)} />
+                        <span className={styles.checkboxVisual}>{checked && <Check size={14} />}</span>
+                        <span><strong>{EXCEL_FIELD_LABELS[field]}</strong></span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </section>
+              <section className={`${styles.excelSettingsSection} ${styles.excelCustomFieldsSection}`}>
+                <div className={styles.customFieldsHeader}>
+                  <div><strong>Додаткові поля</strong><small className={styles.neutralHint}>Додаються окремими колонками квартальних аркушів.</small></div>
+                  <button type="button" onClick={() => setExcelCustomFieldIds([])}>Очистити</button>
+                </div>
+                <div className={styles.customFieldList}>
+                  {fieldsQuery.isPending ? <p>Завантаження полів…</p> : (fieldsQuery.data?.custom_fields ?? []).length ? (fieldsQuery.data?.custom_fields ?? []).map((field) => {
+                    const checked = excelCustomFieldIds.includes(field.id);
+                    return (
+                      <label key={field.id} className={styles.customFieldRow}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleExcelCustomField(field.id)} />
+                        <span className={styles.checkboxVisual}>{checked && <Check size={14} />}</span>
+                        <span><strong>{field.name}</strong><small>{field.entity_type === "project" ? "Проєкти" : "Операційні задачі"} · {FIELD_TYPE_LABELS[field.field_type] ?? field.field_type}</small></span>
+                      </label>
+                    );
+                  }) : <p>Додаткових полів не знайдено.</p>}
+                </div>
+              </section>
             </div>
           )}
           <button className={styles.primaryButton} type="button" disabled={excelDisabled} onClick={() => fileMutation.mutate("EXCEL")}><Download size={18} /> Завантажити Excel</button>
@@ -383,36 +383,39 @@ export const ExportSection = () => {
           </div>
           <button type="button" className={styles.settingsToggle} onClick={() => setAiOpen((value) => !value)}>Налаштувати приватність <ChevronDown size={17} className={aiOpen ? styles.chevronOpen : ""} /></button>
           {aiOpen && (
-            <div className={styles.aiSettings}>
-              <div className={styles.switchList}>
-                {([
-                  ["include_name", "Назви ініціатив"],
-                  ["include_strategic_goal", "Стратегічні цілі"],
-                  ["include_manager", "Менеджери"],
-                  ["include_departments", "Підрозділи"],
-                  ["include_notes", "Примітки"],
-                ] as Array<[keyof Omit<AiExportPrivacy, "selected_custom_field_ids">, string]>).map(([key, label]) => (
-                  <label key={key} className={styles.switchRow}><span>{label}</span><input type="checkbox" checked={privacy[key]} onChange={() => togglePrivacy(key)} /></label>
-                ))}
-              </div>
-              <div className={styles.customFieldsHeader}>
-                <div><strong>Додаткові поля</strong><small>Текстові поля можуть містити чутливі дані.</small></div>
-                <button type="button" onClick={() => setPrivacy((value) => ({ ...value, selected_custom_field_ids: [] }))}>Очистити</button>
-              </div>
-              <label className={styles.search}><Search size={16} /><input value={fieldSearch} onChange={(event) => setFieldSearch(event.target.value)} placeholder="Знайти поле" /></label>
-              <div className={styles.customFieldList}>
-                {fieldsQuery.isPending ? <p>Завантаження полів…</p> : availableFields.length ? availableFields.map((field) => {
-                  const checked = privacy.selected_custom_field_ids.includes(field.id);
-                  return (
-                    <label key={field.id} className={styles.customFieldRow}>
-                      <input type="checkbox" checked={checked} onChange={() => toggleField(field.id)} />
-                      <span className={styles.checkboxVisual}>{checked && <Check size={14} />}</span>
-                      <span><strong>{field.name}</strong><small>{field.entity_type === "project" ? "Проєкти" : "Операційні задачі"} · {FIELD_TYPE_LABELS[field.field_type] ?? field.field_type}{!field.is_active ? " · Неактивне" : ""}</small></span>
-                    </label>
-                  );
-                }) : <p>Додаткових полів не знайдено.</p>}
-              </div>
-              {!!availableFields.length && <button type="button" className={styles.selectVisible} onClick={() => setPrivacy((value) => ({ ...value, selected_custom_field_ids: [...new Set([...value.selected_custom_field_ids, ...availableFields.map((field) => field.id)])] }))}>Обрати всі видимі</button>}
+            <div className={styles.excelSettingsColumns}>
+              <section className={styles.excelSettingsSection}>
+                <div className={`${styles.switchList} ${styles.aiStandardFields}`}>
+                  {([
+                    ["include_name", "Назви ініціатив"],
+                    ["include_strategic_goal", "Стратегічні цілі"],
+                    ["include_manager", "Менеджери"],
+                    ["include_departments", "Підрозділи"],
+                    ["include_notes", "Примітки"],
+                  ] as Array<[keyof Omit<AiExportPrivacy, "selected_custom_field_ids">, string]>).map(([key, label]) => (
+                    <label key={key} className={styles.switchRow}><span>{label}</span><input type="checkbox" checked={privacy[key]} onChange={() => togglePrivacy(key)} /></label>
+                  ))}
+                </div>
+              </section>
+              <section className={`${styles.excelSettingsSection} ${styles.excelCustomFieldsSection}`}>
+                <div className={styles.customFieldsHeader}>
+                  <div><strong>Додаткові поля</strong><small>Текстові поля можуть містити чутливі дані.</small></div>
+                  <button type="button" onClick={() => setPrivacy((value) => ({ ...value, selected_custom_field_ids: [] }))}>Очистити</button>
+                </div>
+                <div className={styles.customFieldList}>
+                  {fieldsQuery.isPending ? <p>Завантаження полів…</p> : availableFields.length ? availableFields.map((field) => {
+                    const checked = privacy.selected_custom_field_ids.includes(field.id);
+                    return (
+                      <label key={field.id} className={styles.customFieldRow}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleField(field.id)} />
+                        <span className={styles.checkboxVisual}>{checked && <Check size={14} />}</span>
+                        <span><strong>{field.name}</strong><small>{field.entity_type === "project" ? "Проєкти" : "Операційні задачі"} · {FIELD_TYPE_LABELS[field.field_type] ?? field.field_type}{!field.is_active ? " · Неактивне" : ""}</small></span>
+                      </label>
+                    );
+                  }) : <p>Додаткових полів не знайдено.</p>}
+                </div>
+                {!!availableFields.length && <button type="button" className={styles.selectVisible} onClick={() => setPrivacy((value) => ({ ...value, selected_custom_field_ids: [...new Set([...value.selected_custom_field_ids, ...availableFields.map((field) => field.id)])] }))}>Обрати всі видимі</button>}
+              </section>
             </div>
           )}
           <button className={styles.primaryButton} type="button" disabled={exportDisabled} onClick={() => fileMutation.mutate("AI")}><FileJson size={18} /> Завантажити JSON для AI</button>

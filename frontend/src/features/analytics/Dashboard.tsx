@@ -18,6 +18,7 @@ import { X } from "lucide-react";
 import { useAppContext } from "../../app/store";
 import { useAnalyticsDrilldownQuery, useAnalyticsQuery } from "../../api/hooks";
 import { Quarter } from "../../shared/types";
+import { getHistoricalAndPlanningYears } from "../../shared/utils";
 import {
   analyticsKindLabels,
   analyticsQueryParams,
@@ -216,13 +217,10 @@ export const Dashboard = () => {
     key: K,
     value: AnalyticsFilters[K],
   ) => setFilters((current) => ({ ...current, [key]: value }));
-  const years = Array.from(
-    new Set([
-      ...(data?.available_years ?? []),
-      filters.year,
-      businessPeriod.year,
-    ]),
-  ).sort((a, b) => a - b);
+  const years = getHistoricalAndPlanningYears(
+    data?.available_years ?? [],
+    businessPeriod.year,
+  );
   const statusData = data?.status_distribution ?? [];
   const summary = data?.summary ?? {
     cards: 0,
@@ -362,7 +360,7 @@ export const Dashboard = () => {
             <Kpi
               title={`Карток ${kindLabels.genitive} у вибраному періоді`}
               value={summary.cards}
-              accent="#0f766e"
+              accent="#0d9488"
               onClick={() => openRecords("Картки у вибраному періоді")}
             />
             {mode === "annual" && (
@@ -376,13 +374,13 @@ export const Dashboard = () => {
             <Kpi
               title="Завдань у scope"
               value={summary.scope_items}
-              accent="#7c3aed"
+              accent="#d97706"
               onClick={() => openRecords("Картки із завданнями у scope")}
             />
             <Kpi
               title={`${mode === "annual" ? "Загальне виконання скоупу" : "Середній прогрес"} ${kindLabels.genitive}`}
               value={`${summary.average_progress}%`}
-              accent="#6366f1"
+              accent="#7c3aed"
               progress={summary.average_progress}
               onClick={() =>
                 openRecords(
@@ -396,7 +394,7 @@ export const Dashboard = () => {
               <Kpi
                 title={`Середня тривалість ${kindLabels.genitive}`}
                 value={`${summary.average_duration} кв.`}
-                accent="#8b5cf6"
+                accent="#0284c7"
               />
             )}
             <Kpi
@@ -726,9 +724,9 @@ const WidgetLoader = ({ compact = false }: { compact?: boolean }) => (
     className={`${styles.widgetLoader} ${compact ? styles.widgetLoaderCompact : ""}`}
     role="status"
     aria-live="polite"
+    aria-label="Оновлення даних"
   >
     <span className={styles.widgetSpinner} aria-hidden="true" />
-    <span>Оновлюємо дані…</span>
   </div>
 );
 const Empty = () => <div className={styles.empty}>Немає даних</div>;

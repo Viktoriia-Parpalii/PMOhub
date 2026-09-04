@@ -12,10 +12,14 @@ interface BacklogFiltersProps {
   onGoalSearch: (value: string) => void;
   onManagerFilter: (value: string) => void;
   onPriorityFilter: (value: string) => void;
+  onReset: () => void;
+  hasFilters: boolean;
 }
 
 export const BacklogFilters = (props: BacklogFiltersProps) => (
-  <div className={styles.filters}>
+  <div
+    className={`${styles.filters} ${props.hasFilters ? styles.filtersWithReset : ""}`}
+  >
     <input
       value={props.nameSearch}
       onChange={(event) => props.onNameSearch(event.target.value)}
@@ -56,5 +60,14 @@ export const BacklogFilters = (props: BacklogFiltersProps) => (
         </option>
       ))}
     </select>
+    {props.hasFilters && (
+      <button
+        type="button"
+        className={styles.resetFiltersButton}
+        onClick={props.onReset}
+      >
+        Скинути
+      </button>
+    )}
   </div>
 );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateCardDepartmentLoads, getInitiativeSize, getInitiativeWeight, validateChecklistAssignments } from './capacity';
+import { calculateCardDepartmentLoads, getInitiativeSize, getInitiativeWeight, getTaskWeightOptionLabel, validateChecklistAssignments } from './capacity';
 import { Department, InitiativeViewModel, TaskWeightDef } from '../shared/types';
 
 const weights: TaskWeightDef[] = [
@@ -39,5 +39,11 @@ describe('capacity calculator', () => {
     expect(getInitiativeWeight([archivedItem], [{ id: 'L', name: 'L', weight: 99, is_active: true }])).toBe(5);
     expect(getInitiativeWeight([archivedItem], [])).toBe(5);
     expect(validateChecklistAssignments([archivedItem], [])).toEqual([]);
+  });
+
+  it('shows the stored snapshot in the selector when its dictionary definition changed', () => {
+    const item = { id: 'I', text: 'Saved', is_completed: false, weightId: 'L', weightSnapshot: { definitionId: 'L', name: 'Стара назва', value: 5 } };
+    expect(getTaskWeightOptionLabel(item, { id: 'L', name: 'Нова назва', weight: 99, is_active: true })).toBe('Стара назва (5)');
+    expect(getTaskWeightOptionLabel(item, { id: 'S', name: 'Інша вага', weight: 3, is_active: true })).toBe('Інша вага (3)');
   });
 });

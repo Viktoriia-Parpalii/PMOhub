@@ -208,7 +208,25 @@
         "operationId": "InitiativeYearsController_list",
         "parameters": [
           {
-            "name": "kind",
+            "name": "name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "strategic_goal",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 500,
+              "type": "string"
+            }
+          },
+          {
+            "name": "manager_id",
             "required": false,
             "in": "query",
             "schema": {
@@ -216,11 +234,47 @@
             }
           },
           {
-            "name": "year",
+            "name": "priority_id",
             "required": false,
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          },
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "quarter",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
             }
           }
         ],
@@ -251,17 +305,100 @@
         "operationId": "InitiativeYearsController_counts",
         "parameters": [
           {
+            "name": "name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "strategic_goal",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 500,
+              "type": "string"
+            }
+          },
+          {
+            "name": "manager_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "priority_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "year",
             "required": true,
             "in": "query",
             "schema": {
-              "type": "string"
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "number"
+            }
+          },
+          {
+            "name": "quarter",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
             }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiativeYearCountsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "initiative-years"
+        ]
+      }
+    },
+    "/api/v1/initiative-years/available-years": {
+      "get": {
+        "operationId": "InitiativeYearsController_availableYears",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiativeAvailableYearsResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -548,11 +685,49 @@
         "operationId": "QuarterCardsController_list",
         "parameters": [
           {
-            "name": "kind",
+            "name": "name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "strategic_goal",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 500,
+              "type": "string"
+            }
+          },
+          {
+            "name": "manager_id",
             "required": false,
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "priority_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
             }
           },
           {
@@ -560,7 +735,9 @@
             "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "minimum": 2000,
+              "maximum": 2200,
+              "type": "number"
             }
           },
           {
@@ -568,7 +745,13 @@
             "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
             }
           }
         ],
@@ -602,6 +785,22 @@
             "name": "initiativeYearId",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "manager_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "priority_id",
+            "required": false,
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -3059,6 +3258,83 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/InitiativeYearReadModelDto"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ]
+      },
+      "InitiativeYearCountDto": {
+        "type": "object",
+        "properties": {
+          "filtered": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "filtered",
+          "total"
+        ]
+      },
+      "InitiativeYearCountsDto": {
+        "type": "object",
+        "properties": {
+          "projects": {
+            "$ref": "#/components/schemas/InitiativeYearCountDto"
+          },
+          "operational_tasks": {
+            "$ref": "#/components/schemas/InitiativeYearCountDto"
+          }
+        },
+        "required": [
+          "projects",
+          "operational_tasks"
+        ]
+      },
+      "InitiativeYearCountsResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/InitiativeYearCountsDto"
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ]
+      },
+      "InitiativeAvailableYearsResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "number"
             }
           }
         },

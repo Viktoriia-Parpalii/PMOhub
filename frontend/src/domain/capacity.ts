@@ -44,6 +44,18 @@ export const makeWeightSnapshot = (
   value: definition.weight,
 });
 
+/** Uses the card-owned snapshot for the currently assigned definition. */
+export const getTaskWeightOptionLabel = (
+  item: ChecklistItem,
+  definition: TaskWeightDef,
+): string => {
+  const selectedId = item.weightId ?? item.weightSnapshot?.definitionId;
+  const snapshot = item.weightSnapshot;
+  return snapshot && selectedId === definition.id
+    ? `${snapshot.name} (${snapshot.value})`
+    : `${definition.name} (${definition.weight})`;
+};
+
 export const getInitiativeWeight = (
   checklist: ChecklistItem[] | undefined,
   taskWeights: TaskWeightDef[],

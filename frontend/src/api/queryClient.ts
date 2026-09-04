@@ -1,15 +1,41 @@
 import { QueryClient } from "@tanstack/react-query";
+import type { InitiativeListFilters } from "../shared/types";
+
+const filterKey = (filters: InitiativeListFilters = {}) => [
+  filters.name?.trim() ?? "",
+  filters.strategic_goal?.trim() ?? "",
+  filters.manager_id ?? "",
+  filters.priority_id ?? "",
+  filters.quarter ?? "",
+] as const;
 
 export const queryKeys = {
   bootstrap: ["bootstrap"] as const,
-  initiativeYears: (kind: "project" | "task", year?: number) =>
-    ["initiative-years", kind, year ?? "all"] as const,
-  initiativeYearCounts: (year: number) =>
-    ["initiative-years", "counts", year] as const,
-  portfolioCards: (kind: "project" | "task", year?: number, quarter?: string) =>
-    ["quarter-cards", kind, year ?? "all", quarter ?? "all"] as const,
-  backlogCardSummaries: (initiativeYearId: string) =>
-    ["backlog-card-summaries", initiativeYearId] as const,
+  initiativeAvailableYears: ["initiative-years", "available-years"] as const,
+  initiativeYears: (
+    kind: "project" | "task",
+    year?: number,
+    filters: InitiativeListFilters = {},
+  ) => ["initiative-years", kind, year ?? "all", ...filterKey(filters)] as const,
+  initiativeYearCounts: (year: number, filters: InitiativeListFilters = {}) =>
+    ["initiative-years", "counts", year, ...filterKey(filters)] as const,
+  portfolioCards: (
+    kind: "project" | "task",
+    year?: number,
+    quarter?: string,
+    filters: InitiativeListFilters = {},
+  ) =>
+    [
+      "quarter-cards",
+      kind,
+      year ?? "all",
+      quarter ?? "all",
+      ...filterKey(filters),
+    ] as const,
+  backlogCardSummaries: (
+    initiativeYearId: string,
+    filters: InitiativeListFilters = {},
+  ) => ["backlog-card-summaries", initiativeYearId, ...filterKey(filters)] as const,
   initiativeCard: (id: string) => ["quarter-cards", "detail", id] as const,
   initiativeYear: (id: string) => ["initiative-years", "detail", id] as const,
   audit: (aggregateType: string, aggregateId: string) =>

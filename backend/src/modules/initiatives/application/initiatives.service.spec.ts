@@ -231,6 +231,143 @@ describe('InitiativesService transactional rules', () => {
     }));
   });
 
+  it('does not allow a completed scope item to be removed by an update payload', async () => {
+    const tx: any = {
+      quarterCard: {
+        findUnique: vi.fn(async () => ({
+          id: 'card-1',
+          revision: 1,
+          quarter: 1,
+          initiativeYear: {
+            year: 2099,
+            initiative: { kind: 'PROJECT' },
+          },
+          scopeItems: [{
+            id: 'scope-completed',
+            revision: 3,
+            statusCode: 'GREEN',
+            executors: [],
+          }],
+        })),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+      initiativeStatus: {
+        findFirst: vi.fn(async () => ({ id: 'status-in-progress', isActive: true })),
+      },
+      taskWeight: { findMany: vi.fn(async () => []) },
+    };
+    const prisma: any = {
+      rolePermission: {
+        findUnique: vi.fn(async () => ({
+          isReadOnly: false,
+          canCreateEditInitiatives: true,
+        })),
+      },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+
+    await expect(new InitiativesService(prisma).updateCard('card-1', {
+      revision: 1,
+      department_ids: [],
+      status_id: 'status-in-progress',
+      scope: [],
+      custom_fields: {},
+    }, actor)).rejects.toMatchObject({
+      code: 'COMPLETED_SCOPE_DELETE_FORBIDDEN',
+      status: 409,
+    });
+
+    expect(tx.quarterCard.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('preserves a scope weight snapshot when a card is saved without changing its weight', async () => {
+    const scopeId = '00000000-0000-4000-8000-000000000010';
+    const weightId = '00000000-0000-4000-8000-000000000020';
+    const departmentId = '00000000-0000-4000-8000-000000000030';
+    const updateScope = vi.fn(async (_args: any) => ({ count: 1 }));
+    const findWeights = vi.fn(async () => []);
+    const currentScope = {
+      id: scopeId,
+      revision: 2,
+      statusCode: 'YELLOW',
+      weightDefinitionId: weightId,
+      weightSnapshotName: 'Стара назва',
+      weightSnapshotValue: { toNumber: () => 5 },
+      executors: [{ departmentId }],
+    };
+    const tx: any = {
+      quarterCard: {
+        findUnique: vi.fn(async () => ({
+          id: 'card-1',
+          revision: 1,
+          quarter: 1,
+          initiativeYear: {
+            year: 2099,
+            initiative: { kind: 'PROJECT' },
+          },
+          scopeItems: [currentScope],
+        })),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+        update: vi.fn(async () => ({})),
+      },
+      initiativeStatus: {
+        findFirst: vi.fn(async () => ({ id: 'status-in-progress', isActive: true })),
+      },
+      taskWeight: { findMany: findWeights },
+      department: { count: vi.fn(async () => 1) },
+      scopeItem: {
+        updateMany: updateScope,
+        deleteMany: vi.fn(async () => ({ count: 0 })),
+        findMany: vi.fn(async () => [currentScope]),
+      },
+      scopeItemExecutor: {
+        deleteMany: vi.fn(async () => ({ count: 0 })),
+        createMany: vi.fn(async () => ({ count: 0 })),
+      },
+      quarterCardDepartment: {
+        deleteMany: vi.fn(async () => ({ count: 0 })),
+        findMany: vi.fn(async () => []),
+        createMany: vi.fn(async () => ({ count: 0 })),
+      },
+      customFieldDefinition: { findMany: vi.fn(async () => []) },
+      customFieldValue: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+      initiativeSize: { findMany: vi.fn(async () => []) },
+      auditEvent: { create: vi.fn(async () => ({})) },
+    };
+    const prisma: any = {
+      rolePermission: {
+        findUnique: vi.fn(async () => ({
+          isReadOnly: false,
+          canCreateEditInitiatives: true,
+        })),
+      },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+
+    await new InitiativesService(prisma).updateCard('card-1', {
+      revision: 1,
+      department_ids: [],
+      status_id: 'status-in-progress',
+      scope: [{
+        id: scopeId,
+        revision: 2,
+        text: 'Task',
+        status_code: 'YELLOW',
+        weight_definition_id: weightId,
+        executor_department_ids: [departmentId],
+      }],
+      custom_fields: {},
+    }, actor);
+
+    expect(findWeights).toHaveBeenCalledWith({
+      where: { id: { in: [] }, isActive: true },
+    });
+    const updateData = updateScope.mock.calls[0][0].data;
+    expect(updateData).not.toHaveProperty('weightDefinitionId');
+    expect(updateData).not.toHaveProperty('weightSnapshotName');
+    expect(updateData).not.toHaveProperty('weightSnapshotValue');
+  });
+
   it('creates a card from the nearest previous card and copies only effective involved departments', async () => {
     const create = vi.fn(async ({ data }) => ({ id: 'card-new', revision: 1, ...data, departments: [] }));
     const tx: any = {

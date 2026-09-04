@@ -21,12 +21,17 @@ import {
   DeleteInitiativeDto,
   ExtendYearsDto,
   PeriodCommandDto,
-  QuarterDto,
   InitiativeYearResponseDto,
   InitiativeYearsResponseDto,
+  InitiativeAvailableYearsResponseDto,
   QuarterCardResponseDto,
   QuarterCardsResponseDto,
   BacklogQuarterCardSummariesResponseDto,
+  BacklogCardSummariesQueryDto,
+  InitiativeYearCountsQueryDto,
+  InitiativeYearCountsResponseDto,
+  InitiativeYearsQueryDto,
+  QuarterCardsQueryDto,
   UpdateCardDto,
   UpdateCardStatusDto,
   UpdateArchivedCardDto,
@@ -72,16 +77,20 @@ export class InitiativeYearsController {
 
   @Get()
   @ApiOkResponse({ type: InitiativeYearsResponseDto })
-  list(@Query("kind") kind?: string, @Query("year") year?: string) {
-    return this.queries.listYears({
-      kind,
-      year: year ? Number(year) : undefined,
-    });
+  list(@Query() query: InitiativeYearsQueryDto) {
+    return this.queries.listYears(query);
   }
 
   @Get("counts")
-  counts(@Query("year") year: string) {
-    return this.queries.countYears(Number(year));
+  @ApiOkResponse({ type: InitiativeYearCountsResponseDto })
+  counts(@Query() query: InitiativeYearCountsQueryDto) {
+    return this.queries.countYears(query);
+  }
+
+  @Get("available-years")
+  @ApiOkResponse({ type: InitiativeAvailableYearsResponseDto })
+  availableYears() {
+    return this.queries.availableYears();
   }
 
   @Get(":id")
@@ -159,24 +168,17 @@ export class QuarterCardsController {
 
   @Get()
   @ApiOkResponse({ type: QuarterCardsResponseDto })
-  list(
-    @Query("kind") kind?: string,
-    @Query("year") year?: string,
-    @Query("quarter") quarter?: QuarterDto,
-  ) {
-    return this.queries.listCards({
-      kind,
-      year: year ? Number(year) : undefined,
-      quarter,
-    });
+  list(@Query() query: QuarterCardsQueryDto) {
+    return this.queries.listCards(query);
   }
 
   @Get("backlog-summaries/:initiativeYearId")
   @ApiOkResponse({ type: BacklogQuarterCardSummariesResponseDto })
   listBacklogSummaries(
     @Param("initiativeYearId") initiativeYearId: string,
+    @Query() query: BacklogCardSummariesQueryDto,
   ) {
-    return this.queries.listBacklogCardSummaries(initiativeYearId);
+    return this.queries.listBacklogCardSummaries(initiativeYearId, query);
   }
 
   @Get(":id")

@@ -2,7 +2,13 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../infrastructure/database/prisma.service";
 import { AppError } from "../../../common/errors/app-error";
 import { HttpStatus } from "@nestjs/common";
-import { QuarterDto } from "../api/initiative.dto";
+import { Prisma } from "../../../generated/prisma/client";
+import {
+  BacklogCardSummariesQueryDto,
+  InitiativeYearCountsQueryDto,
+  InitiativeYearsQueryDto,
+  QuarterCardsQueryDto,
+} from "../api/initiative.dto";
 import {
   cardInclude,
   backlogCardSummaryInclude,
@@ -24,40 +30,55 @@ const ok = <T>(message: string, data: T) => ({
 export class InitiativeQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listYears(query: { kind?: string; year?: number }) {
+  async listYears(query: InitiativeYearsQueryDto) {
     this.validateYear(query.year);
     const years = await this.prisma.initiativeYear.findMany({
-      where: {
-        year: query.year,
-        initiative: query.kind ? { kind: this.kind(query.kind) } : undefined,
-      },
+      where: this.backlogWhere(query),
       include: yearInclude,
       orderBy: [{ year: "desc" }, { createdAt: "desc" }],
     });
     return ok("Роки ініціатив завантажено", years.map(mapYear));
   }
 
-  async countYears(year: number) {
-    this.validateYear(year);
-    const [projects, operationalTasks] = await Promise.all([
-      this.prisma.initiativeYear.count({
-        where: { year, initiative: { kind: "PROJECT" } },
-      }),
-      this.prisma.initiativeYear.count({
-        where: { year, initiative: { kind: "OPERATIONAL_TASK" } },
-      }),
-    ]);
+  async countYears(query: InitiativeYearCountsQueryDto) {
+    this.validateYear(query.year);
+    const [projectsFiltered, projectsTotal, tasksFiltered, tasksTotal] =
+      await Promise.all([
+        this.prisma.initiativeYear.count({
+          where: this.backlogWhere({ ...query, kind: "PROJECT" }),
+        }),
+        this.prisma.initiativeYear.count({
+          where: { year: query.year, initiative: { kind: "PROJECT" } },
+        }),
+        this.prisma.initiativeYear.count({
+          where: this.backlogWhere({ ...query, kind: "OPERATIONAL_TASK" }),
+        }),
+        this.prisma.initiativeYear.count({
+          where: {
+            year: query.year,
+            initiative: { kind: "OPERATIONAL_TASK" },
+          },
+        }),
+      ]);
     return ok("Лічильники беклогу завантажено", {
-      projects,
-      operational_tasks: operationalTasks,
+      projects: { filtered: projectsFiltered, total: projectsTotal },
+      operational_tasks: { filtered: tasksFiltered, total: tasksTotal },
     });
   }
 
-  async listCards(query: {
-    kind?: string;
-    year?: number;
-    quarter?: QuarterDto;
-  }) {
+  async availableYears() {
+    const years = await this.prisma.initiativeYear.findMany({
+      select: { year: true },
+      distinct: ["year"],
+      orderBy: { year: "asc" },
+    });
+    return ok(
+      "Доступні роки беклогу завантажено",
+      years.map((item) => item.year),
+    );
+  }
+
+  async listCards(query: QuarterCardsQueryDto) {
     this.validateYear(query.year);
     if (query.quarter && !["Q1", "Q2", "Q3", "Q4"].includes(query.quarter)) {
       throw new AppError(
@@ -67,13 +88,7 @@ export class InitiativeQueryService {
       );
     }
     const cards = await this.prisma.quarterCard.findMany({
-      where: {
-        quarter: query.quarter ? Number(query.quarter.slice(1)) : undefined,
-        initiativeYear: {
-          year: query.year,
-          initiative: query.kind ? { kind: this.kind(query.kind) } : undefined,
-        },
-      },
+      where: this.portfolioCardWhere(query),
       include: cardSummaryInclude,
       orderBy: [
         { initiativeYear: { year: "desc" } },
@@ -84,10 +99,15 @@ export class InitiativeQueryService {
     return ok("Квартальні картки завантажено", cards.map(mapCardSummary));
   }
 
-  async listBacklogCardSummaries(initiativeYearId: string) {
+  async listBacklogCardSummaries(
+    initiativeYearId: string,
+    query: BacklogCardSummariesQueryDto = {},
+  ) {
     const cards = await this.prisma.quarterCard.findMany({
       where: {
         initiativeYearId,
+        managerId: query.manager_id,
+        priorityId: query.priority_id,
       },
       include: backlogCardSummaryInclude,
       orderBy: [
@@ -135,6 +155,74 @@ export class InitiativeQueryService {
     if (!["PROJECT", "OPERATIONAL_TASK"].includes(normalized))
       throw new AppError("INVALID_KIND", "Невідомий тип ініціативи.");
     return normalized;
+  }
+
+  private normalizedText(value?: string) {
+    const normalized = value?.trim();
+    return normalized || undefined;
+  }
+
+  private portfolioCardWhere(
+    query: QuarterCardsQueryDto,
+  ): Prisma.QuarterCardWhereInput {
+    const name = this.normalizedText(query.name);
+    const strategicGoal = this.normalizedText(query.strategic_goal);
+    return {
+      quarter: query.quarter ? Number(query.quarter.slice(1)) : undefined,
+      managerId: query.manager_id,
+      priorityId: query.priority_id,
+      initiativeYear: {
+        year: query.year,
+        strategicGoal: strategicGoal ? { contains: strategicGoal } : undefined,
+        initiative: {
+          kind: query.kind ? this.kind(query.kind) : undefined,
+          name: name ? { contains: name } : undefined,
+        },
+      },
+    };
+  }
+
+  private backlogWhere(
+    query: InitiativeYearsQueryDto,
+  ): Prisma.InitiativeYearWhereInput {
+    const name = this.normalizedText(query.name);
+    const strategicGoal = this.normalizedText(query.strategic_goal);
+    const hasCardFilters = Boolean(
+      query.quarter || query.manager_id || query.priority_id,
+    );
+    const cardWhere: Prisma.QuarterCardWhereInput = {
+      quarter: query.quarter ? Number(query.quarter.slice(1)) : undefined,
+      managerId: query.manager_id,
+      priorityId: query.priority_id,
+    };
+    const cardOrPreparation: Prisma.InitiativeYearWhereInput["OR"] =
+      hasCardFilters
+        ? [
+            { quarterCards: { some: cardWhere } },
+            ...(!query.quarter && (query.manager_id || query.priority_id)
+              ? [
+                  {
+                    quarterCards: { none: {} },
+                    preparationStage: {
+                      is: {
+                        managerId: query.manager_id,
+                        priorityId: query.priority_id,
+                      },
+                    },
+                  } satisfies Prisma.InitiativeYearWhereInput,
+                ]
+              : []),
+          ]
+        : undefined;
+    return {
+      year: query.year,
+      strategicGoal: strategicGoal ? { contains: strategicGoal } : undefined,
+      initiative: {
+        kind: query.kind ? this.kind(query.kind) : undefined,
+        name: name ? { contains: name } : undefined,
+      },
+      OR: cardOrPreparation,
+    };
   }
 
   private validateYear(year?: number) {

@@ -343,24 +343,13 @@ button.kpi:hover {
   min-height: 220px;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
-  gap: 11px;
-  border-radius: 14px;
-  background:
-    radial-gradient(circle at 25% 20%, rgb(99 102 241 / 8%), transparent 38%),
-    radial-gradient(circle at 78% 82%, rgb(16 185 129 / 7%), transparent 34%),
-    #fbfcff;
-  color: #71829d;
-  font-size: 11px;
-  font-weight: 750;
-  letter-spacing: .025em;
+  background: transparent;
   visibility: visible;
 }
 
 .widgetLoaderCompact {
   inset: 8px;
   min-height: 0;
-  border-radius: 12px;
 }
 
 .widgetSpinner {

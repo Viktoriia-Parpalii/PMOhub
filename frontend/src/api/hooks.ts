@@ -6,6 +6,7 @@ import {
   loadBootstrap,
   loadBacklogQuarterCardSummaries,
   loadInitiativeCardModel,
+  loadInitiativeAvailableYears,
   loadInitiativeYearCounts,
   loadInitiativeYearModel,
   loadInitiativeYears,
@@ -20,6 +21,7 @@ import {
   AnalyticsSection,
   AnalyticsSectionResponse,
 } from "../features/analytics/analyticsTypes";
+import type { InitiativeListFilters } from "../shared/types";
 
 export const useBootstrapQuery = (enabled: boolean) =>
   useQuery({
@@ -33,39 +35,60 @@ export const useInitiativeYearsQuery = (
   kind: "project" | "task",
   enabled = true,
   year?: number,
+  filters: InitiativeListFilters = {},
 ) =>
   useQuery({
-    queryKey: queryKeys.initiativeYears(kind, year),
-    queryFn: ({ signal }) => loadInitiativeYears(kind, signal, year),
+    queryKey: queryKeys.initiativeYears(kind, year, filters),
+    queryFn: () => loadInitiativeYears(kind, undefined, year, filters),
     enabled,
+    staleTime: 0,
   });
-export const useInitiativeYearCountsQuery = (year: number, enabled = true) =>
+export const useInitiativeAvailableYearsQuery = () =>
   useQuery({
-    queryKey: queryKeys.initiativeYearCounts(year),
-    queryFn: ({ signal }) => loadInitiativeYearCounts(year, signal),
+    queryKey: queryKeys.initiativeAvailableYears,
+    queryFn: ({ signal }) => loadInitiativeAvailableYears(signal),
+    staleTime: 30_000,
+  });
+export const useInitiativeYearCountsQuery = (
+  year: number,
+  enabled = true,
+  filters: InitiativeListFilters = {},
+) =>
+  useQuery({
+    queryKey: queryKeys.initiativeYearCounts(year, filters),
+    queryFn: () => loadInitiativeYearCounts(year, undefined, filters),
     enabled,
+    staleTime: 0,
   });
 export const useQuarterCardsQuery = (
   kind: "project" | "task",
   enabled = true,
   year?: number,
   quarter?: string,
+  filters: InitiativeListFilters = {},
 ) =>
   useQuery({
-    queryKey: queryKeys.portfolioCards(kind, year, quarter),
-    queryFn: ({ signal }) => loadQuarterCards(kind, signal, year, quarter),
+    queryKey: queryKeys.portfolioCards(kind, year, quarter, filters),
+    queryFn: () => loadQuarterCards(kind, undefined, year, quarter, filters),
     enabled,
+    staleTime: 0,
   });
 export const useBacklogQuarterCardSummariesQuery = (
   initiativeYearId: string,
   enabled = true,
+  filters: Pick<InitiativeListFilters, "manager_id" | "priority_id"> = {},
 ) =>
   useQuery({
-    queryKey: queryKeys.backlogCardSummaries(initiativeYearId),
+    queryKey: queryKeys.backlogCardSummaries(initiativeYearId, filters),
     // Keep this small lazy request alive if the accordion is briefly remounted
     // (for example by React StrictMode), so the first request can populate cache
     // instead of appearing as a cancelled duplicate in DevTools.
-    queryFn: () => loadBacklogQuarterCardSummaries(initiativeYearId),
+    queryFn: () =>
+      loadBacklogQuarterCardSummaries(
+        initiativeYearId,
+        undefined,
+        filters,
+      ),
     enabled,
     staleTime: 5 * 60_000,
   });

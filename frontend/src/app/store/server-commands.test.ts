@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { serverCommands } from "./server-commands";
-import { loadAnalytics, loadBacklogQuarterCardSummaries, loadInitiativeYears, loadQuarterCards, loginSession, logoutSession, setAuthFailureHandler } from "../../api/apiClient";
+import { loadAnalytics, loadBacklogQuarterCardSummaries, loadInitiativeYearCounts, loadInitiativeYears, loadQuarterCards, loginSession, logoutSession, setAuthFailureHandler } from "../../api/apiClient";
 
 describe("server command routing", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -109,15 +109,51 @@ describe("server command routing", () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ success: true, data: [] }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await loadInitiativeYears("project", undefined, 2027);
-    await loadQuarterCards("task", undefined, 2027, "Q3");
-    await loadBacklogQuarterCardSummaries("year-id");
+    const filters = {
+      name: "План",
+      strategic_goal: "Ціль",
+      manager_id: "manager-id",
+      priority_id: "priority-id",
+    };
+    await loadInitiativeYears("project", undefined, 2027, {
+      ...filters,
+      quarter: "Q2",
+    });
+    await loadQuarterCards("task", undefined, 2027, "Q3", filters);
+    await loadBacklogQuarterCardSummaries("year-id", undefined, {
+      manager_id: filters.manager_id,
+      priority_id: filters.priority_id,
+    });
+    await loadInitiativeYearCounts(2027, undefined, {
+      ...filters,
+      quarter: "Q2",
+    });
 
-    expect(String(fetchMock.mock.calls[0][0])).toContain("kind=PROJECT&year=2027");
-    expect(String(fetchMock.mock.calls[1][0])).toContain("kind=OPERATIONAL_TASK&year=2027&quarter=Q3");
-    expect(String(fetchMock.mock.calls[2][0])).toContain(
-      "/quarter-cards/backlog-summaries/year-id",
-    );
+    const urls = fetchMock.mock.calls.map((call) => new URL(String(call[0])));
+    expect(Object.fromEntries(urls[0].searchParams)).toMatchObject({
+      kind: "PROJECT",
+      year: "2027",
+      quarter: "Q2",
+      name: "План",
+      strategic_goal: "Ціль",
+      manager_id: "manager-id",
+      priority_id: "priority-id",
+    });
+    expect(Object.fromEntries(urls[1].searchParams)).toMatchObject({
+      kind: "OPERATIONAL_TASK",
+      year: "2027",
+      quarter: "Q3",
+      ...filters,
+    });
+    expect(Object.fromEntries(urls[2].searchParams)).toEqual({
+      manager_id: "manager-id",
+      priority_id: "priority-id",
+    });
+    expect(Object.fromEntries(urls[3].searchParams)).toMatchObject({
+      year: "2027",
+      quarter: "Q2",
+      ...filters,
+    });
   });
 
   it("covers the login-create-edit-move-delete-logout smoke flow", async () => {

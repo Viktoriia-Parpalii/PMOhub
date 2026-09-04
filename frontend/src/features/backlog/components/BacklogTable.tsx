@@ -13,9 +13,11 @@ import {
 } from "../../../domain/health";
 import { getPriorityBadgeStyle } from "../../../domain/priority";
 import { isCompletedItem } from "../../../domain/initiatives";
-import { BacklogInitiative, BacklogTabKind } from "../backlogTypes";
-import { filterBacklogCards } from "../backlogFiltering";
-import type { BacklogCardFilters } from "../backlogFiltering";
+import {
+  BacklogInitiative,
+  BacklogTabKind,
+  type BacklogCardFilters,
+} from "../backlogTypes";
 import { useBacklogQuarterCardSummariesQuery } from "../../../api/hooks";
 import { toBacklogQuarterCardViewModel } from "../../../api/apiClient";
 import styles from "../BacklogTab.module.css";
@@ -271,7 +273,10 @@ const ExpandedPeriodCards = ({
   onOpenCard: (item: BacklogInitiative) => void;
   onOpenPreparation: (item: BacklogInitiative) => void;
 }) => {
-  const cardsQuery = useBacklogQuarterCardSummariesQuery(master.id);
+  const cardsQuery = useBacklogQuarterCardSummariesQuery(master.id, true, {
+    manager_id: filters.managerId || undefined,
+    priority_id: filters.priorityId || undefined,
+  });
   if (cardsQuery.isPending)
     return <div className={styles.accordionState}>Завантаження карток…</div>;
   if (cardsQuery.isError)
@@ -280,7 +285,7 @@ const ExpandedPeriodCards = ({
     );
 
   const allCards = (cardsQuery.data ?? []).map(toBacklogQuarterCardViewModel);
-  const cards = filterBacklogCards(allCards, { ...filters, quarter: "ALL" });
+  const cards = allCards;
   return (
     <div className={styles.periodCards}>
       {cards.length ? (

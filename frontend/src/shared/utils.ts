@@ -40,6 +40,21 @@ export const getAvailableYears = (
   return years;
 };
 
+export const getHistoricalAndPlanningYears = (
+  dataYears: number[],
+  currentYear: number,
+  futureYears = 3,
+): number[] => {
+  const historicalYears = dataYears.filter((year) => year < currentYear);
+  const planningYears = Array.from(
+    { length: futureYears + 1 },
+    (_, offset) => currentYear + offset,
+  );
+  return [...new Set([...historicalYears, ...planningYears])].sort(
+    (left, right) => left - right,
+  );
+};
+
 export const generatePassword = (length = 8): string => {
   const chars =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";

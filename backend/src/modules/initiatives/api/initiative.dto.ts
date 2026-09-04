@@ -1,4 +1,4 @@
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   IsArray,
   IsIn,
@@ -8,14 +8,95 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from "class-validator";
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsUniqueIdentifier } from "../../../common/validation/unique-identifier.decorator";
 
 export const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
 export type QuarterDto = (typeof QUARTERS)[number];
+
+const trimmed = ({ value }: { value: unknown }) =>
+  typeof value === "string" ? value.trim() : value;
+
+export class InitiativeListFiltersDto {
+  @ApiPropertyOptional({ maxLength: 200 })
+  @IsOptional()
+  @Transform(trimmed)
+  @IsString()
+  @MaxLength(200)
+  name?: string;
+
+  @ApiPropertyOptional({ maxLength: 500 })
+  @IsOptional()
+  @Transform(trimmed)
+  @IsString()
+  @MaxLength(500)
+  strategic_goal?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUniqueIdentifier()
+  manager_id?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUniqueIdentifier()
+  priority_id?: string;
+}
+
+export class InitiativeYearsQueryDto extends InitiativeListFiltersDto {
+  @ApiPropertyOptional({ enum: ["PROJECT", "OPERATIONAL_TASK"] })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.toUpperCase() : value,
+  )
+  @IsIn(["PROJECT", "OPERATIONAL_TASK"])
+  kind?: "PROJECT" | "OPERATIONAL_TASK";
+
+  @ApiPropertyOptional({ minimum: 2000, maximum: 2200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2200)
+  year?: number;
+
+  @ApiPropertyOptional({ enum: QUARTERS })
+  @IsOptional()
+  @IsIn(QUARTERS)
+  quarter?: QuarterDto;
+}
+
+export class QuarterCardsQueryDto extends InitiativeYearsQueryDto {}
+
+export class InitiativeYearCountsQueryDto extends InitiativeListFiltersDto {
+  @ApiProperty({ minimum: 2000, maximum: 2200 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2200)
+  year!: number;
+
+  @ApiPropertyOptional({ enum: QUARTERS })
+  @IsOptional()
+  @IsIn(QUARTERS)
+  quarter?: QuarterDto;
+}
+
+export class BacklogCardSummariesQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUniqueIdentifier()
+  manager_id?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUniqueIdentifier()
+  priority_id?: string;
+}
 
 export class PreparationInputDto {
   @IsOptional() @IsUniqueIdentifier() manager_id?: string;
@@ -311,6 +392,31 @@ export class InitiativeYearsResponseDto {
   @ApiProperty() message!: string;
   @ApiProperty({ type: [InitiativeYearReadModelDto] })
   data!: InitiativeYearReadModelDto[];
+}
+
+export class InitiativeAvailableYearsResponseDto {
+  @ApiProperty({ enum: [true] }) success!: true;
+  @ApiProperty() message!: string;
+  @ApiProperty({ type: [Number] }) data!: number[];
+}
+
+export class InitiativeYearCountDto {
+  @ApiProperty() filtered!: number;
+  @ApiProperty() total!: number;
+}
+
+export class InitiativeYearCountsDto {
+  @ApiProperty({ type: InitiativeYearCountDto })
+  projects!: InitiativeYearCountDto;
+  @ApiProperty({ type: InitiativeYearCountDto })
+  operational_tasks!: InitiativeYearCountDto;
+}
+
+export class InitiativeYearCountsResponseDto {
+  @ApiProperty({ enum: [true] }) success!: true;
+  @ApiProperty() message!: string;
+  @ApiProperty({ type: InitiativeYearCountsDto })
+  data!: InitiativeYearCountsDto;
 }
 
 export class QuarterCardResponseDto {

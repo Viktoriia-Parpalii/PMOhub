@@ -75,9 +75,11 @@ describe("ExportSection", () => {
   it("loads custom fields only after opening AI privacy settings", async () => {
     renderSection();
     await waitFor(() => expect(api.availability).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Обрано полів для AI")).not.toBeInTheDocument();
     expect(screen.queryByText("Конфіденційний коментар")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Налаштувати приватність/i }));
     expect(await screen.findByText("Конфіденційний коментар")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Знайти поле")).not.toBeInTheDocument();
     expect(api.availability).toHaveBeenCalledTimes(2);
   });
 

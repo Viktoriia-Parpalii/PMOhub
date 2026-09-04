@@ -1,7 +1,7 @@
 import { ProjectModal } from "./ProjectModal";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  getAvailableYears,
+  getHistoricalAndPlanningYears,
   truncateText,
   isPeriodLockedAtBusinessDate,
 } from "../../../shared/utils";
@@ -15,6 +15,12 @@ import {
   toQuarterCardViewModel,
 } from "../../../api/apiClient";
 import { AppLoader } from "../../../components/ui/AppLoader";
+import {
+  InitiativeListError,
+  InitiativeListSkeleton,
+} from "../../../components/ui/InitiativeListFeedback";
+import { useInitiativeListFilters } from "../../../shared/hooks/useInitiativeListFilters";
+import { useInitiativeAvailableYearsQuery } from "../../../api/hooks";
 
 export const ProjectsTab = () => {
   const {
@@ -30,6 +36,7 @@ export const ProjectsTab = () => {
     createBacklogWithCards,
     setInitiativeDataScope,
     businessPeriod,
+    initiativeListState,
   } = useAppContext();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,6 +49,16 @@ export const ProjectsTab = () => {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedQuarter, setSelectedQuarter] =
     useState<import("../../../shared/types").Quarter>(currentQuarter);
+  const availableYearsQuery = useInitiativeAvailableYearsQuery();
+  const availableYears = useMemo(
+    () =>
+      getHistoricalAndPlanningYears(
+        availableYearsQuery.data ?? [],
+        businessPeriod.year,
+      ),
+    [availableYearsQuery.data, businessPeriod.year],
+  );
+  const listFilters = useInitiativeListFilters();
   useEffect(() => {
     setSelectedYear(businessPeriod.year);
     setSelectedQuarter(businessPeriod.quarter);
@@ -51,8 +68,14 @@ export const ProjectsTab = () => {
       mode: "projects",
       year: selectedYear,
       quarter: selectedQuarter,
+      filters: listFilters.filters,
     });
-  }, [selectedQuarter, selectedYear, setInitiativeDataScope]);
+  }, [
+    listFilters.filters,
+    selectedQuarter,
+    selectedYear,
+    setInitiativeDataScope,
+  ]);
   const isArchive = isPeriodLockedAtBusinessDate(
     selectedYear,
     selectedQuarter,
@@ -60,40 +83,12 @@ export const ProjectsTab = () => {
   );
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
 
-  const [filterManager, setFilterManager] = useState<string>("");
-  const [filterPriority, setFilterPriority] = useState<string>("");
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [searchGoal, setSearchGoal] = useState<string>("");
-
   let portfolioProjects = projects.filter(
     (p) =>
       p.record_type === "CARD" &&
       p.year === selectedYear &&
       p.quarter === selectedQuarter,
   );
-  if (filterManager) {
-    portfolioProjects = portfolioProjects.filter(
-      (p) => p.manager_id === filterManager,
-    );
-  }
-  if (filterPriority) {
-    portfolioProjects = portfolioProjects.filter(
-      (p) => p.priority === filterPriority,
-    );
-  }
-  if (searchQuery) {
-    const q = searchQuery.toLowerCase();
-    portfolioProjects = portfolioProjects.filter((p) =>
-      p.name.toLowerCase().includes(q),
-    );
-  }
-  if (searchGoal) {
-    const q = searchGoal.toLowerCase();
-    portfolioProjects = portfolioProjects.filter((p) => {
-      return (p.strategic_goal ?? "").toLowerCase().includes(q);
-    });
-  }
-
   const userRolePerm = rolePermissions?.find(
     (rp) => rp.role === currentUser?.role,
   );
@@ -174,7 +169,7 @@ export const ProjectsTab = () => {
               onChange={(e) => setSelectedYear(Number(e.target.value))}
               className={styles.compactSelect}
             >
-              {getAvailableYears(3, 5, businessPeriod.year).map((y) => (
+              {availableYears.map((y) => (
                 <option key={y} value={y} title={String(y)}>
                   {truncateText(y, 70)}
                 </option>
@@ -218,20 +213,20 @@ export const ProjectsTab = () => {
           <input
             type="text"
             placeholder="Пошук за назвою..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={listFilters.name}
+            onChange={(e) => listFilters.setName(e.target.value)}
             className={styles.filterInput}
           />
           <input
             type="text"
             placeholder="Пошук за стратегічною задачею..."
-            value={searchGoal}
-            onChange={(e) => setSearchGoal(e.target.value)}
+            value={listFilters.strategicGoal}
+            onChange={(e) => listFilters.setStrategicGoal(e.target.value)}
             className={styles.filterInput}
           />
           <select
-            value={filterManager}
-            onChange={(e) => setFilterManager(e.target.value)}
+            value={listFilters.managerId}
+            onChange={(e) => listFilters.setManagerId(e.target.value)}
             className={styles.filterSelect}
           >
             <option value="">Всі менеджери</option>
@@ -242,8 +237,8 @@ export const ProjectsTab = () => {
             ))}
           </select>
           <select
-            value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value)}
+            value={listFilters.priorityId}
+            onChange={(e) => listFilters.setPriorityId(e.target.value)}
             className={`${styles.filterSelect} ${styles.priorityFilter}`}
           >
             <option value="">Всі пріоритети</option>
@@ -255,14 +250,9 @@ export const ProjectsTab = () => {
                 </option>
               ))}
           </select>
-          {(filterManager || filterPriority || searchQuery || searchGoal) && (
+          {listFilters.hasFilters && (
             <button
-              onClick={() => {
-                setFilterManager("");
-                setFilterPriority("");
-                setSearchQuery("");
-                setSearchGoal("");
-              }}
+              onClick={listFilters.reset}
               className={styles.resetButton}
             >
               Скинути
@@ -270,7 +260,11 @@ export const ProjectsTab = () => {
           )}
         </div>
       </div>
-      {portfolioProjects.length === 0 ? (
+      {initiativeListState.isFetching ? (
+        <InitiativeListSkeleton variant={viewMode} />
+      ) : initiativeListState.isError ? (
+        <InitiativeListError retry={initiativeListState.retry} />
+      ) : portfolioProjects.length === 0 ? (
         <div className={styles.emptyState}>
           <p className={styles.emptyText}>Портфель порожній.</p>
         </div>

@@ -1,6 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, Copy, Plus, Trash2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Copy,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useAppContext } from "../../../app/store";
 import {
   ChecklistItem,
@@ -17,6 +24,7 @@ import {
   qToNum,
 } from "../../../shared/utils";
 import {
+  getTaskWeightOptionLabel,
   makeWeightSnapshot,
   validateChecklistAssignments,
 } from "../../../domain/capacity";
@@ -31,6 +39,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../../../api/queryClient";
 import { notify } from "../../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../../shared/constants/notificationConstants";
+import { isCompletedItem } from "../../../domain/initiatives";
 
 type Initiative = InitiativeViewModel;
 type Kind = "project" | "task";
@@ -118,10 +127,7 @@ export const InitiativeCardModal = ({
     item && permissions?.canCreateEditInitiatives && !permissions.isReadOnly,
   );
   const hasCompletedScope = Boolean(
-    item?.checklist.some(
-      (scopeItem) =>
-        scopeItem.status_code === "GREEN" || scopeItem.color === "GREEN",
-    ),
+    item?.checklist.some(isCompletedItem),
   );
   const scopeWeightLocked = Boolean(
     item &&
@@ -171,6 +177,8 @@ export const InitiativeCardModal = ({
     initialMovePeriod.quarter,
   );
   const [movingId, setMovingId] = useState<string | null>(null);
+  const [showDiscardConfirmation, setShowDiscardConfirmation] =
+    useState(false);
   const [scopeTransferMode, setScopeTransferMode] = useState<"MOVE" | "COPY">(
     "MOVE",
   );
@@ -200,6 +208,10 @@ export const InitiativeCardModal = ({
       queryKey: ["initiative-years", kind],
       type: "active",
     });
+    await queryClient.invalidateQueries({
+      queryKey: ["backlog-card-summaries"],
+      refetchType: "active",
+    });
   };
   const executors = useMemo(
     () =>
@@ -220,6 +232,11 @@ export const InitiativeCardModal = ({
   const updateScope = (id: string, patch: Partial<ChecklistItem>) =>
     setChecklist((items) =>
       items.map((scope) => (scope.id === id ? { ...scope, ...patch } : scope)),
+    );
+  const notifyCompletedScopeAction = () =>
+    notify(
+      NOTIFICATION_KINDS.error,
+      SYSTEM_MESSAGES.initiatives.completedScopeActionDenied,
     );
   const setExecutor = (scope: ChecklistItem, id: string) => {
     const ids = scope.implementer_dept_ids ?? [];
@@ -253,20 +270,18 @@ export const InitiativeCardModal = ({
               kind === "project",
             )
         : moveCard(item.id, moveYear, moveQuarter, kind === "project");
-  const requestMove = async () => {
-    if (isPending || hasRevisionConflict || committedRefreshFailed) return;
-    if (!item) {
-      notify(
-        NOTIFICATION_KINDS.error,
-        SYSTEM_MESSAGES.initiatives.saveNewCardFirst,
-      );
-      return;
-    }
-    if (
-      hasUnsavedChanges &&
-      !window.confirm(SYSTEM_MESSAGES.initiatives.discardDraftForTransfer)
-    )
-      return;
+  const targetIsArchived = () =>
+    isPeriodLockedAtBusinessDate(
+      moveYear,
+      moveQuarter,
+      businessPeriod.business_date,
+    );
+  const notifyArchivedTransfer = () =>
+    notify(
+      NOTIFICATION_KINDS.error,
+      SYSTEM_MESSAGES.initiatives.archivedTransferDenied,
+    );
+  const executeMove = async () => {
     setIsPending(true);
     try {
       const result = await performMove();
@@ -280,8 +295,31 @@ export const InitiativeCardModal = ({
       setIsPending(false);
     }
   };
+  const requestMove = async () => {
+    if (isPending || hasRevisionConflict || committedRefreshFailed) return;
+    if (!item) {
+      notify(
+        NOTIFICATION_KINDS.error,
+        SYSTEM_MESSAGES.initiatives.saveNewCardFirst,
+      );
+      return;
+    }
+    if (targetIsArchived()) {
+      notifyArchivedTransfer();
+      return;
+    }
+    if (hasUnsavedChanges) {
+      setShowDiscardConfirmation(true);
+      return;
+    }
+    await executeMove();
+  };
   const requestContinuation = async () => {
     if (!item || isPending) return;
+    if (targetIsArchived()) {
+      notifyArchivedTransfer();
+      return;
+    }
     setIsPending(true);
     try {
       const result = await continueCard(
@@ -478,29 +516,8 @@ export const InitiativeCardModal = ({
     );
   };
   const movePanel = (scopeMove: boolean) => {
-    const current = businessPeriod;
-    const isContinuationPeriod = (
-      candidateYear: number,
-      candidateQuarter: Quarter,
-    ) => {
-      const candidate = candidateYear * 10 + qToNum(candidateQuarter);
-      return (
-        candidate >= current.year * 10 + qToNum(current.quarter) &&
-        candidate > year * 10 + qToNum(quarter)
-      );
-    };
-    const years = scopeMove
-      ? getValidYears(year, businessPeriod.year)
-      : getValidYears(undefined, businessPeriod.year).filter((candidateYear) =>
-          quarters.some((candidateQuarter) =>
-            isContinuationPeriod(candidateYear, candidateQuarter),
-          ),
-        );
-    const availableQuarters = scopeMove
-      ? quarters
-      : quarters.filter((candidateQuarter) =>
-          isContinuationPeriod(moveYear, candidateQuarter),
-        );
+    const years = getValidYears(year, businessPeriod.year);
+    const availableQuarters = quarters;
     return (
       <section className={`move-panel ${scopeMove ? "mt-3" : "mb-4"}`}>
         <h3>
@@ -523,18 +540,12 @@ export const InitiativeCardModal = ({
               onChange={(event) => {
                 const nextYear = Number(event.target.value);
                 setMoveYear(nextYear);
-                const firstQuarter = scopeMove
-                  ? moveQuarter
-                  : quarters.find((candidateQuarter) =>
-                      isContinuationPeriod(nextYear, candidateQuarter),
-                    );
-                if (firstQuarter) setMoveQuarter(firstQuarter);
               }}
               className="modal-field mt-1"
             >
               {years.map((value) => (
                 <option key={value} value={value}>
-                  {value} рік
+                  {value}
                 </option>
               ))}
             </select>
@@ -615,13 +626,14 @@ export const InitiativeCardModal = ({
                 <button
                   type="button"
                   onClick={requestDelete}
-                  disabled={isPending || hasCompletedScope}
+                  disabled={isPending}
+                  aria-disabled={hasCompletedScope}
                   title={
                     hasCompletedScope
                       ? SYSTEM_MESSAGES.initiatives.cardHasCompletedScope
                       : undefined
                   }
-                  className={`modal-secondary ${styles.headerAction} ${styles.deleteAction}`}
+                  className={`modal-secondary ${styles.headerAction} ${styles.deleteAction} ${hasCompletedScope ? styles.blockedAction : ""}`}
                 >
                   <Trash2 size={16} className="text-rose-500" />
                   Видалити з кварталу
@@ -657,13 +669,14 @@ export const InitiativeCardModal = ({
                 <button
                   type="button"
                   onClick={requestDelete}
-                  disabled={isPending || hasCompletedScope}
+                  disabled={isPending}
+                  aria-disabled={hasCompletedScope}
                   title={
                     hasCompletedScope
                       ? SYSTEM_MESSAGES.initiatives.cardHasCompletedScope
                       : undefined
                   }
-                  className={`modal-secondary ${styles.mobileAction}`}
+                  className={`modal-secondary ${styles.mobileAction} ${hasCompletedScope ? styles.blockedAction : ""}`}
                 >
                   <Trash2 size={15} className="text-rose-500" />
                   Видалити з кварталу
@@ -883,7 +896,7 @@ export const InitiativeCardModal = ({
                             .filter((weight) => weight.is_active)
                             .map((weight) => (
                               <option key={weight.id} value={weight.id}>
-                                {weight.name} ({weight.weight})
+                                {getTaskWeightOptionLabel(scope, weight)}
                               </option>
                             ))}
                         </select>
@@ -935,14 +948,23 @@ export const InitiativeCardModal = ({
                         {item && !isReadOnly && (
                           <button
                             type="button"
-                            title="Перенести завдання"
-                            disabled={scope.color === "GREEN"}
+                            title={
+                              isCompletedItem(scope)
+                                ? SYSTEM_MESSAGES.initiatives
+                                    .completedScopeActionDenied
+                                : "Перенести завдання"
+                            }
+                            aria-disabled={isCompletedItem(scope)}
                             onClick={() => {
+                              if (isCompletedItem(scope)) {
+                                notifyCompletedScopeAction();
+                                return;
+                              }
                               setMovingId(scope.id);
                               setScopeTransferMode("MOVE");
                               setShowMove(true);
                             }}
-                            className="icon-action shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+                            className={`icon-action shrink-0 ${isCompletedItem(scope) ? styles.blockedIconAction : ""}`}
                           >
                             <ArrowRight size={17} />
                           </button>
@@ -950,14 +972,23 @@ export const InitiativeCardModal = ({
                         {canCopyScope && (
                           <button
                             type="button"
-                            title="Копіювати завдання"
-                            disabled={scope.color === "GREEN"}
+                            title={
+                              isCompletedItem(scope)
+                                ? SYSTEM_MESSAGES.initiatives
+                                    .completedScopeActionDenied
+                                : "Копіювати завдання"
+                            }
+                            aria-disabled={isCompletedItem(scope)}
                             onClick={() => {
+                              if (isCompletedItem(scope)) {
+                                notifyCompletedScopeAction();
+                                return;
+                              }
                               setMovingId(scope.id);
                               setScopeTransferMode("COPY");
                               setShowMove(true);
                             }}
-                            className="icon-action shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+                            className={`icon-action shrink-0 ${isCompletedItem(scope) ? styles.blockedIconAction : ""}`}
                           >
                             <Copy size={16} />
                           </button>
@@ -965,15 +996,25 @@ export const InitiativeCardModal = ({
                         {!isReadOnly && !scopeWeightLocked && (
                           <button
                             type="button"
-                            title="Видалити завдання"
-                            onClick={() =>
+                            title={
+                              isCompletedItem(scope)
+                                ? SYSTEM_MESSAGES.initiatives
+                                    .completedScopeActionDenied
+                                : "Видалити завдання"
+                            }
+                            aria-disabled={isCompletedItem(scope)}
+                            onClick={() => {
+                              if (isCompletedItem(scope)) {
+                                notifyCompletedScopeAction();
+                                return;
+                              }
                               setChecklist((items) =>
                                 items.filter(
                                   (candidate) => candidate.id !== scope.id,
                                 ),
-                              )
-                            }
-                            className="icon-action shrink-0 text-slate-400 hover:text-rose-500"
+                              );
+                            }}
+                            className={`icon-action shrink-0 ${isCompletedItem(scope) ? styles.blockedIconAction : "text-slate-400 hover:text-rose-500"}`}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -1103,6 +1144,56 @@ export const InitiativeCardModal = ({
           )}
         </footer>
       </div>
+      {showDiscardConfirmation && (
+        <div className={styles.confirmationBackdrop}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="discard-changes-title"
+            aria-describedby="discard-changes-description"
+            className={styles.confirmationDialog}
+          >
+            <div className={styles.confirmationHeader}>
+              <span className={styles.confirmationIcon} aria-hidden="true">
+                <AlertTriangle size={22} />
+              </span>
+              <div>
+                <h3
+                  id="discard-changes-title"
+                  className={styles.confirmationTitle}
+                >
+                  Відкинути незбережені зміни?
+                </h3>
+                <p
+                  id="discard-changes-description"
+                  className={styles.confirmationText}
+                >
+                  {SYSTEM_MESSAGES.initiatives.discardDraftForTransfer}
+                </p>
+              </div>
+            </div>
+            <div className={styles.confirmationActions}>
+              <button
+                type="button"
+                onClick={() => setShowDiscardConfirmation(false)}
+                className={styles.confirmationCancel}
+              >
+                Залишитися
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiscardConfirmation(false);
+                  void executeMove();
+                }}
+                className={styles.confirmationConfirm}
+              >
+                Відкинути та продовжити
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>,
     document.body,
   );

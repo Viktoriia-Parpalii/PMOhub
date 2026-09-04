@@ -8,12 +8,13 @@ import {
   materializeBacklogYear,
 } from "../../domain/initiatives";
 import { isPeriodLockedAtBusinessDate } from "../../shared/utils";
+import { getHistoricalAndPlanningYears } from "../../shared/utils";
 import { BacklogModal } from "./components/BacklogModal";
 import { PreparationStageModal } from "./components/PreparationStageModal";
 import { InitiativeCardModal } from "../initiatives/components/InitiativeCardModal";
 import { BacklogHeader } from "./components/BacklogHeader";
 import { BacklogTabs } from "./components/BacklogTabs";
-import { ArchiveBanner, BacklogNotice } from "./components/BacklogFeedback";
+import { ArchiveBanner } from "./components/BacklogFeedback";
 import { BacklogFilters } from "./components/BacklogFilters";
 import { BacklogTable } from "./components/BacklogTable";
 import { BacklogDeleteDialog } from "./components/BacklogDeleteDialog";
@@ -29,8 +30,17 @@ import {
   loadInitiativeCardModel,
   toQuarterCardViewModel,
 } from "../../api/apiClient";
-import { useInitiativeYearCountsQuery } from "../../api/hooks";
-import { matchesBacklogDimensions } from "./backlogFiltering";
+import {
+  useInitiativeAvailableYearsQuery,
+  useInitiativeYearCountsQuery,
+} from "../../api/hooks";
+import { useInitiativeListFilters } from "../../shared/hooks/useInitiativeListFilters";
+import {
+  InitiativeListError,
+  InitiativeListSkeleton,
+} from "../../components/ui/InitiativeListFeedback";
+import { notify } from "../../components/ui/ToastNotifications";
+import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
 
 const quarters: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 
@@ -53,34 +63,49 @@ export const BacklogTab = () => {
     createBacklogSnapshots,
     setInitiativeDataScope,
     businessPeriod,
+    initiativeListState,
   } = useAppContext();
   const [activeTab, setActiveTab] = useState<Tab>("PROJECTS");
   const [selectedYear, setSelectedYear] = useState(businessPeriod.year);
   useEffect(() => {
     setSelectedYear(businessPeriod.year);
   }, [businessPeriod.year]);
-  const countsQuery = useInitiativeYearCountsQuery(selectedYear);
+  const [quarterFilter, setQuarterFilter] = useState<QuarterFilter>("ALL");
+  const availableYearsQuery = useInitiativeAvailableYearsQuery();
+  const backlogYears = useMemo(
+    () =>
+      getHistoricalAndPlanningYears(
+        availableYearsQuery.data ?? [],
+        businessPeriod.year,
+      ),
+    [availableYearsQuery.data, businessPeriod.year],
+  );
+  const listFilters = useInitiativeListFilters();
+  const serverFilters = useMemo(
+    () => ({
+      ...listFilters.filters,
+      quarter: quarterFilter === "ALL" ? undefined : quarterFilter,
+    }),
+    [listFilters.filters, quarterFilter],
+  );
+  const countsQuery = useInitiativeYearCountsQuery(
+    selectedYear,
+    true,
+    serverFilters,
+  );
   useEffect(() => {
     setInitiativeDataScope({
       mode: "backlog",
       kind: activeTab === "PROJECTS" ? "project" : "task",
       year: selectedYear,
+      filters: serverFilters,
     });
-  }, [activeTab, selectedYear, setInitiativeDataScope]);
-  const [quarterFilter, setQuarterFilter] = useState<QuarterFilter>("ALL");
-  const [nameSearch, setNameSearch] = useState("");
-  const [goalSearch, setGoalSearch] = useState("");
-  const [managerFilter, setManagerFilter] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("");
+  }, [activeTab, selectedYear, serverFilters, setInitiativeDataScope]);
   const [editingItem, setEditingItem] = useState<Initiative | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isSelectingForExtension, setIsSelectingForExtension] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [notice, setNotice] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
   const [preparationItem, setPreparationItem] = useState<Initiative | null>(
     null,
   );
@@ -92,13 +117,12 @@ export const BacklogTab = () => {
       const response = await loadInitiativeCardModel(card.id);
       setEditingCard(toQuarterCardViewModel(response.data));
     } catch (error) {
-      setNotice({
-        type: "error",
-        message:
-          error instanceof ApiError
-            ? error.message
-            : SYSTEM_MESSAGES.api.genericError,
-      });
+      notify(
+        NOTIFICATION_KINDS.error,
+        error instanceof ApiError
+          ? error.message
+          : SYSTEM_MESSAGES.api.genericError,
+      );
     }
   };
 
@@ -135,11 +159,15 @@ export const BacklogTab = () => {
     [records, selectedYear, currentUser],
   );
   const projectCount =
-    countsQuery.data?.projects ??
-    (activeTab === "PROJECTS" ? allMasters.length : 0);
+    countsQuery.data?.projects ?? {
+      filtered: activeTab === "PROJECTS" ? allMasters.length : 0,
+      total: activeTab === "PROJECTS" ? allMasters.length : 0,
+    };
   const taskCount =
-    countsQuery.data?.operational_tasks ??
-    (activeTab === "TASKS" ? allMasters.length : 0);
+    countsQuery.data?.operational_tasks ?? {
+      filtered: activeTab === "TASKS" ? allMasters.length : 0,
+      total: activeTab === "TASKS" ? allMasters.length : 0,
+    };
 
   const cardsByMaster = useMemo(() => {
     const grouped = new Map<string, Initiative[]>();
@@ -159,8 +187,8 @@ export const BacklogTab = () => {
 
   const cardFilters = {
     quarter: quarterFilter,
-    managerId: managerFilter,
-    priorityId: priorityFilter,
+    managerId: listFilters.managerId,
+    priorityId: listFilters.priorityId,
   };
   const cardsFor = (masterId: string) => cardsByMaster.get(masterId) ?? [];
   const highlightedQuarter =
@@ -170,32 +198,7 @@ export const BacklogTab = () => {
         ? currentPeriod.quarter
         : undefined;
 
-  const masters = useMemo(
-    () =>
-      allMasters.filter((record) => {
-        const nameQuery = nameSearch.trim().toLowerCase();
-        const goalQuery = goalSearch.trim().toLowerCase();
-        return (
-          (!nameQuery || record.name.toLowerCase().includes(nameQuery)) &&
-          (!goalQuery ||
-            (record.strategic_goal ?? "").toLowerCase().includes(goalQuery)) &&
-          matchesBacklogDimensions(
-            record,
-            cardsByMaster.get(record.id) ?? [],
-            cardFilters,
-          )
-        );
-      }),
-    [
-      allMasters,
-      cardsByMaster,
-      nameSearch,
-      goalSearch,
-      quarterFilter,
-      managerFilter,
-      priorityFilter,
-    ],
-  );
+  const masters = allMasters;
 
   const eligibleIds = useMemo(
     () =>
@@ -228,13 +231,11 @@ export const BacklogTab = () => {
     setActiveTab(tab);
     setExpandedId(null);
     cancelExtensionSelection();
-    setNotice(null);
   };
   const changeYear = (year: number) => {
     setSelectedYear(year);
     setExpandedId(null);
     cancelExtensionSelection();
-    setNotice(null);
   };
   const toggleSelected = (id: string) =>
     setSelectedIds((current) =>
@@ -259,14 +260,7 @@ export const BacklogTab = () => {
         selectedYear,
         targetYear,
       );
-      if (!result.success) {
-        setNotice({ type: "error", message: result.message });
-        return;
-      }
-      setNotice({
-        type: "success",
-        message: `${result.data?.created ?? selectedIds.length} ініціатив продовжено на ${targetYear} рік.`,
-      });
+      if (!result.success) return;
       cancelExtensionSelection();
     } finally {
       pendingCommands.current.delete(commandKey);
@@ -276,10 +270,10 @@ export const BacklogTab = () => {
     const commandKey = `quarter-${master.id}-${selectedYear}-${quarter}`;
     if (pendingCommands.current.has(commandKey)) return;
     if (isPastQuarter(quarter)) {
-      setNotice({
-        type: "error",
-        message: SYSTEM_MESSAGES.initiatives.cardCreationPeriodRestricted,
-      });
+      notify(
+        NOTIFICATION_KINDS.error,
+        SYSTEM_MESSAGES.initiatives.cardCreationPeriodRestricted,
+      );
       return;
     }
     pendingCommands.current.add(commandKey);
@@ -288,11 +282,9 @@ export const BacklogTab = () => {
         (card) => card.year === selectedYear && card.quarter === quarter,
       );
       if (existing) {
-        const result = await (activeTab === "PROJECTS"
+        await (activeTab === "PROJECTS"
           ? deleteProject(existing.id)
           : deleteTask(existing.id));
-        if (!result.success)
-          setNotice({ type: "error", message: result.message });
         return;
       }
       const card = {
@@ -310,18 +302,16 @@ export const BacklogTab = () => {
       const result = await (activeTab === "PROJECTS"
         ? addProject(card as InitiativeViewModel)
         : addTask(card as InitiativeViewModel));
-      if (!result.success)
-        setNotice({ type: "error", message: result.message });
+      if (!result.success) return;
     } finally {
       pendingCommands.current.delete(commandKey);
     }
   };
   const removeMaster = async () => {
     if (!masterToDelete) return;
-    const result = await (activeTab === "PROJECTS"
+    await (activeTab === "PROJECTS"
       ? deleteProject(masterToDelete.id)
       : deleteTask(masterToDelete.id));
-    if (!result.success) setNotice({ type: "error", message: result.message });
     setMasterToDelete(null);
   };
 
@@ -329,6 +319,7 @@ export const BacklogTab = () => {
     <div className={`backlog-page ${styles.page}`}>
       <BacklogHeader
         selectedYear={selectedYear}
+        years={backlogYears}
         quarterFilter={quarterFilter}
         isSelectingForExtension={isSelectingForExtension}
         selectedCount={selectedIds.length}
@@ -341,7 +332,6 @@ export const BacklogTab = () => {
         onStartExtension={() => {
           setIsSelectingForExtension(true);
           setSelectedIds([]);
-          setNotice(null);
         }}
         onConfirmExtension={confirmExtension}
         onCancelExtension={cancelExtensionSelection}
@@ -355,12 +345,10 @@ export const BacklogTab = () => {
         activeTab={activeTab}
         projectCount={projectCount}
         taskCount={taskCount}
+        countsLoading={countsQuery.isFetching}
         onChange={changeTab}
       />
 
-      {notice && (
-        <BacklogNotice notice={notice} onClose={() => setNotice(null)} />
-      )}
       {archive && (
         <ArchiveBanner
           year={selectedYear}
@@ -371,18 +359,28 @@ export const BacklogTab = () => {
 
       <section className={styles.dataSection}>
         <BacklogFilters
-          nameSearch={nameSearch}
-          goalSearch={goalSearch}
-          managerFilter={managerFilter}
-          priorityFilter={priorityFilter}
+          nameSearch={listFilters.name}
+          goalSearch={listFilters.strategicGoal}
+          managerFilter={listFilters.managerId}
+          priorityFilter={listFilters.priorityId}
           managers={managers}
           priorities={priorities}
-          onNameSearch={setNameSearch}
-          onGoalSearch={setGoalSearch}
-          onManagerFilter={setManagerFilter}
-          onPriorityFilter={setPriorityFilter}
+          onNameSearch={listFilters.setName}
+          onGoalSearch={listFilters.setStrategicGoal}
+          onManagerFilter={listFilters.setManagerId}
+          onPriorityFilter={listFilters.setPriorityId}
+          hasFilters={listFilters.hasFilters || quarterFilter !== "ALL"}
+          onReset={() => {
+            listFilters.reset();
+            setQuarterFilter("ALL");
+          }}
         />
-        <BacklogTable
+        {initiativeListState.isFetching ? (
+          <InitiativeListSkeleton variant="backlog" />
+        ) : initiativeListState.isError ? (
+          <InitiativeListError retry={initiativeListState.retry} />
+        ) : (
+          <BacklogTable
           activeTab={activeTab}
           masters={masters}
           selectedYear={selectedYear}
@@ -417,7 +415,8 @@ export const BacklogTab = () => {
             void openCard(card);
           }}
           onOpenPreparation={setPreparationItem}
-        />
+          />
+        )}
       </section>
 
       {isModalOpen && (
@@ -449,7 +448,6 @@ export const BacklogTab = () => {
               ? updateProject(item.id, item)
               : updateTask(item.id, item));
             if (!result.success) {
-              setNotice({ type: "error", message: result.message });
               return result;
             }
             setEditingCard(null);
@@ -460,7 +458,6 @@ export const BacklogTab = () => {
               ? deleteProject(id)
               : deleteTask(id));
             if (!result.success) {
-              setNotice({ type: "error", message: result.message });
               return;
             }
             setEditingCard(null);

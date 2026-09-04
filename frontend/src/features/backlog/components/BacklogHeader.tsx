@@ -1,6 +1,5 @@
 import { Plus } from "lucide-react";
 import { Quarter } from "../../../shared/types";
-import { getAvailableYears } from "../../../shared/utils";
 import { QuarterFilter } from "../backlogTypes";
 import styles from "../BacklogTab.module.css";
 
@@ -8,6 +7,7 @@ const quarters: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 
 interface BacklogHeaderProps {
   selectedYear: number;
+  years: number[];
   quarterFilter: QuarterFilter;
   isSelectingForExtension: boolean;
   selectedCount: number;
@@ -25,6 +25,7 @@ interface BacklogHeaderProps {
 
 export const BacklogHeader = ({
   selectedYear,
+  years,
   quarterFilter,
   isSelectingForExtension,
   selectedCount,
@@ -51,9 +52,9 @@ export const BacklogHeader = ({
           onChange={(event) => onYearChange(Number(event.target.value))}
           className={styles.yearSelect}
         >
-          {getAvailableYears().map((year) => (
+          {years.map((year) => (
             <option key={year} value={year}>
-              {year} рік
+              {year}
             </option>
           ))}
         </select>

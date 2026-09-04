@@ -48,7 +48,11 @@ export const RbacSection = () => {
     [rolePermissions],
   );
   const roleLabel = (role: (typeof rolePermissions)[number]) =>
-    role.roleName ? `${role.roleName} (${role.role})` : role.role;
+    role.roleName || role.role;
+  const roleNameByCode = (code: UserRole) => {
+    const role = rolePermissions.find((candidate) => candidate.role === code);
+    return role ? roleLabel(role) : code;
+  };
 
   useEffect(() => {
     if (
@@ -229,13 +233,13 @@ export const RbacSection = () => {
         </div>
 
         <div className={styles.tableWrap}>
-          <table className={styles.table}>
+          <table className={`${styles.table} ${styles.usersTable}`}>
             <thead>
               <tr>
                 <th>ПІБ</th>
                 <th>Електронна адреса</th>
                 <th>Департамент</th>
-                <th>Роль</th>
+                <th className={styles.userRoleColumn}>Роль</th>
                 <th className={styles.headerRight}></th>
               </tr>
             </thead>
@@ -248,9 +252,10 @@ export const RbacSection = () => {
                     {departments.find((d) => d.id === user.departmentId)
                       ?.name || "—"}
                   </td>
-                  <td className={styles.tableCell}>
+                  <td className={`${styles.tableCell} ${styles.userRoleColumn}`}>
                     <select
                       value={user.role}
+                      title={roleNameByCode(user.role)}
                       onChange={(e) =>
                         updateUser(user.id, {
                           role: e.target.value as UserRole,

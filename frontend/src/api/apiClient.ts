@@ -3,6 +3,8 @@ import {
   ReferenceDataState,
   InitiativeYearReadModel,
   InitiativeViewModel,
+  InitiativeListFilters,
+  BacklogCounts,
   QuarterCardReadModel,
   BacklogQuarterCardSummary,
   User,
@@ -259,18 +261,48 @@ export const loadPermissions = (signal?: AbortSignal) =>
   ).then((response) => response.data);
 const wireKind = (kind: "project" | "task") =>
   kind === "project" ? "PROJECT" : "OPERATIONAL_TASK";
+
+const initiativeListParams = (
+  kind: "project" | "task" | undefined,
+  year: number | undefined,
+  filters: InitiativeListFilters = {},
+) => {
+  const params = new URLSearchParams();
+  if (kind) params.set("kind", wireKind(kind));
+  if (year) params.set("year", String(year));
+  if (filters.quarter) params.set("quarter", filters.quarter);
+  const name = filters.name?.trim();
+  const strategicGoal = filters.strategic_goal?.trim();
+  if (name) params.set("name", name);
+  if (strategicGoal) params.set("strategic_goal", strategicGoal);
+  if (filters.manager_id) params.set("manager_id", filters.manager_id);
+  if (filters.priority_id) params.set("priority_id", filters.priority_id);
+  return params.toString();
+};
+const withQuery = (path: string, query: string) =>
+  query ? `${path}?${query}` : path;
+
 export const loadInitiativeYears = (
   kind: "project" | "task",
   signal?: AbortSignal,
   year?: number,
+  filters: InitiativeListFilters = {},
 ) =>
   apiRequest<ApiResponse<InitiativeYearReadModel[]>>(
-    `/initiative-years?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}`,
+    `/initiative-years?${initiativeListParams(kind, year, filters)}`,
     { signal },
   ).then((response) => response.data);
-export const loadInitiativeYearCounts = (year: number, signal?: AbortSignal) =>
-  apiRequest<ApiResponse<{ projects: number; operational_tasks: number }>>(
-    `/initiative-years/counts?year=${year}`,
+export const loadInitiativeAvailableYears = (signal?: AbortSignal) =>
+  apiRequest<ApiResponse<number[]>>("/initiative-years/available-years", {
+    signal,
+  }).then((response) => response.data);
+export const loadInitiativeYearCounts = (
+  year: number,
+  signal?: AbortSignal,
+  filters: InitiativeListFilters = {},
+) =>
+  apiRequest<ApiResponse<BacklogCounts>>(
+    `/initiative-years/counts?${initiativeListParams(undefined, year, filters)}`,
     { signal },
   ).then((response) => response.data);
 export const loadQuarterCards = (
@@ -278,17 +310,25 @@ export const loadQuarterCards = (
   signal?: AbortSignal,
   year?: number,
   quarter?: string,
+  filters: InitiativeListFilters = {},
 ) =>
   apiRequest<ApiResponse<QuarterCardReadModel[]>>(
-    `/quarter-cards?kind=${wireKind(kind)}${year ? `&year=${year}` : ""}${quarter ? `&quarter=${quarter}` : ""}`,
+    `/quarter-cards?${initiativeListParams(kind, year, {
+      ...filters,
+      quarter: quarter as InitiativeListFilters["quarter"],
+    })}`,
     { signal },
   ).then((response) => response.data);
 export const loadBacklogQuarterCardSummaries = (
   initiativeYearId: string,
   signal?: AbortSignal,
+  filters: Pick<InitiativeListFilters, "manager_id" | "priority_id"> = {},
 ) =>
   apiRequest<ApiResponse<BacklogQuarterCardSummary[]>>(
-    `/quarter-cards/backlog-summaries/${initiativeYearId}`,
+    withQuery(
+      `/quarter-cards/backlog-summaries/${initiativeYearId}`,
+      initiativeListParams(undefined, undefined, filters),
+    ),
     { signal },
   ).then((response) => response.data);
 export const loadAnalytics = (

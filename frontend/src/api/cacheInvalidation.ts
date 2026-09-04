@@ -17,6 +17,10 @@ export async function invalidateInitiativeCaches(
       refetchType: "none",
     }),
     client.invalidateQueries({
+      queryKey: ["initiative-years", "available-years"],
+      refetchType: "none",
+    }),
+    client.invalidateQueries({
       queryKey: ["initiative-years", "counts"],
       refetchType: "none",
     }),
@@ -33,6 +37,10 @@ export async function invalidateInitiativeCaches(
   await Promise.all([
     client.refetchQueries({
       queryKey: ["initiative-years", kind],
+      type: "active",
+    }),
+    client.refetchQueries({
+      queryKey: ["initiative-years", "available-years"],
       type: "active",
     }),
     client.refetchQueries({

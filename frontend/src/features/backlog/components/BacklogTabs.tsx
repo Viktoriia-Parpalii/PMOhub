@@ -1,11 +1,13 @@
 import { ClipboardList, FolderOpen } from "lucide-react";
 import { BacklogTabKind } from "../backlogTypes";
+import type { BacklogCounts } from "../../../shared/types";
 import styles from "../BacklogTab.module.css";
 
 interface BacklogTabsProps {
   activeTab: BacklogTabKind;
-  projectCount: number;
-  taskCount: number;
+  projectCount: BacklogCounts["projects"];
+  taskCount: BacklogCounts["operational_tasks"];
+  countsLoading?: boolean;
   onChange: (tab: BacklogTabKind) => void;
 }
 
@@ -13,6 +15,7 @@ export const BacklogTabs = ({
   activeTab,
   projectCount,
   taskCount,
+  countsLoading = false,
   onChange,
 }: BacklogTabsProps) => (
   <section>
@@ -30,7 +33,7 @@ export const BacklogTabs = ({
               : styles.tabIconInactive
           }
         />
-        Проєкти ({projectCount})
+        Проєкти ({countsLoading ? "… / …" : `${projectCount.filtered} / ${projectCount.total}`})
       </button>
       <button
         type="button"
@@ -45,7 +48,7 @@ export const BacklogTabs = ({
               : styles.tabIconInactive
           }
         />
-        Операційні задачі ({taskCount})
+        Операційні задачі ({countsLoading ? "… / …" : `${taskCount.filtered} / ${taskCount.total}`})
       </button>
     </div>
   </section>
