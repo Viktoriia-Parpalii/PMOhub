@@ -37,6 +37,7 @@ describe("InitiativeQueryService backlog summaries", () => {
       strategic_goal: "  ефективність ",
       manager_id: "manager-1",
       priority_id: "priority-1",
+      status_id: "status-1",
     });
 
     expect(findMany).toHaveBeenCalledWith(
@@ -45,6 +46,7 @@ describe("InitiativeQueryService backlog summaries", () => {
           quarter: 2,
           managerId: "manager-1",
           priorityId: "priority-1",
+          statusId: "status-1",
           initiativeYear: {
             year: 2026,
             strategicGoal: { contains: "ефективність" },

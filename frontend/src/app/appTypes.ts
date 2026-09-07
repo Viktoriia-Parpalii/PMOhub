@@ -6,4 +6,5 @@ export type NavigationItem = {
   id: AppTabId;
   label: string;
   icon: ReactNode;
+  href: string;
 };

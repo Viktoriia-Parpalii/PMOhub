@@ -31,6 +31,7 @@ export const TasksTab = () => {
     departments,
     managers,
     priorities,
+    initiativeStatuses,
     deleteTask,
     rolePermissions,
     createBacklogWithCards,
@@ -250,6 +251,19 @@ export const TasksTab = () => {
                   {priority.name}
                 </option>
               ))}
+          </select>
+          <select
+            value={listFilters.statusId}
+            onChange={(e) => listFilters.setStatusId(e.target.value)}
+            className={styles.filterSelect}
+            aria-label="Фільтр за статусом ініціативи"
+          >
+            <option value="">Всі статуси</option>
+            {(initiativeStatuses || []).map((status) => (
+              <option key={status.id} value={status.id}>
+                {status.name}
+              </option>
+            ))}
           </select>
           {listFilters.hasFilters && (
             <button

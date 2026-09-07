@@ -10,6 +10,10 @@ import {
   DictionaryDeleteButton,
   DictionaryStatusBadge,
 } from "./DictionaryControls";
+import {
+  DictionaryTitle,
+  ReferenceActionsExplanation,
+} from "./DictionaryInfoTooltip";
 
 export type ProtectedDelete = (
   title: string,
@@ -45,7 +49,12 @@ export const DepartmentsSection = ({
   return (
     <section>
       <div className={styles.sectionHeader}>
-        <h3 className={styles.sectionTitle}>Відділи</h3>
+        <DictionaryTitle title="Відділи">
+          Ліміт відділу використовується для розрахунку доступного резерву та
+          перевантаження за сумою ваги завдань, призначених цьому відділу.
+          <br />
+          <ReferenceActionsExplanation />
+        </DictionaryTitle>
         <div className={styles.toolbar}>
           <input
             value={name}

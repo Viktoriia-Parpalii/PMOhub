@@ -1,3 +1,4 @@
+import { MouseEvent } from "react";
 import { X } from "lucide-react";
 import { User } from "../../shared/types";
 import { AppTabId, NavigationItem } from "../appTypes";
@@ -66,15 +67,27 @@ export const AppSidebar = ({
     </div>
     <nav className={styles.navigation}>
       {tabs.map((tab) => (
-        <button
+        <a
           key={tab.id}
-          type="button"
-          onClick={() => onSelectTab(tab.id)}
+          href={tab.href}
+          aria-current={activeTab === tab.id ? "page" : undefined}
+          onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+            if (
+              event.button !== 0 ||
+              event.ctrlKey ||
+              event.metaKey ||
+              event.shiftKey ||
+              event.altKey
+            )
+              return;
+            event.preventDefault();
+            onSelectTab(tab.id);
+          }}
           className={`${styles.navigationButton} ${activeTab === tab.id ? styles.navigationButtonActive : styles.navigationButtonInactive}`}
         >
           {tab.icon}
           <span>{tab.label}</span>
-        </button>
+        </a>
       ))}
     </nav>
     <div className={styles.profileArea}>

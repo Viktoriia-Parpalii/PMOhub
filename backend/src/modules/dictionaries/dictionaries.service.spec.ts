@@ -60,4 +60,45 @@ describe("DictionariesService bulk commands", () => {
     expect(prisma.$transaction).toHaveBeenCalledOnce();
     expect(result).toMatchObject({ success: true, data: { cards: 0, tasks: 0 } });
   });
+
+  it("deactivates a used non-system weight instead of deleting referenced data", async () => {
+    const update = vi.fn(async () => ({}));
+    const remove = vi.fn(async () => ({}));
+    const tx = {
+      taskWeight: { update, delete: remove },
+      auditEvent: { create: vi.fn(async () => ({})) },
+    };
+    const prisma = {
+      rolePermission: {
+        findUnique: vi.fn(async () => ({
+          canAccessAdmin: true,
+          isReadOnly: false,
+          roleDefinition: { isActive: true },
+        })),
+      },
+      taskWeight: { findUnique: vi.fn(async () => ({ isSystem: false })) },
+      scopeItem: { count: vi.fn(async () => 1) },
+      $transaction: vi.fn(async (callback: (client: unknown) => unknown) =>
+        callback(tx),
+      ),
+    };
+    const service = new DictionariesService(
+      prisma as any,
+      { get: () => "Europe/Kyiv" } as any,
+    );
+
+    await service.remove("weights", "weight-id", {
+      id: "admin",
+      name: "Admin",
+      email: "admin@example.com",
+      role: "SUPER_ADMIN",
+      must_change_password: false,
+    });
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "weight-id" },
+      data: { isActive: false },
+    });
+    expect(remove).not.toHaveBeenCalled();
+  });
 });

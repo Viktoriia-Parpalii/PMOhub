@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Archive,
   CheckSquare,
@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useAppContext } from "./store";
 import { AppTabId, NavigationItem } from "./appTypes";
-import { dataScopeForTab } from "./appNavigation";
+import { dataScopeForTab, hrefForTab, tabFromPath } from "./appNavigation";
 import { AppSidebar } from "./components/AppSidebar";
 import { AppContentArea } from "./components/AppContentArea";
 import { MobileHeader } from "./components/MobileHeader";
@@ -41,6 +41,11 @@ export const AppContent = () => {
     setInitiativeDataScope,
   } = useAppContext();
   const [activeTab, setActiveTab] = useState<AppTabId>(() => {
+    const routeTab = tabFromPath(
+      window.location.pathname,
+      import.meta.env.BASE_URL,
+    );
+    if (routeTab) return routeTab;
     const saved = window.sessionStorage.getItem("pmohub-active-tab");
     return (
       ["dashboard", "projects", "tasks", "backlog", "admin"] as AppTabId[]
@@ -51,6 +56,19 @@ export const AppContent = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  useEffect(() => {
+    const handleBrowserNavigation = () => {
+      const tab =
+        tabFromPath(window.location.pathname, import.meta.env.BASE_URL) ??
+        "dashboard";
+      setInitiativeDataScope(dataScopeForTab(tab));
+      setActiveTab(tab);
+      window.sessionStorage.setItem("pmohub-active-tab", tab);
+      setIsMobileMenuOpen(false);
+    };
+    window.addEventListener("popstate", handleBrowserNavigation);
+    return () => window.removeEventListener("popstate", handleBrowserNavigation);
+  }, [setInitiativeDataScope]);
   if (isHydrating) return <AppLoader label="Відновлення сесії…" fullPage />;
   if (!currentUser) return <Login />;
   if (currentUser.must_change_password) {
@@ -74,20 +92,33 @@ export const AppContent = () => {
       id: "dashboard",
       label: "Аналітика",
       icon: <LayoutDashboard size={20} />,
+      href: hrefForTab("dashboard", import.meta.env.BASE_URL),
     },
-    { id: "projects", label: "Проєкти", icon: <FolderKanban size={20} /> },
+    {
+      id: "projects",
+      label: "Проєкти",
+      icon: <FolderKanban size={20} />,
+      href: hrefForTab("projects", import.meta.env.BASE_URL),
+    },
     {
       id: "tasks",
       label: "Операційні задачі",
       icon: <CheckSquare size={20} />,
+      href: hrefForTab("tasks", import.meta.env.BASE_URL),
     },
-    { id: "backlog", label: "Беклог", icon: <Archive size={20} /> },
+    {
+      id: "backlog",
+      label: "Беклог",
+      icon: <Archive size={20} />,
+      href: hrefForTab("backlog", import.meta.env.BASE_URL),
+    },
     ...(canAccessAdmin
       ? [
           {
             id: "admin" as const,
             label: "Адміністрування",
             icon: <Settings size={20} />,
+            href: hrefForTab("admin", import.meta.env.BASE_URL),
           },
         ]
       : []),
@@ -102,6 +133,9 @@ export const AppContent = () => {
     setInitiativeDataScope(dataScopeForTab(tab));
     setActiveTab(tab);
     window.sessionStorage.setItem("pmohub-active-tab", tab);
+    const href = hrefForTab(tab, import.meta.env.BASE_URL);
+    if (`${window.location.pathname}${window.location.search}` !== href)
+      window.history.pushState({ pmohubTab: tab }, "", href);
     setIsMobileMenuOpen(false);
   };
   const handleChangePassword = () => {
@@ -113,6 +147,11 @@ export const AppContent = () => {
     logout();
     setActiveTab("dashboard");
     window.sessionStorage.setItem("pmohub-active-tab", "dashboard");
+    window.history.replaceState(
+      { pmohubTab: "dashboard" },
+      "",
+      hrefForTab("dashboard", import.meta.env.BASE_URL),
+    );
     setIsMobileMenuOpen(false);
   };
 

@@ -119,7 +119,10 @@ describe("server command routing", () => {
       ...filters,
       quarter: "Q2",
     });
-    await loadQuarterCards("task", undefined, 2027, "Q3", filters);
+    await loadQuarterCards("task", undefined, 2027, "Q3", {
+      ...filters,
+      status_id: "status-id",
+    });
     await loadBacklogQuarterCardSummaries("year-id", undefined, {
       manager_id: filters.manager_id,
       priority_id: filters.priority_id,
@@ -144,6 +147,7 @@ describe("server command routing", () => {
       year: "2027",
       quarter: "Q3",
       ...filters,
+      status_id: "status-id",
     });
     expect(Object.fromEntries(urls[2].searchParams)).toEqual({
       manager_id: "manager-id",

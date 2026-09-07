@@ -1785,6 +1785,7 @@ export interface operations {
                 kind?: "PROJECT" | "OPERATIONAL_TASK";
                 year?: number;
                 quarter?: "Q1" | "Q2" | "Q3" | "Q4";
+                status_id?: string;
             };
             header?: never;
             path?: never;

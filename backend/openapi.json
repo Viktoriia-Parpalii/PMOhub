@@ -753,6 +753,14 @@
                 "Q4"
               ]
             }
+          },
+          {
+            "name": "status_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {

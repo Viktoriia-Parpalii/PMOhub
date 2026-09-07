@@ -304,6 +304,13 @@ export const InitiativeCardModal = ({
       );
       return;
     }
+    if (!movingId && hasCompletedScope) {
+      notify(
+        NOTIFICATION_KINDS.error,
+        SYSTEM_MESSAGES.initiatives.cardMoveHasCompletedScope,
+      );
+      return;
+    }
     if (targetIsArchived()) {
       notifyArchivedTransfer();
       return;
@@ -580,7 +587,13 @@ export const InitiativeCardModal = ({
             type="button"
             onClick={requestMove}
             disabled={isPending}
-            className="modal-secondary h-10 px-3 text-sm text-indigo-900"
+            aria-disabled={!scopeMove && hasCompletedScope}
+            title={
+              !scopeMove && hasCompletedScope
+                ? SYSTEM_MESSAGES.initiatives.cardMoveHasCompletedScope
+                : undefined
+            }
+            className={`modal-secondary h-10 px-3 text-sm text-indigo-900 ${!scopeMove && hasCompletedScope ? styles.blockedAction : ""}`}
           >
             {scopeMove && scopeTransferMode === "COPY"
               ? "Копіювати"

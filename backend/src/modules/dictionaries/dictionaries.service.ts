@@ -678,6 +678,13 @@ export class DictionariesService {
     )
       result.push("картках");
     if (
+      type === "weights" &&
+      (await this.prisma.scopeItem.count({
+        where: { weightDefinitionId: id },
+      }))
+    )
+      result.push("завданнях");
+    if (
       type === "sizes" &&
       (await this.prisma.quarterCard.count({ where: { sizeDefinitionId: id } }))
     )

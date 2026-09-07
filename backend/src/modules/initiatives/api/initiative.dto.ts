@@ -70,7 +70,12 @@ export class InitiativeYearsQueryDto extends InitiativeListFiltersDto {
   quarter?: QuarterDto;
 }
 
-export class QuarterCardsQueryDto extends InitiativeYearsQueryDto {}
+export class QuarterCardsQueryDto extends InitiativeYearsQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUniqueIdentifier()
+  status_id?: string;
+}
 
 export class InitiativeYearCountsQueryDto extends InitiativeListFiltersDto {
   @ApiProperty({ minimum: 2000, maximum: 2200 })

@@ -10,6 +10,7 @@ import {
   DictionaryDeleteButton,
   DictionaryStatusBadge,
 } from "./DictionaryControls";
+import { DictionaryTitle } from "./DictionaryInfoTooltip";
 
 type DeleteConfirmation = {
   title: string;
@@ -48,9 +49,20 @@ export const InitiativeSizesSection = ({
   return (
     <section>
       <div className={styles.initiativeSizeHeader}>
-        <h2 className="text-lg font-bold text-slate-800">
-          Розмір (вага) ініціативи
-        </h2>
+        <DictionaryTitle title="Розміри ініціатив">
+          Розмір ініціативи визначається за сумою snapshot-ваг усіх її завдань:
+          система знаходить активний діапазон, до якого потрапляє сума, і
+          зберігає результат у квартальній картці.
+          <br />
+          <strong>Перерахувати відкриті картки</strong> повторно визначає розмір
+          усіх неархівних карток за актуальними активними діапазонами. Ваги
+          окремих завдань ця дія не змінює, архівні квартали не перераховує.
+          <br />
+          <strong>Деактивація</strong> виключає діапазон із наступних
+          розрахунків, але не переписує старі картки до перерахунку. <br />
+          <strong>Видалення</strong> фізично прибирає лише невикористане значення; використаний розмір
+          натомість деактивується для збереження історії.
+        </DictionaryTitle>
         <button
           onClick={async () => {
             const result = await refreshOpenInitiativeSizes();

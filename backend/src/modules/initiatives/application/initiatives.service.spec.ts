@@ -498,4 +498,43 @@ describe('InitiativesService transactional rules', () => {
     };
     await expect(new InitiativesService(prisma).removeCard('card', 1, actor)).rejects.toMatchObject({ code: 'CARD_HAS_COMPLETED_SCOPE' });
   });
+
+  it('does not move a quarter card with completed scope items', async () => {
+    const updateMany = vi.fn(async () => ({ count: 1 }));
+    const tx: any = {
+      quarterCard: {
+        findUnique: vi.fn(async () => ({
+          id: 'card',
+          initiativeYearId: 'year',
+          quarter: 1,
+          initiativeYear: {
+            year: 2099,
+            initiative: { id: 'initiative' },
+          },
+          departments: [],
+          scopeItems: [{ statusCode: 'GREEN', executors: [] }],
+        })),
+        updateMany,
+      },
+    };
+    const prisma: any = {
+      rolePermission: {
+        findUnique: vi.fn(async () => ({
+          isReadOnly: false,
+          canCreateEditInitiatives: true,
+        })),
+      },
+      $transaction: (callback: (client: any) => unknown) => callback(tx),
+    };
+
+    await expect(new InitiativesService(prisma).moveCard('card', {
+      revision: 1,
+      to_year: 2099,
+      to_quarter: 'Q2',
+    }, actor)).rejects.toMatchObject({
+      code: 'CARD_MOVE_COMPLETED_SCOPE_FORBIDDEN',
+      status: 409,
+    });
+    expect(updateMany).not.toHaveBeenCalled();
+  });
 });

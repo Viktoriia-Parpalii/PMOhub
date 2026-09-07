@@ -11,6 +11,10 @@ import {
   DictionaryDeleteButton,
   DictionaryStatusBadge,
 } from "./DictionaryControls";
+import {
+  DictionaryTitle,
+  ReferenceActionsExplanation,
+} from "./DictionaryInfoTooltip";
 
 export const InitiativeStatusesSection = ({
   requestProtectedDelete,
@@ -40,7 +44,13 @@ export const InitiativeStatusesSection = ({
     <section>
       <div className={styles.sectionHeader}>
         <div>
-          <h3 className={styles.sectionTitle}>Статуси ініціатив</h3>
+          <DictionaryTitle title="Статуси ініціатив">
+            Статус і його колір відображають поточний стан квартальної картки
+            проєкту або операційної задачі. Деактивовані статуси залишаються у
+            фільтрі портфеля, щоб можна було знайти історичні картки.
+            <br />
+            <ReferenceActionsExplanation />
+          </DictionaryTitle>
           <p className="mt-1 text-xs text-slate-500">
             Використовуються для квартальних карток проєктів і операційних
             задач.

@@ -37,6 +37,7 @@ describe('initiative list query validation', () => {
       quarter: 'Q2',
       name: '  План  ',
       manager_id: '00000000-0000-0000-0000-000000000001',
+      status_id: '00000000-0000-0000-0000-000000000002',
     });
 
     expect(await validate(dto)).toEqual([]);
@@ -52,12 +53,13 @@ describe('initiative list query validation', () => {
     const dto = plainToInstance(QuarterCardsQueryDto, {
       quarter: 'Q5',
       manager_id: 'manager',
+      status_id: 'status',
       name: 'x'.repeat(201),
     });
     const properties = (await validate(dto)).map((error) => error.property);
 
     expect(properties).toEqual(
-      expect.arrayContaining(['quarter', 'manager_id', 'name']),
+      expect.arrayContaining(['quarter', 'manager_id', 'status_id', 'name']),
     );
   });
 });

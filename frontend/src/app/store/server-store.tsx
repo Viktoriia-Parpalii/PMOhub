@@ -71,6 +71,7 @@ import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
 import { notify } from "../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
 import { getCurrentPeriod, isPeriodLocked } from "../../shared/utils";
+import { dataScopeForTab, tabFromPath } from "../appNavigation";
 
 type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
@@ -91,18 +92,17 @@ export type InitiativeDataScope =
     };
 
 const initialDataScope = (): InitiativeDataScope => {
+  if (typeof window === "undefined") return { mode: "dashboard" };
+  const routeTab = tabFromPath(window.location.pathname, import.meta.env.BASE_URL);
+  const savedTab = window.sessionStorage.getItem("pmohub-active-tab");
   const tab =
-    typeof window === "undefined"
-      ? "dashboard"
-      : window.sessionStorage.getItem("pmohub-active-tab");
-  const now = new Date();
-  const year = now.getFullYear();
-  const quarter = `Q${Math.floor(now.getMonth() / 3) + 1}` as Quarter;
-  if (tab === "projects" || tab === "tasks")
-    return { mode: tab, year, quarter };
-  if (tab === "backlog") return { mode: "backlog", kind: "project", year };
-  if (tab === "admin") return { mode: "none" };
-  return { mode: "dashboard" };
+    routeTab ??
+    (["dashboard", "projects", "tasks", "backlog", "admin"].includes(
+      savedTab ?? "",
+    )
+      ? (savedTab as import("../appTypes").AppTabId)
+      : "dashboard");
+  return dataScopeForTab(tab);
 };
 
 export interface AppContextType extends ReferenceDataState {

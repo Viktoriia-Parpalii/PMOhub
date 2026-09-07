@@ -11,6 +11,10 @@ import {
   DictionaryDeleteButton,
   DictionaryStatusBadge,
 } from "./DictionaryControls";
+import {
+  DictionaryTitle,
+  ReferenceActionsExplanation,
+} from "./DictionaryInfoTooltip";
 
 export const PrioritiesSection = ({
   requestProtectedDelete,
@@ -39,7 +43,12 @@ export const PrioritiesSection = ({
   return (
     <section>
       <div className={styles.sectionHeader}>
-        <h3 className={styles.sectionTitle}>Пріоритети</h3>
+        <DictionaryTitle title="Пріоритети">
+          Пріоритет і його колір використовуються у картках, таблицях,
+          фільтрах та аналітиці для візуального ранжування ініціатив.
+          <br />
+          <ReferenceActionsExplanation />
+        </DictionaryTitle>
         <div className={styles.toolbar}>
           <input
             value={name}

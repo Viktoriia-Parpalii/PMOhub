@@ -788,6 +788,13 @@ export class InitiativesService {
         if (!source) throw this.notFound("Картку");
         if (isPeriodLocked(source.initiativeYear.year, qs(source.quarter)))
           throw this.archived();
+        if (source.scopeItems.some((item) => item.statusCode === "GREEN")) {
+          throw new AppError(
+            "CARD_MOVE_COMPLETED_SCOPE_FORBIDDEN",
+            "Квартальну картку не можна перенести, оскільки вона містить завершені завдання.",
+            HttpStatus.CONFLICT,
+          );
+        }
         this.assertOpen(dto.to_year, dto.to_quarter);
         if (
           source.initiativeYear.year === dto.to_year &&

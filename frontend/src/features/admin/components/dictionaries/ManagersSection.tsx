@@ -11,6 +11,10 @@ import {
   DictionaryDeleteButton,
   DictionaryStatusBadge,
 } from "./DictionaryControls";
+import {
+  DictionaryTitle,
+  ReferenceActionsExplanation,
+} from "./DictionaryInfoTooltip";
 
 export const ManagersSection = ({
   requestProtectedDelete,
@@ -43,7 +47,12 @@ export const ManagersSection = ({
   return (
     <section>
       <div className={styles.sectionHeader}>
-        <h3 className={styles.sectionTitle}>Менеджери</h3>
+        <DictionaryTitle title="Менеджери">
+          Менеджер прив’язується до відділу та може бути призначений
+          відповідальним за квартальну картку або вказаний у підготовчому етапі.
+          <br />
+          <ReferenceActionsExplanation />
+        </DictionaryTitle>
         <div className={styles.toolbar}>
           <input
             value={name}

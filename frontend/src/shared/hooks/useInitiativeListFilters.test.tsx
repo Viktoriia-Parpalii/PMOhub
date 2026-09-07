@@ -18,6 +18,9 @@ describe("useInitiativeListFilters", () => {
     act(() => result.current.setManagerId("manager-1"));
     expect(result.current.filters.manager_id).toBe("manager-1");
 
+    act(() => result.current.setStatusId("status-1"));
+    expect(result.current.filters.status_id).toBe("status-1");
+
     act(() => vi.advanceTimersByTime(349));
     expect(result.current.filters.name).toBeUndefined();
     act(() => vi.advanceTimersByTime(1));
@@ -39,6 +42,7 @@ describe("useInitiativeListFilters", () => {
       strategic_goal: undefined,
       manager_id: undefined,
       priority_id: undefined,
+      status_id: undefined,
     });
   });
 
@@ -50,6 +54,15 @@ describe("useInitiativeListFilters", () => {
     ).not.toEqual(
       queryKeys.portfolioCards("project", 2026, "Q2", {
         manager_id: "manager-2",
+      }),
+    );
+    expect(
+      queryKeys.portfolioCards("project", 2026, "Q2", {
+        status_id: "status-1",
+      }),
+    ).not.toEqual(
+      queryKeys.portfolioCards("project", 2026, "Q2", {
+        status_id: "status-2",
       }),
     );
   });

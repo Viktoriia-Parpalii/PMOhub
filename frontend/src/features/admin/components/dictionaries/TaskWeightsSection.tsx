@@ -12,6 +12,7 @@ import {
   DictionaryDeleteButton,
   DictionaryStatusBadge,
 } from "./DictionaryControls";
+import { DictionaryTitle } from "./DictionaryInfoTooltip";
 
 export type WeightEditor = { id: string; name: string; weight: number } | null;
 export type BulkWeight = { id: string; name: string } | null;
@@ -49,7 +50,24 @@ export const TaskWeightsSection = ({
   return (
     <section>
       <div className={styles.sectionHeader}>
-        <h3 className={styles.sectionTitle}>Розмір (вага)</h3>
+        <DictionaryTitle title="Ваги завдань">
+          Вага фіксується у завданні квартальної картки як snapshot: назва та
+          кількість балів на момент вибору.
+          <br />
+          <strong>Редагування</strong> довідника не
+          переписує вже збережені завдання.
+          <br />
+          <strong>Застосувати</strong> оновлює назву й бали цієї ваги у всіх
+          неархівних картках, де вона використовується, а також перераховує
+          сумарну вагу та розмір таких ініціатив. Архівні квартали не
+          змінюються.
+          <br />
+          <strong>Деактивація</strong> забороняє вибір ваги для нових завдань,
+          але збережені snapshot-и залишаються.  <br />
+          <strong>Видалення</strong> прибирає лише
+          невикористану несистемну вагу; використана вага натомість
+          деактивується, а системну видалити не можна.
+        </DictionaryTitle>
         <div className={styles.toolbar}>
           <input
             type="number"
@@ -61,7 +79,7 @@ export const TaskWeightsSection = ({
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Назва розміру"
+            placeholder="Назва ваги"
             className={styles.input}
           />
           <button onClick={add} className={styles.addButton}>
@@ -124,7 +142,7 @@ export const TaskWeightsSection = ({
                     <DictionaryDeleteButton
                       onClick={() =>
                         openDeleteConfirm({
-                          title: "розмір",
+                          title: "вагу завдання",
                           name: item.name,
                           onConfirm: async () => {
                             const result = await deleteTaskWeight(item.id);

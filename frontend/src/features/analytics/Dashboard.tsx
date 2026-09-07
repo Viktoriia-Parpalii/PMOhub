@@ -372,7 +372,7 @@ export const Dashboard = () => {
               />
             )}
             <Kpi
-              title="Завдань у scope"
+              title="Завдань у скоупі"
               value={summary.scope_items}
               accent="#d97706"
               onClick={() => openRecords("Картки із завданнями у scope")}

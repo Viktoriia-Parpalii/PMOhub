@@ -277,6 +277,7 @@ const initiativeListParams = (
   if (strategicGoal) params.set("strategic_goal", strategicGoal);
   if (filters.manager_id) params.set("manager_id", filters.manager_id);
   if (filters.priority_id) params.set("priority_id", filters.priority_id);
+  if (filters.status_id) params.set("status_id", filters.status_id);
   return params.toString();
 };
 const withQuery = (path: string, query: string) =>

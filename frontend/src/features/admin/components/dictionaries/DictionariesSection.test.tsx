@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DictionariesSection } from "./DictionariesSection";
 
@@ -61,5 +61,19 @@ describe("DictionariesSection table grid", () => {
     for (const table of tables) {
       expect(table.querySelectorAll("colgroup col")).toHaveLength(4);
     }
+  });
+
+  it("provides accessible explanations for every dictionary", () => {
+    render(<DictionariesSection />);
+
+    expect(screen.getAllByRole("button", { name: /^Пояснення:/ })).toHaveLength(6);
+    const explanations = screen
+      .getAllByRole("tooltip")
+      .map((tooltip) => tooltip.textContent)
+      .join(" ");
+    expect(explanations).toMatch(/Застосувати.*оновлює назву й бали/s);
+    expect(explanations).toMatch(
+      /Перерахувати відкриті картки.*повторно визначає розмір/s,
+    );
   });
 });

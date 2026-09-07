@@ -12,9 +12,90 @@
 }
 
 .sectionTitle {
+  margin: 0;
   color: #1e293b;
   font-size: 1.125rem;
   font-weight: 700;
+}
+
+.titleWithInfo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+.infoTooltip {
+  display: inline-flex;
+  align-items: center;
+}
+
+.infoButton {
+  display: inline-grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  cursor: help;
+  transition: border-color .15s, background-color .15s, color .15s;
+}
+
+.infoButton:hover,
+.infoButton:focus-visible {
+  border-color: #818cf8;
+  background: #e0e7ff;
+  color: #3730a3;
+  outline: none;
+}
+
+.infoPanel {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + .5rem);
+  left: 0;
+  display: block;
+  visibility: hidden;
+  width: 30rem;
+  max-width: calc(100vw - 3rem);
+  border: 1px solid #dbeafe;
+  border-radius: .75rem;
+  background: #fff;
+  padding: .875rem 1rem;
+  color: #475569;
+  font-size: .8125rem;
+  font-weight: 400;
+  line-height: 1.55;
+  text-align: left;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 12px 30px rgb(15 23 42 / .16);
+  transform: translateY(-.25rem);
+  transition: opacity .15s, transform .15s, visibility .15s;
+}
+
+.infoPanel strong {
+  color: #334155;
+  font-weight: 700;
+}
+
+.infoPanel::before {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: .55rem;
+  content: "";
+}
+
+.infoTooltip:hover .infoPanel,
+.infoTooltip:focus-within .infoPanel {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .toolbar {

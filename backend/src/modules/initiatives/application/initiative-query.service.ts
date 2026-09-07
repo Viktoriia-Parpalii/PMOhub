@@ -171,6 +171,7 @@ export class InitiativeQueryService {
       quarter: query.quarter ? Number(query.quarter.slice(1)) : undefined,
       managerId: query.manager_id,
       priorityId: query.priority_id,
+      statusId: query.status_id,
       initiativeYear: {
         year: query.year,
         strategicGoal: strategicGoal ? { contains: strategicGoal } : undefined,

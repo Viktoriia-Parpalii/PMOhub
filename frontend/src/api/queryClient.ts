@@ -6,6 +6,7 @@ const filterKey = (filters: InitiativeListFilters = {}) => [
   filters.strategic_goal?.trim() ?? "",
   filters.manager_id ?? "",
   filters.priority_id ?? "",
+  filters.status_id ?? "",
   filters.quarter ?? "",
 ] as const;
 

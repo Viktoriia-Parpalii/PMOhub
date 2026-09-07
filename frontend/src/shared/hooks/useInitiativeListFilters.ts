@@ -8,6 +8,7 @@ export const useInitiativeListFilters = (delay = 350) => {
   const [appliedStrategicGoal, setAppliedStrategicGoal] = useState("");
   const [managerId, setManagerId] = useState("");
   const [priorityId, setPriorityId] = useState("");
+  const [statusId, setStatusId] = useState("");
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -24,6 +25,7 @@ export const useInitiativeListFilters = (delay = 350) => {
     setAppliedStrategicGoal("");
     setManagerId("");
     setPriorityId("");
+    setStatusId("");
   }, []);
 
   const filters = useMemo<InitiativeListFilters>(
@@ -32,8 +34,9 @@ export const useInitiativeListFilters = (delay = 350) => {
       strategic_goal: appliedStrategicGoal || undefined,
       manager_id: managerId || undefined,
       priority_id: priorityId || undefined,
+      status_id: statusId || undefined,
     }),
-    [appliedName, appliedStrategicGoal, managerId, priorityId],
+    [appliedName, appliedStrategicGoal, managerId, priorityId, statusId],
   );
 
   return {
@@ -41,12 +44,16 @@ export const useInitiativeListFilters = (delay = 350) => {
     strategicGoal,
     managerId,
     priorityId,
+    statusId,
     filters,
-    hasFilters: Boolean(name || strategicGoal || managerId || priorityId),
+    hasFilters: Boolean(
+      name || strategicGoal || managerId || priorityId || statusId,
+    ),
     setName,
     setStrategicGoal,
     setManagerId,
     setPriorityId,
+    setStatusId,
     reset,
   };
 };

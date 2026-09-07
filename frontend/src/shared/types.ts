@@ -13,6 +13,7 @@ export interface InitiativeListFilters {
   strategic_goal?: string;
   manager_id?: string;
   priority_id?: string;
+  status_id?: string;
   quarter?: Quarter;
 }
 
