@@ -104,6 +104,7 @@ export const InitiativeCardModal = ({
     departments,
     managers,
     priorities,
+    initiativeStatuses,
     taskWeights,
     projects,
     tasks,
@@ -119,17 +120,7 @@ export const InitiativeCardModal = ({
   const year = item?.year ?? defaultYear ?? businessPeriod.year;
   const quarter = item?.quarter ?? defaultQuarter ?? businessPeriod.quarter;
   const noun = kind === "project" ? "проєкту" : "операційної задачі";
-  const canSwitchToEdit = Boolean(
-    item && !locked && canEditInitiative(item, currentUser, rolePermissions),
-  );
-  const permissions = getPermissions(currentUser, rolePermissions);
-  const canCopyScope = Boolean(
-    item && permissions?.canCreateEditInitiatives && !permissions.isReadOnly,
-  );
-  const hasCompletedScope = Boolean(
-    item?.checklist.some(isCompletedItem),
-  );
-  const scopeWeightLocked = Boolean(
+  const isArchivedCard = Boolean(
     item &&
       (item.is_locked ??
         isPeriodLockedAtBusinessDate(
@@ -138,10 +129,38 @@ export const InitiativeCardModal = ({
           businessPeriod.business_date,
         )),
   );
+  const canSwitchToEdit = Boolean(
+    item &&
+      !isArchivedCard &&
+      !locked &&
+      canEditInitiative(item, currentUser, rolePermissions),
+  );
+  const permissions = getPermissions(currentUser, rolePermissions);
+  const canCorrectArchive = Boolean(
+    item &&
+      isArchivedCard &&
+      permissions?.isActive !== false &&
+      permissions?.canCreateEditInitiatives &&
+      permissions?.canEditArchive &&
+      !permissions?.isReadOnly,
+  );
+  const canCopyScope = Boolean(
+    item &&
+      !isArchivedCard &&
+      permissions?.canCreateEditInitiatives &&
+      !permissions.isReadOnly,
+  );
+  const hasCompletedScope = Boolean(
+    item?.checklist.some(isCompletedItem),
+  );
+  const scopeWeightLocked = isArchivedCard;
   const [name, setName] = useState(item?.name ?? "");
   const [goal, setGoal] = useState(item?.strategic_goal ?? "");
   const [managerId, setManagerId] = useState(item?.manager_id ?? "");
   const [priority, setPriority] = useState<Priority | "">(item?.priority ?? "");
+  const [healthStatus, setHealthStatus] = useState(
+    item?.health_status ?? "DEFAULT",
+  );
   const [notes, setNotes] = useState(item?.notes ?? "");
   const [involved, setInvolved] = useState<string[]>(
     item?.cross_functional_dept_ids ?? [],
@@ -161,7 +180,10 @@ export const InitiativeCardModal = ({
   const [isPending, setIsPending] = useState(false);
   const [hasRevisionConflict, setHasRevisionConflict] = useState(false);
   const [committedRefreshFailed, setCommittedRefreshFailed] = useState(false);
-  const [isReadOnly, setIsReadOnly] = useState(locked || openInViewMode);
+  const [isReadOnly, setIsReadOnly] = useState(
+    locked || openInViewMode || isArchivedCard,
+  );
+  const standardFieldsReadOnly = isReadOnly || isArchivedCard;
   const nextPeriod =
     quarter === "Q4"
       ? { year: year + 1, quarter: "Q1" as Quarter }
@@ -186,6 +208,7 @@ export const InitiativeCardModal = ({
     Boolean(item) &&
     (managerId !== (item?.manager_id ?? "") ||
       priority !== (item?.priority ?? "") ||
+      healthStatus !== (item?.health_status ?? "DEFAULT") ||
       notes !== (item?.notes ?? "") ||
       JSON.stringify(involved) !==
         JSON.stringify(item?.cross_functional_dept_ids ?? []) ||
@@ -389,10 +412,12 @@ export const InitiativeCardModal = ({
       notify(NOTIFICATION_KINDS.error, `Вкажіть назву ${noun}`);
       return;
     }
-    const validation = validateChecklistAssignments(checklist, taskWeights);
-    if (validation.length) {
-      notify(NOTIFICATION_KINDS.error, validation.join(" • "));
-      return;
+    if (!isArchivedCard) {
+      const validation = validateChecklistAssignments(checklist, taskWeights);
+      if (validation.length) {
+        notify(NOTIFICATION_KINDS.error, validation.join(" • "));
+        return;
+      }
     }
     setIsPending(true);
     try {
@@ -411,7 +436,7 @@ export const InitiativeCardModal = ({
         custom_fields: fieldVals,
         year,
         quarter,
-        health_status: item?.health_status ?? "DEFAULT",
+        health_status: healthStatus,
         checklist,
         record_type: "CARD",
         initiative_id: item?.initiative_id ?? item?.id ?? "",
@@ -453,10 +478,12 @@ export const InitiativeCardModal = ({
     setFieldVals((values) => ({ ...values, [fieldId]: value }));
   const renderCustomField = (field: CustomFieldDef) => {
     const value = fieldVals[field.id];
+    const customFieldReadOnly =
+      standardFieldsReadOnly || field.isActive === false;
     if (field.type === "RICHTEXT")
       return (
         <RichTextEditor
-          disabled={isReadOnly}
+          disabled={customFieldReadOnly}
           value={String(value ?? "")}
           onChange={(nextValue) => setCustomFieldValue(field.id, nextValue)}
           placeholder="Значення..."
@@ -465,7 +492,7 @@ export const InitiativeCardModal = ({
     if (field.type === "SELECT")
       return (
         <select
-          disabled={isReadOnly}
+          disabled={customFieldReadOnly}
           value={String(value ?? "")}
           onChange={(event) =>
             setCustomFieldValue(field.id, event.target.value)
@@ -473,6 +500,13 @@ export const InitiativeCardModal = ({
           className="modal-field mt-1"
         >
           <option value="">Не обрано</option>
+          {field.isActive === false &&
+            value !== undefined &&
+            value !== null &&
+            value !== "" &&
+            !(field.options ?? []).includes(String(value)) && (
+              <option value={String(value)}>{String(value)}</option>
+            )}
           {(field.options ?? []).map((option) => (
             <option key={option} value={option}>
               {option}
@@ -485,7 +519,7 @@ export const InitiativeCardModal = ({
         <label className="mt-2 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
           <input
             type="checkbox"
-            disabled={isReadOnly}
+            disabled={customFieldReadOnly}
             checked={Boolean(value)}
             onChange={(event) =>
               setCustomFieldValue(field.id, event.target.checked)
@@ -499,7 +533,7 @@ export const InitiativeCardModal = ({
       return (
         <input
           type="number"
-          disabled={isReadOnly}
+          disabled={customFieldReadOnly}
           value={value === undefined || value === null ? "" : String(value)}
           onChange={(event) =>
             setCustomFieldValue(
@@ -513,7 +547,7 @@ export const InitiativeCardModal = ({
       );
     return (
       <textarea
-        disabled={isReadOnly}
+        disabled={customFieldReadOnly}
         value={String(value ?? "")}
         onChange={(event) => setCustomFieldValue(field.id, event.target.value)}
         rows={1}
@@ -619,10 +653,12 @@ export const InitiativeCardModal = ({
             {item
               ? isReadOnly
                 ? `Перегляд ${noun}`
-                : `Редагування ${noun}`
+                : isArchivedCard
+                  ? `Виправлення ${noun}`
+                  : `Редагування ${noun}`
               : `Створення ${noun}`}
           </h2>
-          {item && !isReadOnly && (
+          {item && !isReadOnly && !isArchivedCard && (
             <div className={styles.desktopActions}>
               <button
                 type="button"
@@ -665,7 +701,7 @@ export const InitiativeCardModal = ({
         </header>
         <main className={`${styles.content} modal-scroll`}>
           {showMove && !movingId && movePanel(false)}
-          {item && !isReadOnly && (
+          {item && !isReadOnly && !isArchivedCard && (
             <div className={styles.mobileActions}>
               <button
                 type="button"
@@ -713,7 +749,7 @@ export const InitiativeCardModal = ({
             <label className="modal-label">
               Менеджер
               <select
-                disabled={isReadOnly}
+                disabled={standardFieldsReadOnly}
                 value={managerId}
                 onChange={(event) => setManagerId(event.target.value)}
                 className="modal-field mt-1"
@@ -734,7 +770,7 @@ export const InitiativeCardModal = ({
             <label className="modal-label">
               Пріоритет
               <select
-                disabled={isReadOnly}
+                disabled={standardFieldsReadOnly}
                 value={priority}
                 onChange={(event) => setPriority(event.target.value)}
                 className="modal-field mt-1"
@@ -752,6 +788,30 @@ export const InitiativeCardModal = ({
                   ))}
               </select>
             </label>
+            {item && isArchivedCard && (
+              <label className="modal-label">
+                Статус {noun}
+                <select
+                  disabled={isReadOnly}
+                  value={healthStatus}
+                  onChange={(event) => setHealthStatus(event.target.value)}
+                  className="modal-field mt-1"
+                >
+                  {initiativeStatuses
+                    .filter(
+                      (status) =>
+                        status.is_active !== false ||
+                        status.id === healthStatus ||
+                        status.code === healthStatus,
+                    )
+                    .map((status) => (
+                      <option key={status.id} value={status.id}>
+                        {status.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
           </div>
           <section>
             <div className={styles.involvedHeader}>
@@ -777,7 +837,7 @@ export const InitiativeCardModal = ({
                     return (
                       <button
                         type="button"
-                        disabled={isReadOnly || executor}
+                        disabled={standardFieldsReadOnly || executor}
                         key={department.id}
                         onClick={() =>
                           setInvolved((ids) =>
@@ -856,7 +916,7 @@ export const InitiativeCardModal = ({
                       <div className={styles.scopeInputRow}>
                         <span className="scope-item-number">{index + 1}.</span>
                         <input
-                          disabled={isReadOnly}
+                          disabled={standardFieldsReadOnly}
                           value={scope.text}
                           onChange={(event) =>
                             updateScope(scope.id, { text: event.target.value })
@@ -915,7 +975,8 @@ export const InitiativeCardModal = ({
                         </select>
                         <select
                           disabled={
-                            isReadOnly || selectableExecutors.length === 0
+                            standardFieldsReadOnly ||
+                            selectableExecutors.length === 0
                           }
                           value=""
                           onChange={(event) => {
@@ -958,7 +1019,7 @@ export const InitiativeCardModal = ({
                             />
                           ))}
                         </div>
-                        {item && !isReadOnly && (
+                        {item && !isReadOnly && !isArchivedCard && (
                           <button
                             type="button"
                             title={
@@ -982,7 +1043,7 @@ export const InitiativeCardModal = ({
                             <ArrowRight size={17} />
                           </button>
                         )}
-                        {canCopyScope && (
+                        {canCopyScope && !isReadOnly && (
                           <button
                             type="button"
                             title={
@@ -1042,7 +1103,7 @@ export const InitiativeCardModal = ({
                             return department ? (
                               <button
                                 type="button"
-                                disabled={isReadOnly}
+                                disabled={standardFieldsReadOnly}
                                 key={id}
                                 onClick={() => setExecutor(scope, id)}
                                 className="department-chip department-chip-executor"
@@ -1114,7 +1175,14 @@ export const InitiativeCardModal = ({
                     key={field.id}
                     className={field.type === "RICHTEXT" ? "sm:col-span-2" : ""}
                   >
-                    <label className="modal-label">{field.name}</label>
+                    <label className="modal-label">
+                      {field.name}
+                      {field.isActive === false && (
+                        <span className={styles.historicalFieldBadge}>
+                          Деактивовано · лише перегляд
+                        </span>
+                      )}
+                    </label>
                     {renderCustomField(field)}
                   </div>
                 ))}
@@ -1139,6 +1207,15 @@ export const InitiativeCardModal = ({
               Редагувати
             </button>
           )}
+          {item && isReadOnly && canCorrectArchive && (
+            <button
+              type="button"
+              onClick={() => setIsReadOnly(false)}
+              className={`modal-primary ${styles.footerPrimary}`}
+            >
+              Внести виправлення
+            </button>
+          )}
           {!isReadOnly && (
             <button
               type="button"
@@ -1152,7 +1229,9 @@ export const InitiativeCardModal = ({
                   ? "Повторити завантаження"
                   : hasRevisionConflict
                     ? "Оновити версію"
-                    : "Зберегти"}
+                    : isArchivedCard
+                      ? "Зберегти виправлення"
+                      : "Зберегти"}
             </button>
           )}
         </footer>

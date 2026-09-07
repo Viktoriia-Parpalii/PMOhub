@@ -407,6 +407,21 @@
   padding-top: 1rem;
 }
 
+.historicalFieldBadge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: .5rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: .125rem .5rem;
+  color: #64748b;
+  font-size: .6875rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  vertical-align: middle;
+}
+
 .footer {
   display: flex;
   align-items: center;

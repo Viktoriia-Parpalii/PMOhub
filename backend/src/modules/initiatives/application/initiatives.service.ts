@@ -1516,13 +1516,33 @@ export class InitiativesService {
     );
     const definitionIds = Object.keys(presentValues);
     const entityType = kind === "PROJECT" ? "project" : "task";
-    const definitions = definitionIds.length
+    const existingValues = await tx.customFieldValue.findMany({
+      where: { quarterCardId: cardId },
+      include: {
+        definition: {
+          select: { id: true, entityType: true, isActive: true },
+        },
+      },
+    });
+    const historicalDefinitionIds = new Set(
+      existingValues
+        .filter((value) => !value.definition.isActive)
+        .map((value) => value.definitionId),
+    );
+    const writableDefinitionIds = definitionIds.filter(
+      (id) => !historicalDefinitionIds.has(id),
+    );
+    const definitions = writableDefinitionIds.length
       ? await tx.customFieldDefinition.findMany({
-          where: { id: { in: definitionIds }, entityType, isActive: true },
+          where: {
+            id: { in: writableDefinitionIds },
+            entityType,
+            isActive: true,
+          },
           include: { options: true },
         })
       : [];
-    if (definitions.length !== definitionIds.length)
+    if (definitions.length !== writableDefinitionIds.length)
       throw new AppError(
         "INVALID_CUSTOM_FIELD",
         "Одне або кілька додаткових полів недоступні для цього типу ініціативи.",
@@ -1532,15 +1552,25 @@ export class InitiativesService {
       select: { id: true },
     });
     const missingRequired = required.some(
-      ({ id }) => !Object.prototype.hasOwnProperty.call(presentValues, id),
+      ({ id }) => !writableDefinitionIds.includes(id),
     );
     if (missingRequired)
       throw new AppError(
         "REQUIRED_CUSTOM_FIELD",
         "Заповніть усі обов’язкові додаткові поля.",
       );
+    const removedActiveDefinitionIds = existingValues
+      .filter(
+        (value) =>
+          value.definition.isActive &&
+          !Object.prototype.hasOwnProperty.call(presentValues, value.definitionId),
+      )
+      .map((value) => value.definitionId);
     await tx.customFieldValue.deleteMany({
-      where: { quarterCardId: cardId, definitionId: { notIn: definitionIds } },
+      where: {
+        quarterCardId: cardId,
+        definitionId: { in: removedActiveDefinitionIds },
+      },
     });
     for (const definition of definitions) {
       const raw = presentValues[definition.id];

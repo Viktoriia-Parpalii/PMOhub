@@ -47,6 +47,7 @@ export const SYSTEM_MESSAGES = {
     cardRevisionMissing: "Картку не знайдено або відсутня revision",
     yearRevisionMissing: "Річний запис не знайдено або відсутня revision",
     activeWeightRequired: "Для кожного завдання потрібна активна вага",
+    activeStatusRequired: "Оберіть доступний статус ініціативи",
     initialCardDataInvalid:
       "Для картки потрібно вибрати доступний статус і вагу кожного завдання",
     onlyOneInitialCard:

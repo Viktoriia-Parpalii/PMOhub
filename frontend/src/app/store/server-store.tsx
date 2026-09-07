@@ -830,32 +830,47 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ]);
     };
     const updatedRecord = { ...record, ...patch };
-    const body = cardBody(updatedRecord, record.revision);
-    if (!body || body.scope.some((item) => !item.weight_definition_id))
-      return Promise.resolve(
-        fail(SYSTEM_MESSAGES.initiatives.activeWeightRequired),
-      );
     if (
       record.record_type === "CARD" &&
       (record.is_locked ?? isPeriodLocked(record.year, record.quarter))
     ) {
+      const statusId = healthStatusId(
+        updatedRecord.health_status,
+        updatedRecord,
+      );
+      if (!statusId)
+        return Promise.resolve(
+          fail(SYSTEM_MESSAGES.initiatives.activeStatusRequired),
+        );
       return executeRemote(
         () =>
           serverCommands.updateArchivedCard(id, {
             revision: record.revision!,
             notes: updatedRecord.notes,
-            status_id: body.status_id,
-            scope_status_updates: body.scope
-              .filter((item) => item.id && item.revision)
+            status_id: statusId,
+            scope_status_updates: updatedRecord.checklist
+              .filter((item) => uuidOrUndefined(item.id) && item.revision)
               .map((item) => ({
-                id: item.id!,
+                id: item.id,
                 revision: item.revision!,
-                status_code: item.status_code,
+                status_code: (item.color === "GRAY"
+                  ? "DEFAULT"
+                  : (item.color ??
+                    (item.is_completed ? "GREEN" : "DEFAULT"))) as
+                  | "DEFAULT"
+                  | "GREEN"
+                  | "YELLOW"
+                  | "RED",
               })),
           }),
         refreshCard,
       );
     }
+    const body = cardBody(updatedRecord, record.revision);
+    if (!body || body.scope.some((item) => !item.weight_definition_id))
+      return Promise.resolve(
+        fail(SYSTEM_MESSAGES.initiatives.activeWeightRequired),
+      );
     return executeRemote(
       () => serverCommands.updateCard(id, body),
       refreshCard,

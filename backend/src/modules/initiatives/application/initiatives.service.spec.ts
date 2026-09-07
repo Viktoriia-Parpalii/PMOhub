@@ -199,7 +199,10 @@ describe('InitiativesService transactional rules', () => {
         createMany: vi.fn(async () => ({ count: 0 })),
       },
       customFieldDefinition: { findMany: vi.fn(async () => []) },
-      customFieldValue: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+      customFieldValue: {
+        findMany: vi.fn(async () => []),
+        deleteMany: vi.fn(async () => ({ count: 0 })),
+      },
       initiativeSize: { findMany: vi.fn(async () => []) },
       auditEvent: { create: vi.fn(async () => ({})) },
       /* Deliberately no department.findMany capacity query. */
@@ -330,7 +333,10 @@ describe('InitiativesService transactional rules', () => {
         createMany: vi.fn(async () => ({ count: 0 })),
       },
       customFieldDefinition: { findMany: vi.fn(async () => []) },
-      customFieldValue: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+      customFieldValue: {
+        findMany: vi.fn(async () => []),
+        deleteMany: vi.fn(async () => ({ count: 0 })),
+      },
       initiativeSize: { findMany: vi.fn(async () => []) },
       auditEvent: { create: vi.fn(async () => ({})) },
     };
@@ -366,6 +372,72 @@ describe('InitiativesService transactional rules', () => {
     expect(updateData).not.toHaveProperty('weightDefinitionId');
     expect(updateData).not.toHaveProperty('weightSnapshotName');
     expect(updateData).not.toHaveProperty('weightSnapshotValue');
+  });
+
+  it('preserves an inactive historical custom field without revalidating or overwriting it', async () => {
+    const inactiveFieldId = '00000000-0000-4000-8000-000000000040';
+    const activeFieldId = '00000000-0000-4000-8000-000000000041';
+    const deleteMany = vi.fn(async () => ({ count: 0 }));
+    const upsert = vi.fn(async () => ({}));
+    const tx: any = {
+      customFieldValue: {
+        findMany: vi.fn(async () => [
+          {
+            definitionId: inactiveFieldId,
+            definition: {
+              id: inactiveFieldId,
+              entityType: 'project',
+              isActive: false,
+            },
+          },
+          {
+            definitionId: activeFieldId,
+            definition: {
+              id: activeFieldId,
+              entityType: 'project',
+              isActive: true,
+            },
+          },
+        ]),
+        deleteMany,
+        upsert,
+      },
+      customFieldDefinition: { findMany: vi.fn(async () => []) },
+    };
+    const service = new InitiativesService({} as any);
+
+    await (service as any).replaceCustomFields(
+      tx,
+      'card-1',
+      'PROJECT',
+      { [inactiveFieldId]: 'changed by stale client' },
+    );
+
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        quarterCardId: 'card-1',
+        definitionId: { in: [activeFieldId] },
+      },
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a new inactive or otherwise unavailable custom field', async () => {
+    const unavailableFieldId = '00000000-0000-4000-8000-000000000042';
+    const tx: any = {
+      customFieldValue: { findMany: vi.fn(async () => []) },
+      customFieldDefinition: { findMany: vi.fn(async () => []) },
+    };
+    const service = new InitiativesService({} as any);
+
+    await expect(
+      (service as any).replaceCustomFields(
+        tx,
+        'card-1',
+        'PROJECT',
+        { [unavailableFieldId]: 'new value' },
+      ),
+    ).rejects.toMatchObject({ code: 'INVALID_CUSTOM_FIELD' });
   });
 
   it('creates a card from the nearest previous card and copies only effective involved departments', async () => {

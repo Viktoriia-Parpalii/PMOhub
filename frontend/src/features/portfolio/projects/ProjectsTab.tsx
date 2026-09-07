@@ -99,7 +99,9 @@ export const ProjectsTab = () => {
       userRolePerm?.canCreateEditInitiatives &&
       !userRolePerm?.isReadOnly,
   );
-  const canEdit = isArchive ? canEditNormal && canEditArchive : canEditNormal;
+  // Archived cards are corrected only from their dedicated modal. Inline
+  // controls stay disabled so a status cannot change without entering that mode.
+  const canEdit = !isArchive && canEditNormal;
 
   const projCustomFields = (customFields || []).filter(
     (cf) => cf.entityType === "project" && cf.showInTable,
@@ -140,7 +142,7 @@ export const ProjectsTab = () => {
               </strong>
               <span className={styles.archiveDescription}>
                 {canEditArchive
-                  ? "Ви маєте права супер адміна на редагування в архіві."
+                  ? "Ви маєте права супер адміна на редагування статусів та приміток в архіві."
                   : "Тільки для перегляду"}
               </span>
             </div>
