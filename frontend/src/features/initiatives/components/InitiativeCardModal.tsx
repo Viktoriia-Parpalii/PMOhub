@@ -250,7 +250,8 @@ export const InitiativeCardModal = ({
   const customFieldsForKind = customFields.filter(
     (field) =>
       field.entityType === kind &&
-      (field.isActive !== false || fieldVals[field.id] !== undefined),
+      (field.isActive !== false ||
+        Object.prototype.hasOwnProperty.call(fieldVals, field.id)),
   );
   const updateScope = (id: string, patch: Partial<ChecklistItem>) =>
     setChecklist((items) =>

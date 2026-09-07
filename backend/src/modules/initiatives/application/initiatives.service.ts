@@ -868,7 +868,11 @@ export class InitiativesService {
             departments: true,
             scopeItems: { include: { executors: true } },
             customFieldValues: {
-              include: { definition: { select: { fieldType: true } } },
+              include: {
+                definition: {
+                  select: { fieldType: true, isActive: true },
+                },
+              },
             },
           },
         });
@@ -910,22 +914,11 @@ export class InitiativesService {
           },
           source.notes,
         );
-        if (source.customFieldValues.length) {
-          await tx.customFieldValue.createMany({
-            data: source.customFieldValues.map((value) => ({
-              quarterCardId: card.id,
-              definitionId: value.definitionId,
-              textValue:
-                value.definition.fieldType === "RICHTEXT" && value.textValue
-                  ? sanitizeRichText(value.textValue)
-                  : value.textValue,
-              numberValue: value.numberValue,
-              booleanValue: value.booleanValue,
-              dateValue: value.dateValue,
-              optionValue: value.optionValue,
-            })),
-          });
-        }
+        await this.copyActiveCustomFieldValues(
+          tx,
+          card.id,
+          source.customFieldValues,
+        );
         await this.audit(
           tx,
           "QuarterCard",
@@ -1070,7 +1063,11 @@ export class InitiativesService {
             departments: true,
             scopeItems: { include: { executors: true } },
             customFieldValues: {
-              include: { definition: { select: { fieldType: true } } },
+              include: {
+                definition: {
+                  select: { fieldType: true, isActive: true },
+                },
+              },
             },
           },
         });
@@ -1140,22 +1137,11 @@ export class InitiativesService {
             },
             source.notes,
           );
-          if (source.customFieldValues.length) {
-            await tx.customFieldValue.createMany({
-              data: source.customFieldValues.map((value) => ({
-                quarterCardId: target!.id,
-                definitionId: value.definitionId,
-                textValue:
-                  value.definition.fieldType === "RICHTEXT" && value.textValue
-                    ? sanitizeRichText(value.textValue)
-                    : value.textValue,
-                numberValue: value.numberValue,
-                booleanValue: value.booleanValue,
-                dateValue: value.dateValue,
-                optionValue: value.optionValue,
-              })),
-            });
-          }
+          await this.copyActiveCustomFieldValues(
+            tx,
+            target.id,
+            source.customFieldValues,
+          );
         }
         const duplicate = await tx.scopeItem.findUnique({
           where: {
@@ -1595,6 +1581,37 @@ export class InitiativesService {
         update: data,
       });
     }
+  }
+
+  private async copyActiveCustomFieldValues(
+    tx: Tx,
+    targetCardId: string,
+    values: Array<{
+      definitionId: string;
+      textValue: string | null;
+      numberValue: Prisma.Decimal | null;
+      booleanValue: boolean | null;
+      dateValue: Date | null;
+      optionValue: string | null;
+      definition: { fieldType: string; isActive: boolean };
+    }>,
+  ) {
+    const activeValues = values.filter((value) => value.definition.isActive);
+    if (!activeValues.length) return;
+    await tx.customFieldValue.createMany({
+      data: activeValues.map((value) => ({
+        quarterCardId: targetCardId,
+        definitionId: value.definitionId,
+        textValue:
+          value.definition.fieldType === "RICHTEXT" && value.textValue
+            ? sanitizeRichText(value.textValue)
+            : value.textValue,
+        numberValue: value.numberValue,
+        booleanValue: value.booleanValue,
+        dateValue: value.dateValue,
+        optionValue: value.optionValue,
+      })),
+    });
   }
 
   private customFieldValue(type: string, value: unknown) {

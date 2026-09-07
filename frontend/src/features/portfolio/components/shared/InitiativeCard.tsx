@@ -13,6 +13,10 @@ import {
 import { getInitiativeStatus } from "../../../../domain/health";
 import { RichTextPreview } from "../../../../components/ui/RichTextEditor";
 import styles from "./InitiativeCard.module.css";
+import {
+  customFieldDisplayValue,
+  shouldDisplayCustomField,
+} from "../../../../domain/customFields";
 
 type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
@@ -57,7 +61,10 @@ export const InitiativeCard: React.FC<InitiativeCardProps> = ({
     managers,
   } = useAppContext();
   const cardFields = customFields.filter(
-    (field) => field.entityType === kind && field.showInCards,
+    (field) =>
+      field.entityType === kind &&
+      field.showInCards &&
+      shouldDisplayCustomField(field, [initiative]),
   );
   const effectiveStatus =
     initiative.record_type === "YEAR" ? "DEFAULT" : initiative.health_status;
@@ -207,14 +214,7 @@ export const InitiativeCard: React.FC<InitiativeCardProps> = ({
         <div className={styles.customFields}>
           {cardFields.map((field) => {
             const rawValue = initiative.custom_fields?.[field.id];
-            const value =
-              field.type === "CHECKBOX"
-                ? rawValue
-                  ? "Так"
-                  : "Ні"
-                : field.type === "RICHTEXT" && typeof rawValue === "string"
-                  ? `${stripHtml(rawValue).slice(0, 50)}${rawValue.length > 50 ? "..." : ""}`
-                  : String(rawValue || "—");
+            const value = customFieldDisplayValue(field, rawValue, 50);
             return <CardRow key={field.id} label={field.name} value={value} />;
           })}
         </div>

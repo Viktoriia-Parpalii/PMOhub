@@ -13,6 +13,7 @@ import {
 } from "../../../../domain/health";
 import { RichTextPreview } from "../../../../components/ui/RichTextEditor";
 import styles from "./PortfolioTable.module.css";
+import { customFieldDisplayValue } from "../../../../domain/customFields";
 
 type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
@@ -298,14 +299,7 @@ export const PortfolioTable = ({
                 </td>
                 {customFields.map((field) => {
                   const value = initiative.custom_fields?.[field.id];
-                  const displayValue =
-                    field.type === "CHECKBOX"
-                      ? value === true
-                        ? "Так"
-                        : "Ні"
-                      : value !== undefined && value !== null && value !== ""
-                        ? String(value)
-                        : "—";
+                  const displayValue = customFieldDisplayValue(field, value);
                   return (
                     <td
                       key={field.id}

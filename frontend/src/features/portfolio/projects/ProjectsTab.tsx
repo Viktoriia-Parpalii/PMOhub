@@ -21,6 +21,7 @@ import {
 } from "../../../components/ui/InitiativeListFeedback";
 import { useInitiativeListFilters } from "../../../shared/hooks/useInitiativeListFilters";
 import { useInitiativeAvailableYearsQuery } from "../../../api/hooks";
+import { shouldDisplayCustomField } from "../../../domain/customFields";
 
 export const ProjectsTab = () => {
   const {
@@ -104,7 +105,10 @@ export const ProjectsTab = () => {
   const canEdit = !isArchive && canEditNormal;
 
   const projCustomFields = (customFields || []).filter(
-    (cf) => cf.entityType === "project" && cf.showInTable,
+    (cf) =>
+      cf.entityType === "project" &&
+      cf.showInTable &&
+      shouldDisplayCustomField(cf, portfolioProjects),
   );
 
   const openEditModal = async (proj: InitiativeViewModel) => {

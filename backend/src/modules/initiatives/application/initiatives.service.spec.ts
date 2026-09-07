@@ -440,6 +440,43 @@ describe('InitiativesService transactional rules', () => {
     ).rejects.toMatchObject({ code: 'INVALID_CUSTOM_FIELD' });
   });
 
+  it('copies only active custom fields into a newly created period card', async () => {
+    const createMany = vi.fn(async () => ({ count: 1 }));
+    const tx: any = { customFieldValue: { createMany } };
+    const service = new InitiativesService({} as any);
+
+    await (service as any).copyActiveCustomFieldValues(tx, 'target-card', [
+      {
+        definitionId: 'active-field',
+        textValue: 'Актуальне значення',
+        numberValue: null,
+        booleanValue: null,
+        dateValue: null,
+        optionValue: null,
+        definition: { fieldType: 'TEXT', isActive: true },
+      },
+      {
+        definitionId: 'inactive-field',
+        textValue: 'Історичне значення',
+        numberValue: null,
+        booleanValue: null,
+        dateValue: null,
+        optionValue: null,
+        definition: { fieldType: 'TEXT', isActive: false },
+      },
+    ]);
+
+    expect(createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          quarterCardId: 'target-card',
+          definitionId: 'active-field',
+          textValue: 'Актуальне значення',
+        }),
+      ],
+    });
+  });
+
   it('creates a card from the nearest previous card and copies only effective involved departments', async () => {
     const create = vi.fn(async ({ data }) => ({ id: 'card-new', revision: 1, ...data, departments: [] }));
     const tx: any = {
