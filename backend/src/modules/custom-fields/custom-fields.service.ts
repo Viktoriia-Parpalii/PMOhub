@@ -17,6 +17,8 @@ const map = (item: any) => ({
   showInTable: item.showInTable,
   showInCards: item.showInCards,
   isActive: item.isActive,
+  createdAt:
+    item.createdAt instanceof Date ? item.createdAt.toISOString() : undefined,
 });
 
 @Injectable()

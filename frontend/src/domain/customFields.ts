@@ -1,7 +1,10 @@
 import { CustomFieldDef, InitiativeViewModel } from "../shared/types";
 import { stripHtml } from "../shared/utils";
 
-type CustomFieldCarrier = Pick<InitiativeViewModel, "custom_fields">;
+type CustomFieldCarrier = Pick<
+  InitiativeViewModel,
+  "custom_fields" | "is_locked" | "locked_at"
+>;
 
 export const hasCustomFieldValue = (
   record: CustomFieldCarrier,
@@ -9,13 +12,35 @@ export const hasCustomFieldValue = (
 ) =>
   Object.prototype.hasOwnProperty.call(record.custom_fields ?? {}, fieldId);
 
-/** Active definitions are visible everywhere; inactive ones only where a value was historically stored. */
+const existedBeforeArchive = (
+  field: CustomFieldDef,
+  record: CustomFieldCarrier,
+) => {
+  if (!record.is_locked) return true;
+  if (!field.createdAt || !record.locked_at) return true;
+  const createdAt = Date.parse(field.createdAt);
+  const lockedAt = Date.parse(record.locked_at);
+  return (
+    !Number.isFinite(createdAt) ||
+    !Number.isFinite(lockedAt) ||
+    createdAt <= lockedAt
+  );
+};
+
+/**
+ * Stored historical values always remain visible. An active empty field is
+ * shown in an archive only if its definition existed before that period locked.
+ */
 export const shouldDisplayCustomField = (
   field: CustomFieldDef,
   records: CustomFieldCarrier[],
-) =>
-  field.isActive !== false ||
-  records.some((record) => hasCustomFieldValue(record, field.id));
+) => {
+  if (records.some((record) => hasCustomFieldValue(record, field.id)))
+    return true;
+  if (field.isActive === false) return false;
+  if (!records.length) return true;
+  return records.some((record) => existedBeforeArchive(field, record));
+};
 
 export const customFieldDisplayValue = (
   field: CustomFieldDef,

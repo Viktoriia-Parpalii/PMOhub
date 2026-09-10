@@ -32,6 +32,54 @@ describe("custom field historical visibility", () => {
     ).toBe(true);
   });
 
+  it("hides an active field created after an archived period locked", () => {
+    expect(
+      shouldDisplayCustomField(
+        field({ createdAt: "2026-05-01T00:00:00.000Z" }),
+        [
+          {
+            custom_fields: {},
+            is_locked: true,
+            locked_at: "2026-04-15T00:00:00.000Z",
+          },
+        ],
+      ),
+    ).toBe(false);
+  });
+
+  it("shows an active field that existed before archive locking", () => {
+    expect(
+      shouldDisplayCustomField(
+        field({ createdAt: "2026-03-01T00:00:00.000Z" }),
+        [
+          {
+            custom_fields: {},
+            is_locked: true,
+            locked_at: "2026-04-15T00:00:00.000Z",
+          },
+        ],
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps a stored archived value even if the definition was created later", () => {
+    expect(
+      shouldDisplayCustomField(
+        field({
+          isActive: false,
+          createdAt: "2026-05-01T00:00:00.000Z",
+        }),
+        [
+          {
+            custom_fields: { "field-1": "Історичне значення" },
+            is_locked: true,
+            locked_at: "2026-04-15T00:00:00.000Z",
+          },
+        ],
+      ),
+    ).toBe(true);
+  });
+
   it("distinguishes false and zero from a missing value", () => {
     expect(customFieldDisplayValue(field({ type: "CHECKBOX" }), false)).toBe(
       "Ні",

@@ -177,6 +177,8 @@ export interface CustomFieldDef {
   showInTable?: boolean;
   showInCards?: boolean;
   isActive?: boolean;
+  /** UTC creation time used to keep fields out of periods archived before they existed. */
+  createdAt?: string;
 }
 
 export interface Department {

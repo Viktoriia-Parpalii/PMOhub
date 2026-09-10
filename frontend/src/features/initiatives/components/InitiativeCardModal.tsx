@@ -40,6 +40,7 @@ import { queryKeys } from "../../../api/queryClient";
 import { notify } from "../../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../../shared/constants/notificationConstants";
 import { isCompletedItem } from "../../../domain/initiatives";
+import { shouldDisplayCustomField } from "../../../domain/customFields";
 
 type Initiative = InitiativeViewModel;
 type Kind = "project" | "task";
@@ -250,8 +251,13 @@ export const InitiativeCardModal = ({
   const customFieldsForKind = customFields.filter(
     (field) =>
       field.entityType === kind &&
-      (field.isActive !== false ||
-        Object.prototype.hasOwnProperty.call(fieldVals, field.id)),
+      shouldDisplayCustomField(field, [
+        {
+          custom_fields: fieldVals,
+          is_locked: item?.is_locked,
+          locked_at: item?.locked_at,
+        },
+      ]),
   );
   const updateScope = (id: string, patch: Partial<ChecklistItem>) =>
     setChecklist((items) =>
