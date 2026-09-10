@@ -238,7 +238,7 @@ export const RbacSection = () => {
               <tr>
                 <th>ПІБ</th>
                 <th>Електронна адреса</th>
-                <th>Департамент</th>
+                <th>Відділ</th>
                 <th className={styles.userRoleColumn}>Роль</th>
                 <th className={styles.headerRight}></th>
               </tr>
@@ -485,7 +485,7 @@ export const RbacSection = () => {
                     />
                   </div>
                   <div>
-                    <label className={styles.fieldLabel}>Департамент</label>
+                    <label className={styles.fieldLabel}>Відділ</label>
                     <select
                       value={newUserDept}
                       onChange={(e) => {
@@ -493,7 +493,7 @@ export const RbacSection = () => {
                       }}
                       className={styles.select}
                     >
-                      <option value="">Оберіть департамент</option>
+                      <option value="">Оберіть відділ</option>
                       {(departments || []).map((d) => (
                         <option key={d.id} value={d.id} title={d.name}>
                           {truncateText(d.name, 70)}

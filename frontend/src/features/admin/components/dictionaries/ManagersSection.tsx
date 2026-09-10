@@ -118,7 +118,7 @@ export const ManagersSection = ({
           <thead className={table.tableHead}>
             <tr>
               <th className={table.headerCell}>Назва</th>
-              <th className={table.detailHeaderCell}>Департамент</th>
+              <th className={table.detailHeaderCell}>Відділ</th>
               <th className={table.statusHeaderCell}>Статус</th>
               <th aria-label="Дії" className={table.actionsHeaderCell} />
             </tr>
