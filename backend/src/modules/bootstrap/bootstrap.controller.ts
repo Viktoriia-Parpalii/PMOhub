@@ -8,6 +8,7 @@ import { DictionariesService } from "../dictionaries/dictionaries.service";
 import { CustomFieldsService } from "../custom-fields/custom-fields.service";
 import { currentPeriod } from "../initiatives/domain/period.policy";
 import { DateTime } from "luxon";
+import { SystemSettingsService } from "../system-settings/system-settings.service";
 
 @ApiTags("bootstrap")
 @ApiBearerAuth()
@@ -18,6 +19,7 @@ export class BootstrapController {
     private readonly prisma: PrismaService,
     private readonly dictionaries: DictionariesService,
     private readonly fields: CustomFieldsService,
+    private readonly settings: SystemSettingsService,
   ) {}
 
   @Get()
@@ -31,6 +33,7 @@ export class BootstrapController {
       initiativeSizes,
       customFields,
       currentRolePermission,
+      filterOptionVisibility,
     ] = await Promise.all([
       this.dictionaries.list("departments"),
       this.dictionaries.list("managers"),
@@ -43,6 +46,7 @@ export class BootstrapController {
         where: { role: currentUser.role },
         include: { roleDefinition: true },
       }),
+      this.settings.getFilterOptionVisibility(),
     ]);
     return {
       success: true,
@@ -55,6 +59,7 @@ export class BootstrapController {
         taskWeights,
         initiativeSizes,
         customFields,
+        systemSettings: { filterOptionVisibility },
         rolePermissions: currentRolePermission
           ? [
               {

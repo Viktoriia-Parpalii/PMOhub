@@ -1448,6 +1448,34 @@
         ]
       }
     },
+    "/api/v1/dictionaries/departments/{id}/capacity-history": {
+      "get": {
+        "operationId": "DictionariesController_capacityHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "dictionaries"
+        ]
+      }
+    },
     "/api/v1/dictionaries/{type}": {
       "get": {
         "operationId": "DictionariesController_list",
@@ -1837,6 +1865,35 @@
         ],
         "tags": [
           "bootstrap"
+        ]
+      }
+    },
+    "/api/v1/system-settings/filter-option-visibility": {
+      "patch": {
+        "operationId": "SystemSettingsController_updateFilterOptionVisibility",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFilterOptionVisibilityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "system-settings"
         ]
       }
     },
@@ -4207,6 +4264,42 @@
           "name",
           "type",
           "isRequired"
+        ]
+      },
+      "UpdateFilterOptionVisibilityDto": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "number",
+            "minimum": 1
+          },
+          "analytics": {
+            "enum": [
+              "ACTIVE_ONLY",
+              "ALL"
+            ],
+            "type": "string"
+          },
+          "portfolio": {
+            "enum": [
+              "ACTIVE_ONLY",
+              "ALL"
+            ],
+            "type": "string"
+          },
+          "backlog": {
+            "enum": [
+              "ACTIVE_ONLY",
+              "ALL"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "analytics",
+          "portfolio",
+          "backlog"
         ]
       },
       "AnalyticsDataResponseDto": {

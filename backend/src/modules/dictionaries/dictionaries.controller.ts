@@ -8,6 +8,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import { ParseUUIDPipe } from "@nestjs/common";
 import { ApiSuccessDto } from "../../common/dto/api-response.dto";
 import { RequirePermissions } from "../../common/decorators/permissions.decorator";
 import { DictionariesService, DictionaryType } from "./dictionaries.service";
@@ -21,6 +22,11 @@ import { AuthUser } from "../../common/auth/auth-user";
 @Controller("dictionaries")
 export class DictionariesController {
   constructor(private readonly dictionaries: DictionariesService) {}
+  @RequirePermissions("canAccessAdmin")
+  @Get("departments/:id/capacity-history")
+  async capacityHistory(@Param("id", new ParseUUIDPipe()) id: string) {
+    return { success: true, data: await this.dictionaries.capacityHistory(id) };
+  }
   @Get(":type") async list(@Param("type") type: DictionaryType) {
     return { success: true, data: await this.dictionaries.list(type) };
   }

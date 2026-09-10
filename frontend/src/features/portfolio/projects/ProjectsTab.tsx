@@ -22,6 +22,10 @@ import {
 import { useInitiativeListFilters } from "../../../shared/hooks/useInitiativeListFilters";
 import { useInitiativeAvailableYearsQuery } from "../../../api/hooks";
 import { shouldDisplayCustomField } from "../../../domain/customFields";
+import {
+  filterDictionaryOptions,
+  hasDictionaryOption,
+} from "../../../shared/filterDictionaryOptions";
 
 export const ProjectsTab = () => {
   const {
@@ -39,6 +43,7 @@ export const ProjectsTab = () => {
     setInitiativeDataScope,
     businessPeriod,
     initiativeListState,
+    systemSettings,
   } = useAppContext();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,6 +66,37 @@ export const ProjectsTab = () => {
     [availableYearsQuery.data, businessPeriod.year],
   );
   const listFilters = useInitiativeListFilters();
+  const filterVisibility = systemSettings.filterOptionVisibility.portfolio;
+  const managerOptions = useMemo(
+    () => filterDictionaryOptions(managers || [], filterVisibility),
+    [filterVisibility, managers],
+  );
+  const priorityOptions = useMemo(
+    () => filterDictionaryOptions(priorities || [], filterVisibility),
+    [filterVisibility, priorities],
+  );
+  const statusOptions = useMemo(
+    () => filterDictionaryOptions(initiativeStatuses || [], filterVisibility),
+    [filterVisibility, initiativeStatuses],
+  );
+  useEffect(() => {
+    if (!hasDictionaryOption(managerOptions, listFilters.managerId))
+      listFilters.setManagerId("");
+    if (!hasDictionaryOption(priorityOptions, listFilters.priorityId))
+      listFilters.setPriorityId("");
+    if (!hasDictionaryOption(statusOptions, listFilters.statusId))
+      listFilters.setStatusId("");
+  }, [
+    listFilters.managerId,
+    listFilters.priorityId,
+    listFilters.setManagerId,
+    listFilters.setPriorityId,
+    listFilters.setStatusId,
+    listFilters.statusId,
+    managerOptions,
+    priorityOptions,
+    statusOptions,
+  ]);
   useEffect(() => {
     setSelectedYear(businessPeriod.year);
     setSelectedQuarter(businessPeriod.quarter);
@@ -237,7 +273,7 @@ export const ProjectsTab = () => {
             className={styles.filterSelect}
           >
             <option value="">Всі менеджери</option>
-            {(managers || []).map((m) => (
+            {managerOptions.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
               </option>
@@ -249,9 +285,7 @@ export const ProjectsTab = () => {
             className={`${styles.filterSelect} ${styles.priorityFilter}`}
           >
             <option value="">Всі пріоритети</option>
-            {(priorities || [])
-              .filter((priority) => priority.is_active !== false)
-              .map((priority) => (
+            {priorityOptions.map((priority) => (
                 <option key={priority.id} value={priority.id}>
                   {priority.name}
                 </option>
@@ -264,7 +298,7 @@ export const ProjectsTab = () => {
             aria-label="Фільтр за статусом ініціативи"
           >
             <option value="">Всі статуси</option>
-            {(initiativeStatuses || []).map((status) => (
+            {statusOptions.map((status) => (
               <option key={status.id} value={status.id}>
                 {status.name}
               </option>

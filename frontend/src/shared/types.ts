@@ -186,6 +186,15 @@ export interface Department {
   is_active: boolean;
 }
 
+export interface DepartmentCapacityHistoryItem {
+  id: string;
+  limit_points: number;
+  year: number;
+  quarter: `Q${1 | 2 | 3 | 4}`;
+  changed_at: string;
+  changed_by: { id: string; name: string } | null;
+}
+
 export interface Manager {
   id: string;
   name: string;
@@ -316,6 +325,19 @@ export interface InitiativeSizeDef {
   is_active: boolean;
 }
 
+export type FilterOptionVisibilityMode = "ACTIVE_ONLY" | "ALL";
+
+export interface FilterOptionVisibilitySetting {
+  revision: number;
+  analytics: FilterOptionVisibilityMode;
+  portfolio: FilterOptionVisibilityMode;
+  backlog: FilterOptionVisibilityMode;
+}
+
+export interface SystemSettings {
+  filterOptionVisibility: FilterOptionVisibilitySetting;
+}
+
 export interface ReferenceDataState {
   businessPeriod: {
     year: number;
@@ -329,6 +351,7 @@ export interface ReferenceDataState {
   taskWeights: TaskWeightDef[];
   initiativeSizes: InitiativeSizeDef[];
   managers: Manager[];
+  systemSettings: SystemSettings;
   projects: InitiativeViewModel[];
   tasks: InitiativeViewModel[];
   users: User[];

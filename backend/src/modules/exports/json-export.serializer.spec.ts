@@ -18,6 +18,7 @@ describe("JsonExportSerializer", () => {
     const dataset = {
       years: [],
       departments: [],
+      departmentCapacityHistory: [],
       customFields: [
         { id: "11111111-1111-4111-8111-111111111111", name: "Бюджет", fieldType: "NUMBER", entityType: "project", isActive: true, options: [] },
         { id: "22222222-2222-4222-8222-222222222222", name: "Таємне поле", fieldType: "TEXT", entityType: "project", isActive: true, options: [] },
@@ -73,7 +74,7 @@ describe("JsonExportSerializer", () => {
   it("documents auth redactions in full snapshot", () => {
     const data = {
       users: [{ id: "user", email: "user@example.com", normalizedEmail: "user@example.com" }],
-      roles: [], role_permissions: [], departments: [], managers: [], priorities: [],
+      roles: [], role_permissions: [], departments: [], department_capacity_history: [], managers: [], priorities: [],
       card_status_definitions: [], task_weight_definitions: [], initiative_size_definitions: [],
       custom_field_definitions: [], custom_field_options: [], initiatives: [], initiative_years: [],
       preparation_stages: [], preparation_stage_departments: [], quarter_cards: [],

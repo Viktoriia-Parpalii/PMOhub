@@ -1,11 +1,12 @@
 import React, { Suspense, useEffect, useState } from "react";
-import { BookOpen, Download, ShieldCheck, Sliders } from "lucide-react";
+import { BookOpen, Download, Settings, ShieldCheck, Sliders } from "lucide-react";
 import { DictionariesSection } from "./components/dictionaries/DictionariesSection";
 import { RbacSection } from "./components/rbac/RbacSection";
 import { CustomFieldsSection } from "./components/custom-fields/CustomFieldsSection";
 import styles from "./AdminTab.module.css";
 import { useAppContext } from "../../app/store";
 import { AppLoader } from "../../components/ui/AppLoader";
+import { SettingsSection } from "./components/settings/SettingsSection";
 
 const ExportSection = React.lazy(() =>
   import("./components/export/ExportSection").then((module) => ({
@@ -13,7 +14,7 @@ const ExportSection = React.lazy(() =>
   })),
 );
 
-type AdminSection = "dicts" | "rbac" | "fields" | "exports";
+type AdminSection = "dicts" | "rbac" | "fields" | "exports" | "settings";
 
 const navigation: Array<{
   id: AdminSection;
@@ -24,6 +25,7 @@ const navigation: Array<{
   { id: "rbac", label: "Права та Ролі", icon: <ShieldCheck size={16} /> },
   { id: "fields", label: "Конструктор полів", icon: <Sliders size={16} /> },
   { id: "exports", label: "Експорт даних", icon: <Download size={16} /> },
+  { id: "settings", label: "Налаштування", icon: <Settings size={16} /> },
 ];
 
 /** Coordinates administration sections while each section owns its own state and UI. */
@@ -66,6 +68,7 @@ export const AdminTab = () => {
           {activeSection === "dicts" && <DictionariesSection />}
           {activeSection === "rbac" && <RbacSection />}
           {activeSection === "fields" && <CustomFieldsSection />}
+          {activeSection === "settings" && <SettingsSection />}
         </fieldset>
         {activeSection === "exports" && (
           <Suspense fallback={<AppLoader label="Завантаження експорту…" />}>

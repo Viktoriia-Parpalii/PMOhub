@@ -25,6 +25,7 @@ import {
   RolePermissions,
   TaskWeightDef,
   User,
+  FilterOptionVisibilitySetting,
 } from "../../shared/types";
 import {
   ApiError,
@@ -246,6 +247,9 @@ export interface AppContextType extends ReferenceDataState {
     patch: Partial<CustomFieldDef>,
   ) => Promise<MutationResult>;
   deleteCustomField: (id: string) => Promise<MutationResult>;
+  updateFilterOptionVisibility: (
+    setting: FilterOptionVisibilitySetting,
+  ) => Promise<MutationResult<FilterOptionVisibilitySetting>>;
 }
 
 type CommandResponse<T = undefined> = {
@@ -426,6 +430,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     taskWeights: bootstrap?.taskWeights ?? [],
     initiativeSizes: bootstrap?.initiativeSizes ?? [],
     managers: bootstrap?.managers ?? [],
+    systemSettings: bootstrap?.systemSettings ?? {
+      filterOptionVisibility: {
+        revision: 1,
+        analytics: "ACTIVE_ONLY",
+        portfolio: "ACTIVE_ONLY",
+        backlog: "ACTIVE_ONLY",
+      },
+    },
     users: usersQuery.data ?? [],
     rolePermissions: permissionsQuery.data ?? bootstrap?.rolePermissions ?? [],
     customFields: bootstrap?.customFields ?? [],
@@ -1250,6 +1262,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     addCustomField,
     updateCustomField,
     deleteCustomField,
+    updateFilterOptionVisibility: (setting) =>
+      executeRemote<FilterOptionVisibilitySetting>(
+        () => serverCommands.updateFilterOptionVisibility(setting),
+        refreshBootstrap,
+      ),
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

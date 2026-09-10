@@ -24,6 +24,7 @@ import { BootstrapModule } from "./modules/bootstrap/bootstrap.module";
 import { AnalyticsModule } from "./modules/analytics/analytics.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { ExportsModule } from "./modules/exports/exports.module";
+import { SystemSettingsModule } from "./modules/system-settings/system-settings.module";
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { ExportsModule } from "./modules/exports/exports.module";
     AnalyticsModule,
     AuditModule,
     ExportsModule,
+    SystemSettingsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

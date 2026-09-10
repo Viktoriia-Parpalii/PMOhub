@@ -43,6 +43,10 @@ import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
 import { AppLoader } from "../../components/ui/AppLoader";
 import { notify } from "../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
+import {
+  filterDictionaryOptions,
+  hasDictionaryOption,
+} from "../../shared/filterDictionaryOptions";
 
 const statusOrder = ["DEFAULT", "YELLOW", "GREEN", "RED"] as const;
 const statusColors: Record<keyof StatusCounts, string> = {
@@ -74,7 +78,13 @@ type Drilldown =
   | null;
 
 export const Dashboard = () => {
-  const { departments, managers, businessPeriod, setInitiativeDataScope } = useAppContext();
+  const {
+    departments,
+    managers,
+    businessPeriod,
+    setInitiativeDataScope,
+    systemSettings,
+  } = useAppContext();
   useEffect(() => {
     setInitiativeDataScope({ mode: "dashboard" });
   }, [setInitiativeDataScope]);
@@ -86,6 +96,35 @@ export const Dashboard = () => {
     departmentId: "",
     managerId: "",
   });
+  const filterVisibility = systemSettings.filterOptionVisibility.analytics;
+  const departmentFilterOptions = useMemo(
+    () => filterDictionaryOptions(departments, filterVisibility),
+    [departments, filterVisibility],
+  );
+  const managerFilterOptions = useMemo(
+    () => filterDictionaryOptions(managers, filterVisibility),
+    [filterVisibility, managers],
+  );
+  useEffect(() => {
+    setFilters((current) => {
+      const departmentId = hasDictionaryOption(
+        departmentFilterOptions,
+        current.departmentId,
+      )
+        ? current.departmentId
+        : "";
+      const managerId = hasDictionaryOption(
+        managerFilterOptions,
+        current.managerId,
+      )
+        ? current.managerId
+        : "";
+      return departmentId === current.departmentId &&
+        managerId === current.managerId
+        ? current
+        : { ...current, departmentId, managerId };
+    });
+  }, [departmentFilterOptions, managerFilterOptions]);
   useEffect(() => {
     setFilters((current) =>
       current.year === businessPeriod.year &&
@@ -294,7 +333,7 @@ export const Dashboard = () => {
               }
             >
               <option value="">Всі підрозділи</option>
-              {departments.map((item) => (
+              {departmentFilterOptions.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
                 </option>
@@ -311,7 +350,7 @@ export const Dashboard = () => {
               }
             >
               <option value="">Всі менеджери</option>
-              {managers.map((item) => (
+              {managerFilterOptions.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
                 </option>

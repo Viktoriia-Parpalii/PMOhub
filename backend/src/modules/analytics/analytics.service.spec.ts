@@ -98,6 +98,17 @@ describe("AnalyticsService section contracts", () => {
           { id: "department", name: "Department", capacityLimitPoints: decimal(10) },
         ]),
       },
+      departmentCapacityHistory: {
+        findMany: vi.fn(async () => [
+          {
+            departmentId: "department",
+            limitPoints: decimal(10),
+            effectiveYear: 2027,
+            effectiveQuarter: 1,
+            changedAt: new Date("2027-01-01T00:00:00Z"),
+          },
+        ]),
+      },
     };
     const result = await new AnalyticsService(prisma).annualWorkload({ year: 2027 });
     expect(result.departments[0]).toMatchObject({ load: 4, limit: 40, reserve: 36 });

@@ -51,6 +51,19 @@ CREATE TABLE [dbo].[refresh_tokens] (
 );
 
 -- CreateTable
+CREATE TABLE [dbo].[system_settings] (
+    [key] VARCHAR(100) NOT NULL,
+    [value_json] NVARCHAR(MAX) NOT NULL,
+    [revision] INT NOT NULL CONSTRAINT [DF_system_settings_revision] DEFAULT 1,
+    [updated_by_id] UNIQUEIDENTIFIER NULL,
+    [created_at] DATETIME2 NOT NULL CONSTRAINT [DF_system_settings_created_at] DEFAULT SYSUTCDATETIME(),
+    [updated_at] DATETIME2 NOT NULL CONSTRAINT [DF_system_settings_updated_at] DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT [PK_system_settings] PRIMARY KEY CLUSTERED ([key]),
+    CONSTRAINT [CK_system_settings_value_json] CHECK (ISJSON([value_json]) = 1),
+    CONSTRAINT [CK_system_settings_revision] CHECK ([revision] >= 1)
+);
+
+-- CreateTable
 CREATE TABLE [dbo].[role_permissions] (
     [role] VARCHAR(32) NOT NULL,
     [can_create_edit_initiatives] BIT NOT NULL CONSTRAINT [role_permissions_can_create_edit_initiatives_df] DEFAULT 0,
@@ -73,6 +86,24 @@ CREATE TABLE [dbo].[departments] (
     CONSTRAINT [departments_pkey] PRIMARY KEY CLUSTERED ([id]),
     CONSTRAINT [UX_departments_normalized_name] UNIQUE NONCLUSTERED ([normalized_name])
 );
+
+-- CreateTable
+CREATE TABLE [dbo].[department_capacity_history] (
+    [id] UNIQUEIDENTIFIER NOT NULL,
+    [department_id] UNIQUEIDENTIFIER NOT NULL,
+    [limit_points] DECIMAL(12,2) NOT NULL,
+    [effective_year] INT NOT NULL,
+    [effective_quarter] INT NOT NULL,
+    [changed_at] DATETIME2 NOT NULL CONSTRAINT [department_capacity_history_changed_at_df] DEFAULT SYSUTCDATETIME(),
+    [changed_by_user_id] UNIQUEIDENTIFIER NULL,
+    CONSTRAINT [department_capacity_history_pkey] PRIMARY KEY CLUSTERED ([id]),
+    CONSTRAINT [CK_department_capacity_history_limit] CHECK ([limit_points] >= 0),
+    CONSTRAINT [CK_department_capacity_history_year] CHECK ([effective_year] BETWEEN 2000 AND 2200),
+    CONSTRAINT [CK_department_capacity_history_quarter] CHECK ([effective_quarter] BETWEEN 1 AND 4)
+);
+
+CREATE NONCLUSTERED INDEX [IX_department_capacity_history_period]
+ON [dbo].[department_capacity_history]([department_id], [effective_year], [effective_quarter], [changed_at]);
 
 -- CreateTable
 CREATE TABLE [dbo].[managers] (
@@ -407,6 +438,15 @@ ALTER TABLE [dbo].[quarter_card_custom_field_values] ADD CONSTRAINT [quarter_car
 -- AddForeignKey
 ALTER TABLE [dbo].[audit_events] ADD CONSTRAINT [audit_events_actor_user_id_fkey] FOREIGN KEY ([actor_user_id]) REFERENCES [dbo].[users]([id]) ON DELETE SET NULL ON UPDATE NO ACTION;
 
+-- AddForeignKey
+ALTER TABLE [dbo].[system_settings] ADD CONSTRAINT [system_settings_updated_by_id_fkey] FOREIGN KEY ([updated_by_id]) REFERENCES [dbo].[users]([id]) ON DELETE SET NULL ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE [dbo].[department_capacity_history] ADD CONSTRAINT [department_capacity_history_department_id_fkey] FOREIGN KEY ([department_id]) REFERENCES [dbo].[departments]([id]) ON DELETE CASCADE ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE [dbo].[department_capacity_history] ADD CONSTRAINT [department_capacity_history_changed_by_user_id_fkey] FOREIGN KEY ([changed_by_user_id]) REFERENCES [dbo].[users]([id]) ON DELETE SET NULL ON UPDATE NO ACTION;
+
 
 -- Domain invariants not expressible in Prisma schema.
 ALTER TABLE [dbo].[initiatives] ADD CONSTRAINT [CK_initiatives_kind] CHECK ([kind] IN ('PROJECT','OPERATIONAL_TASK'));
@@ -452,6 +492,11 @@ VALUES
   ('SUPER_ADMIN',1,1,1,0,1),
   ('ADMIN',1,1,1,0,0),
   ('USER',0,0,0,1,0);
+
+INSERT INTO [dbo].[system_settings]
+  ([key], [value_json], [revision], [created_at], [updated_at])
+VALUES
+  ('FILTER_OPTION_VISIBILITY', N'{"analytics":"ACTIVE_ONLY","portfolio":"ACTIVE_ONLY","backlog":"ACTIVE_ONLY"}', 1, SYSUTCDATETIME(), SYSUTCDATETIME());
 
 -- Required immutable dictionary defaults.
 INSERT INTO [dbo].[card_status_definitions]

@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DictionariesSection } from "./DictionariesSection";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 vi.mock("../../../../app/store", () => ({
   useAppContext: () => ({
@@ -38,8 +39,14 @@ vi.mock("../../../../app/store", () => ({
 }));
 
 describe("DictionariesSection table grid", () => {
+  const renderSection = () =>
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <DictionariesSection />
+      </QueryClientProvider>,
+    );
   it("uses the same four columns for every dictionary", () => {
-    const { container } = render(<DictionariesSection />);
+    const { container } = renderSection();
     const tables = Array.from(container.querySelectorAll("table"));
 
     expect(tables).toHaveLength(6);
@@ -64,7 +71,7 @@ describe("DictionariesSection table grid", () => {
   });
 
   it("provides accessible explanations for every dictionary", () => {
-    render(<DictionariesSection />);
+    renderSection();
 
     expect(screen.getAllByRole("button", { name: /^Пояснення:/ })).toHaveLength(6);
     const explanations = screen

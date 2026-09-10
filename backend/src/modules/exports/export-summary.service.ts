@@ -1,6 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { ExportCard, InitiativeExportDataset } from "./initiative-export-query.service";
 import { InitiativeExportFilterDto } from "./export.dto";
+import {
+  capacityPeriodKey,
+  resolveDepartmentCapacityLimits,
+} from "../dictionaries/department-capacity-history";
 
 const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const progress = (card: ExportCard) => {
@@ -61,12 +65,30 @@ export class ExportSummaryService {
     });
 
     const departmentLoad = this.departmentLoads(dataset.cards);
+    const selectedQuarters = filter.periods
+      .filter((period) => period !== "BACKLOG")
+      .map((period) => Number(period.slice(1)));
+    const capacityPeriods = Array.from(
+      { length: filter.years.to - filter.years.from + 1 },
+      (_, index) => filter.years.from + index,
+    ).flatMap((year) => selectedQuarters.map((quarter) => ({ year, quarter })));
+    const resolvedLimits = resolveDepartmentCapacityLimits(
+      dataset.departments.map((department) => department.id),
+      capacityPeriods,
+      dataset.departmentCapacityHistory ?? [],
+    );
     const departments = dataset.departments
       .map((department) => ({
         department_id: department.id,
         name: department.name,
         load: round(departmentLoad.get(department.id) ?? 0),
-        limit: department.capacityLimitPoints.toNumber(),
+        limit: round(
+          capacityPeriods.reduce(
+            (sum, period) =>
+              sum + (resolvedLimits.get(capacityPeriodKey(department.id, period)) ?? 0),
+            0,
+          ),
+        ),
       }))
       .filter((item) => item.load > 0)
       .sort((a, b) => b.load - a.load);

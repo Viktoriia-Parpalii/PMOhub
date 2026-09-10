@@ -64,6 +64,13 @@ export interface InitiativeExportDataset {
     name: string;
     capacityLimitPoints: Prisma.Decimal;
   }>;
+  departmentCapacityHistory: Array<{
+    departmentId: string;
+    limitPoints: Prisma.Decimal;
+    effectiveYear: number;
+    effectiveQuarter: number;
+    changedAt: Date;
+  }>;
 }
 
 const quarterNumbers = (periods: InitiativeExportFilterDto["periods"]) =>
@@ -211,7 +218,26 @@ export class InitiativeExportQueryService {
           select: { id: true, name: true, capacityLimitPoints: true },
           orderBy: { name: "asc" },
         });
-        return { years, cards, customFields, departments };
+        const departmentCapacityHistory = await tx.departmentCapacityHistory.findMany({
+          where: {
+            departmentId: { in: departments.map((department) => department.id) },
+            effectiveYear: { lte: filter.years.to },
+          },
+          select: {
+            departmentId: true,
+            limitPoints: true,
+            effectiveYear: true,
+            effectiveQuarter: true,
+            changedAt: true,
+          },
+          orderBy: [
+            { departmentId: "asc" },
+            { effectiveYear: "asc" },
+            { effectiveQuarter: "asc" },
+            { changedAt: "asc" },
+          ],
+        });
+        return { years, cards, customFields, departments, departmentCapacityHistory };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 60_000 },
     );

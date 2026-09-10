@@ -37,6 +37,15 @@ describe("ExcelWorkbookBuilder", () => {
         },
       ],
       departments: [{ id: "department", name: "IT", capacityLimitPoints: decimal(20) }],
+      departmentCapacityHistory: [
+        {
+          departmentId: "department",
+          limitPoints: decimal(20),
+          effectiveYear: 2026,
+          effectiveQuarter: 1,
+          changedAt: new Date("2026-01-01T00:00:00Z"),
+        },
+      ],
       customFields: [],
       cards: [
         {

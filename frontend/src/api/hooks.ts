@@ -13,6 +13,7 @@ import {
   loadPermissions,
   loadQuarterCards,
   loadUsers,
+  loadDepartmentCapacityHistory,
 } from "./apiClient";
 import { queryKeys } from "./queryClient";
 import { loadAnalytics } from "./apiClient";
@@ -29,6 +30,7 @@ export const useBootstrapQuery = (enabled: boolean) =>
     queryFn: ({ signal }) => loadBootstrap(signal),
     enabled,
     staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
 export const useInitiativeYearsQuery = (
@@ -136,6 +138,13 @@ export const usePermissionsQuery = (enabled = false) =>
     queryKey: queryKeys.permissions,
     queryFn: ({ signal }) => loadPermissions(signal),
     enabled,
+  });
+export const useDepartmentCapacityHistoryQuery = (id?: string) =>
+  useQuery({
+    queryKey: queryKeys.departmentCapacityHistory(id ?? ""),
+    queryFn: ({ signal }) => loadDepartmentCapacityHistory(id!, signal),
+    enabled: Boolean(id),
+    staleTime: 0,
   });
 export const useAnalyticsQuery = (
   mode: AnalyticsMode,

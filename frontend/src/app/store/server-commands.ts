@@ -184,6 +184,18 @@ export const serverCommands = {
         target_revision: targetRevision,
       },
     ),
+  updateFilterOptionVisibility: (body: {
+    revision: number;
+    analytics: "ACTIVE_ONLY" | "ALL";
+    portfolio: "ACTIVE_ONLY" | "ALL";
+    backlog: "ACTIVE_ONLY" | "ALL";
+  }) =>
+    command<CommandResult<{
+      revision: number;
+      analytics: "ACTIVE_ONLY" | "ALL";
+      portfolio: "ACTIVE_ONLY" | "ALL";
+      backlog: "ACTIVE_ONLY" | "ALL";
+    }>>("/system-settings/filter-option-visibility", "PATCH", body),
   extendYears: (
     sourceYears: Array<{ id: string; revision: number }>,
     targetYear: number,

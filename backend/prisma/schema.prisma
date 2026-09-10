@@ -23,36 +23,50 @@ model Role {
 }
 
 model User {
-  id                 String         @id @default(uuid()) @db.UniqueIdentifier
-  name               String         @db.NVarChar(200)
-  email              String         @db.NVarChar(320)
-  normalizedEmail    String         @unique(map: "UX_users_normalized_email") @map("normalized_email") @db.NVarChar(320)
-  passwordHash       String?        @map("password_hash") @db.NVarChar(500)
-  role               String         @db.VarChar(32)
-  departmentId       String?        @map("department_id") @db.UniqueIdentifier
-  isActive           Boolean        @default(true) @map("is_active")
-  mustChangePassword Boolean        @default(false) @map("must_change_password")
-  createdAt          DateTime       @default(now()) @map("created_at") @db.DateTime2
-  updatedAt          DateTime       @updatedAt @map("updated_at") @db.DateTime2
-  department         Department?    @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  roleDefinition     Role           @relation(fields: [role], references: [code], onDelete: NoAction, onUpdate: NoAction)
-  refreshTokens      RefreshToken[]
-  auditEvents        AuditEvent[]
+  id                        String                      @id @default(uuid()) @db.UniqueIdentifier
+  name                      String                      @db.NVarChar(200)
+  email                     String                      @db.NVarChar(320)
+  normalizedEmail           String                      @unique(map: "UX_users_normalized_email") @map("normalized_email") @db.NVarChar(320)
+  passwordHash              String?                     @map("password_hash") @db.NVarChar(500)
+  role                      String                      @db.VarChar(32)
+  departmentId              String?                     @map("department_id") @db.UniqueIdentifier
+  isActive                  Boolean                     @default(true) @map("is_active")
+  mustChangePassword        Boolean                     @default(false) @map("must_change_password")
+  createdAt                 DateTime                    @default(now()) @map("created_at") @db.DateTime2
+  updatedAt                 DateTime                    @updatedAt @map("updated_at") @db.DateTime2
+  department                Department?                 @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roleDefinition            Role                        @relation(fields: [role], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  refreshTokens             RefreshToken[]
+  auditEvents               AuditEvent[]
+  updatedSystemSettings     SystemSetting[]
+  departmentCapacityChanges DepartmentCapacityHistory[]
 
   @@map("users")
 }
 
+model SystemSetting {
+  key         String   @id @db.VarChar(100)
+  valueJson   String   @map("value_json") @db.NVarChar(Max)
+  revision    Int      @default(1)
+  updatedById String?  @map("updated_by_id") @db.UniqueIdentifier
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime2
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.DateTime2
+  updatedBy   User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@map("system_settings")
+}
+
 model RefreshToken {
-  id        String    @id @default(uuid()) @db.UniqueIdentifier
-  userId    String    @map("user_id") @db.UniqueIdentifier
-  familyId  String    @map("family_id") @db.UniqueIdentifier
-  tokenHash String    @unique(map: "UX_refresh_tokens_hash") @map("token_hash") @db.VarChar(128)
-  expiresAt DateTime  @map("expires_at") @db.DateTime2
-  revokedAt DateTime? @map("revoked_at") @db.DateTime2
-  replacedBy String?  @map("replaced_by") @db.UniqueIdentifier
-  userAgent  String?  @map("user_agent") @db.NVarChar(500)
-  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime2
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id         String    @id @default(uuid()) @db.UniqueIdentifier
+  userId     String    @map("user_id") @db.UniqueIdentifier
+  familyId   String    @map("family_id") @db.UniqueIdentifier
+  tokenHash  String    @unique(map: "UX_refresh_tokens_hash") @map("token_hash") @db.VarChar(128)
+  expiresAt  DateTime  @map("expires_at") @db.DateTime2
+  revokedAt  DateTime? @map("revoked_at") @db.DateTime2
+  replacedBy String?   @map("replaced_by") @db.UniqueIdentifier
+  userAgent  String?   @map("user_agent") @db.NVarChar(500)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.DateTime2
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([userId], map: "IX_refresh_tokens_user_id")
   @@index([familyId], map: "IX_refresh_tokens_family_id")
@@ -60,32 +74,48 @@ model RefreshToken {
 }
 
 model RolePermission {
-  role                  String  @id @db.VarChar(32)
+  role                     String  @id @db.VarChar(32)
   canCreateEditInitiatives Boolean @default(false) @map("can_create_edit_initiatives")
   canDeleteInitiatives     Boolean @default(false) @map("can_delete_initiatives")
-  canAccessAdmin        Boolean @default(false) @map("can_access_admin")
-  isReadOnly            Boolean @default(false) @map("is_read_only")
-  canEditArchive        Boolean @default(false) @map("can_edit_archive")
-  roleDefinition        Role    @relation(fields: [role], references: [code], onDelete: Cascade, onUpdate: NoAction)
+  canAccessAdmin           Boolean @default(false) @map("can_access_admin")
+  isReadOnly               Boolean @default(false) @map("is_read_only")
+  canEditArchive           Boolean @default(false) @map("can_edit_archive")
+  roleDefinition           Role    @relation(fields: [role], references: [code], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("role_permissions")
 }
 
 model Department {
-  id                 String                       @id @default(uuid()) @db.UniqueIdentifier
-  name               String                       @db.NVarChar(200)
-  normalizedName     String                       @unique(map: "UX_departments_normalized_name") @map("normalized_name") @db.NVarChar(200)
+  id                  String                       @id @default(uuid()) @db.UniqueIdentifier
+  name                String                       @db.NVarChar(200)
+  normalizedName      String                       @unique(map: "UX_departments_normalized_name") @map("normalized_name") @db.NVarChar(200)
   capacityLimitPoints Decimal                      @default(0) @map("capacity_limit_points") @db.Decimal(12, 2)
-  isActive           Boolean                      @default(true) @map("is_active")
-  createdAt          DateTime                     @default(now()) @map("created_at") @db.DateTime2
-  updatedAt          DateTime                     @updatedAt @map("updated_at") @db.DateTime2
-  users              User[]
-  managers           Manager[]
-  preparationLinks   PreparationStageDepartment[]
-  cardLinks          QuarterCardDepartment[]
-  scopeExecutorLinks ScopeItemExecutor[]
+  isActive            Boolean                      @default(true) @map("is_active")
+  createdAt           DateTime                     @default(now()) @map("created_at") @db.DateTime2
+  updatedAt           DateTime                     @updatedAt @map("updated_at") @db.DateTime2
+  users               User[]
+  managers            Manager[]
+  preparationLinks    PreparationStageDepartment[]
+  cardLinks           QuarterCardDepartment[]
+  scopeExecutorLinks  ScopeItemExecutor[]
+  capacityHistory     DepartmentCapacityHistory[]
 
   @@map("departments")
+}
+
+model DepartmentCapacityHistory {
+  id               String     @id @default(uuid()) @db.UniqueIdentifier
+  departmentId     String     @map("department_id") @db.UniqueIdentifier
+  limitPoints      Decimal    @map("limit_points") @db.Decimal(12, 2)
+  effectiveYear    Int        @map("effective_year")
+  effectiveQuarter Int        @map("effective_quarter")
+  changedAt        DateTime   @default(now()) @map("changed_at") @db.DateTime2
+  changedByUserId  String?    @map("changed_by_user_id") @db.UniqueIdentifier
+  department       Department @relation(fields: [departmentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  changedBy        User?      @relation(fields: [changedByUserId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([departmentId, effectiveYear, effectiveQuarter, changedAt], map: "IX_department_capacity_history_period")
+  @@map("department_capacity_history")
 }
 
 model Manager {
@@ -162,17 +192,17 @@ model InitiativeSize {
 }
 
 model CustomFieldDefinition {
-  id             String                        @id @default(uuid()) @db.UniqueIdentifier
-  name           String                        @db.NVarChar(200)
-  normalizedName String                        @map("normalized_name") @db.NVarChar(200)
-  entityType     String                        @map("entity_type") @db.VarChar(16)
-  fieldType      String                        @map("field_type") @db.VarChar(16)
-  isRequired     Boolean                       @default(false) @map("is_required")
-  isActive       Boolean                       @default(true) @map("is_active")
-  showInTable    Boolean                       @default(false) @map("show_in_table")
-  showInCards    Boolean                       @default(false) @map("show_in_cards")
-  createdAt      DateTime                      @default(now()) @map("created_at") @db.DateTime2
-  updatedAt      DateTime                      @updatedAt @map("updated_at") @db.DateTime2
+  id             String              @id @default(uuid()) @db.UniqueIdentifier
+  name           String              @db.NVarChar(200)
+  normalizedName String              @map("normalized_name") @db.NVarChar(200)
+  entityType     String              @map("entity_type") @db.VarChar(16)
+  fieldType      String              @map("field_type") @db.VarChar(16)
+  isRequired     Boolean             @default(false) @map("is_required")
+  isActive       Boolean             @default(true) @map("is_active")
+  showInTable    Boolean             @default(false) @map("show_in_table")
+  showInCards    Boolean             @default(false) @map("show_in_cards")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.DateTime2
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.DateTime2
   options        CustomFieldOption[]
   values         CustomFieldValue[]
 
@@ -250,32 +280,32 @@ model PreparationStageDepartment {
 }
 
 model QuarterCard {
-  id                String                        @id @default(uuid()) @db.UniqueIdentifier
-  initiativeYearId  String                        @map("initiative_year_id") @db.UniqueIdentifier
+  id                String                  @id @default(uuid()) @db.UniqueIdentifier
+  initiativeYearId  String                  @map("initiative_year_id") @db.UniqueIdentifier
   quarter           Int
-  managerId         String?                       @map("manager_id") @db.UniqueIdentifier
-  priorityId        String?                       @map("priority_id") @db.UniqueIdentifier
-  notes             String?                       @db.NVarChar(Max)
-  statusId          String                        @map("status_id") @db.UniqueIdentifier
-  totalWeight       Decimal                       @default(0) @map("total_weight") @db.Decimal(12, 2)
-  sizeDefinitionId  String?                       @map("size_definition_id") @db.UniqueIdentifier
-  sizeSnapshotName  String?                       @map("size_snapshot_name") @db.NVarChar(100)
-  sizeSnapshotMin   Decimal?                      @map("size_snapshot_min") @db.Decimal(12, 2)
-  sizeSnapshotMax   Decimal?                      @map("size_snapshot_max") @db.Decimal(12, 2)
-  movedFromYear     Int?                          @map("moved_from_year")
-  movedFromQuarter  Int?                          @map("moved_from_quarter")
-  revision          Int                           @default(1)
-  createdAt         DateTime                      @default(now()) @map("created_at") @db.DateTime2
-  updatedAt         DateTime                      @updatedAt @map("updated_at") @db.DateTime2
-  initiativeYear    InitiativeYear                @relation(fields: [initiativeYearId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  manager           Manager?                      @relation(fields: [managerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  priority          Priority?                     @relation(fields: [priorityId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  status            InitiativeStatus              @relation(fields: [statusId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  sizeDefinition    InitiativeSize?               @relation(fields: [sizeDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  managerId         String?                 @map("manager_id") @db.UniqueIdentifier
+  priorityId        String?                 @map("priority_id") @db.UniqueIdentifier
+  notes             String?                 @db.NVarChar(Max)
+  statusId          String                  @map("status_id") @db.UniqueIdentifier
+  totalWeight       Decimal                 @default(0) @map("total_weight") @db.Decimal(12, 2)
+  sizeDefinitionId  String?                 @map("size_definition_id") @db.UniqueIdentifier
+  sizeSnapshotName  String?                 @map("size_snapshot_name") @db.NVarChar(100)
+  sizeSnapshotMin   Decimal?                @map("size_snapshot_min") @db.Decimal(12, 2)
+  sizeSnapshotMax   Decimal?                @map("size_snapshot_max") @db.Decimal(12, 2)
+  movedFromYear     Int?                    @map("moved_from_year")
+  movedFromQuarter  Int?                    @map("moved_from_quarter")
+  revision          Int                     @default(1)
+  createdAt         DateTime                @default(now()) @map("created_at") @db.DateTime2
+  updatedAt         DateTime                @updatedAt @map("updated_at") @db.DateTime2
+  initiativeYear    InitiativeYear          @relation(fields: [initiativeYearId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  manager           Manager?                @relation(fields: [managerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  priority          Priority?               @relation(fields: [priorityId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status            InitiativeStatus        @relation(fields: [statusId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sizeDefinition    InitiativeSize?         @relation(fields: [sizeDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   departments       QuarterCardDepartment[]
   customFieldValues CustomFieldValue[]
-  scopeItems        ScopeItem[]                    @relation("CardScopeItems")
-  movedScopeItems   ScopeItem[]                    @relation("MovedFromCard")
+  scopeItems        ScopeItem[]             @relation("CardScopeItems")
+  movedScopeItems   ScopeItem[]             @relation("MovedFromCard")
 
   @@unique([initiativeYearId, quarter], map: "UX_quarter_cards_year_quarter")
   @@index([quarter], map: "IX_quarter_cards_quarter")
@@ -307,10 +337,10 @@ model ScopeItem {
   createdAt           DateTime            @default(now()) @map("created_at") @db.DateTime2
   updatedAt           DateTime            @updatedAt @map("updated_at") @db.DateTime2
   quarterCard         QuarterCard         @relation("CardScopeItems", fields: [quarterCardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  copiedFromItem      ScopeItem?           @relation("ScopeItemCopies", fields: [copiedFromItemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  copies              ScopeItem[]          @relation("ScopeItemCopies")
-  weightDefinition    TaskWeight           @relation(fields: [weightDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  movedFromCard       QuarterCard?         @relation("MovedFromCard", fields: [movedFromCardId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  copiedFromItem      ScopeItem?          @relation("ScopeItemCopies", fields: [copiedFromItemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  copies              ScopeItem[]         @relation("ScopeItemCopies")
+  weightDefinition    TaskWeight          @relation(fields: [weightDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  movedFromCard       QuarterCard?        @relation("MovedFromCard", fields: [movedFromCardId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   executors           ScopeItemExecutor[]
 
   @@unique([quarterCardId, lineageId], map: "UX_scope_items_card_lineage")

@@ -33,7 +33,11 @@ export class DatabaseSnapshotQueryService {
           orderBy: { createdAt: "asc" },
         }),
         role_permissions: await tx.rolePermission.findMany({ orderBy: { role: "asc" } }),
+        system_settings: await tx.systemSetting.findMany({ orderBy: { key: "asc" } }),
         departments: await tx.department.findMany({ orderBy: { createdAt: "asc" } }),
+        department_capacity_history: await tx.departmentCapacityHistory.findMany({
+          orderBy: [{ departmentId: "asc" }, { effectiveYear: "asc" }, { effectiveQuarter: "asc" }, { changedAt: "asc" }],
+        }),
         managers: await tx.manager.findMany({ orderBy: { createdAt: "asc" } }),
         priorities: await tx.priority.findMany({ orderBy: { createdAt: "asc" } }),
         card_status_definitions: await tx.initiativeStatus.findMany({ orderBy: { createdAt: "asc" } }),

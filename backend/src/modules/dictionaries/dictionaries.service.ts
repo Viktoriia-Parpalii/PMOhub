@@ -4,7 +4,7 @@ import { Prisma, PrismaClient } from "../../generated/prisma/client";
 import { PrismaService } from "../../infrastructure/database/prisma.service";
 import { AppError } from "../../common/errors/app-error";
 import { DictionaryDto } from "./dictionary.dto";
-import { isPeriodLocked } from "../initiatives/domain/period.policy";
+import { currentPeriod, isPeriodLocked, quarterNumber } from "../initiatives/domain/period.policy";
 import { AuthUser } from "../../common/auth/auth-user";
 
 export type DictionaryType =
@@ -111,6 +111,18 @@ export class DictionariesService {
                   isActive: dto.is_active ?? true,
                 },
               });
+              {
+                const period = currentPeriod(this.zone);
+                await tx.departmentCapacityHistory.create({
+                  data: {
+                    departmentId: created.id,
+                    limitPoints: created.capacityLimitPoints,
+                    effectiveYear: period.year,
+                    effectiveQuarter: quarterNumber(period.quarter),
+                    changedByUserId: actor.id,
+                  },
+                });
+              }
               break;
             case "managers":
               created = await tx.manager.create({
@@ -195,6 +207,12 @@ export class DictionariesService {
     actor: AuthUser,
   ) {
     await this.assertMayAdmin(actor);
+    if (dto.name !== undefined && !dto.name.trim())
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Назва не може бути порожньою",
+        HttpStatus.BAD_REQUEST,
+      );
     try {
       await this.prisma.$transaction(
         async (tx) => {
@@ -253,6 +271,12 @@ export class DictionariesService {
             : {};
           switch (type) {
             case "departments":
+              const current = await tx.department.findUnique({ where: { id } });
+              if (!current)
+                throw new AppError("NOT_FOUND", "Відділ не знайдено", HttpStatus.NOT_FOUND);
+              const capacityChanged =
+                dto.capacity_limit_points !== undefined &&
+                !current.capacityLimitPoints.equals(dto.capacity_limit_points);
               await tx.department.update({
                 where: { id },
                 data: {
@@ -261,6 +285,28 @@ export class DictionariesService {
                   isActive: dto.is_active,
                 },
               });
+              if (capacityChanged) {
+                const period = currentPeriod(this.zone);
+                await tx.departmentCapacityHistory.create({
+                  data: {
+                    departmentId: id,
+                    limitPoints: dto.capacity_limit_points!,
+                    effectiveYear: period.year,
+                    effectiveQuarter: quarterNumber(period.quarter),
+                    changedByUserId: actor.id,
+                  },
+                });
+                await tx.auditEvent.create({
+                  data: {
+                    aggregateType: "DEPARTMENT",
+                    aggregateId: id,
+                    actionCode: "DEPARTMENT_CAPACITY_UPDATED",
+                    message: `Змінено ліміт відділу: ${current.capacityLimitPoints.toNumber()} → ${dto.capacity_limit_points}`,
+                    actorUserId: actor.id,
+                    actorName: actor.name,
+                  },
+                });
+              }
               break;
             case "managers":
               await tx.manager.update({
@@ -328,6 +374,28 @@ export class DictionariesService {
     } catch (error) {
       this.rethrow(error);
     }
+  }
+
+  async capacityHistory(id: string) {
+    const department = await this.prisma.department.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!department)
+      throw new AppError("NOT_FOUND", "Відділ не знайдено", HttpStatus.NOT_FOUND);
+    const rows = await this.prisma.departmentCapacityHistory.findMany({
+      where: { departmentId: id },
+      orderBy: { changedAt: "desc" },
+      include: { changedBy: { select: { id: true, name: true } } },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      limit_points: row.limitPoints.toNumber(),
+      year: row.effectiveYear,
+      quarter: `Q${row.effectiveQuarter}`,
+      changed_at: row.changedAt.toISOString(),
+      changed_by: row.changedBy ?? null,
+    }));
   }
 
   async remove(type: DictionaryType, id: string, actor: AuthUser) {

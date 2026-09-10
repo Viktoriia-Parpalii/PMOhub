@@ -6,6 +6,10 @@ import {
   AnalyticsFilterDto,
   QuarterlyAnalyticsFilterDto,
 } from "./analytics.dto";
+import {
+  capacityPeriodKey,
+  resolveDepartmentCapacityLimits,
+} from "../dictionaries/department-capacity-history";
 
 const round = (value: number) =>
   Math.round((value + Number.EPSILON) * 100) / 100;
@@ -368,6 +372,29 @@ export class AnalyticsService {
         select: { id: true, name: true, capacityLimitPoints: true },
       }),
     ]);
+    const requestedPeriods = (annual ? [1, 2, 3, 4] : [quarter!]).map((value) => ({
+      year: filter.year,
+      quarter: value,
+    }));
+    const history = departments.length
+      ? await this.prisma.departmentCapacityHistory.findMany({
+          where: {
+            departmentId: { in: departments.map((department) => department.id) },
+            effectiveYear: { lte: filter.year },
+          },
+          orderBy: [
+            { departmentId: "asc" },
+            { effectiveYear: "asc" },
+            { effectiveQuarter: "asc" },
+            { changedAt: "asc" },
+          ],
+        })
+      : [];
+    const limits = resolveDepartmentCapacityLimits(
+      departments.map((department) => department.id),
+      requestedPeriods,
+      history,
+    );
     const loadsByQuarter = [1, 2, 3, 4].map((value) => ({
       quarter: `Q${value}`,
       loads: this.departmentLoads(cards.filter((card) => card.quarter === value)),
@@ -376,12 +403,19 @@ export class AnalyticsService {
       const quarters = loadsByQuarter.map((period) => ({
         quarter: period.quarter,
         load: period.loads.get(department.id) ?? 0,
-        limit: department.capacityLimitPoints.toNumber(),
+        limit: limits.get(
+          capacityPeriodKey(department.id, {
+            year: filter.year,
+            quarter: Number(period.quarter.slice(1)),
+          }),
+        ) ?? 0,
       }));
       const load = annual
         ? round(quarters.reduce((sum, period) => sum + period.load, 0))
         : (quarters.find((period) => period.quarter === (filter as QuarterlyAnalyticsFilterDto).quarter)?.load ?? 0);
-      const limit = department.capacityLimitPoints.toNumber() * (annual ? 4 : 1);
+      const limit = annual
+        ? round(quarters.reduce((sum, period) => sum + period.limit, 0))
+        : (quarters.find((period) => period.quarter === (filter as QuarterlyAnalyticsFilterDto).quarter)?.limit ?? 0);
       return {
         id: department.id,
         name: department.name,

@@ -219,6 +219,43 @@ BEGIN TRY
     d.[id],CASE WHEN u.[rn] > 50 THEN 0 ELSE 1 END,0,@Now,@Now
   FROM UserNames u JOIN #Departments d ON d.[rn] = 1 + ((u.[rn]-1) % 15);
 
+  /*
+    Квартальна історія лімітів за весь період демо-аналітики.
+    Ліміти плавно зростають від кварталу до кварталу та від року до року,
+    тому Q1–Q4 одного року завжди різні. Значення Q4 2027 дорівнює
+    departments.capacity_limit_points — актуальному read-model quality seed.
+    Майбутні дати 2027 року навмисні: набір уже містить синтетичні картки 2027 року.
+  */
+  ;WITH CapacityYears AS (
+    SELECT 2016 [year]
+    UNION ALL
+    SELECT [year] + 1 FROM CapacityYears WHERE [year] < 2027
+  ), CapacityQuarters AS (
+    SELECT [quarter] FROM (VALUES (1),(2),(3),(4)) q([quarter])
+  )
+  INSERT INTO [dbo].[department_capacity_history]
+    ([id],[department_id],[limit_points],[effective_year],[effective_quarter],[changed_at],[changed_by_user_id])
+  SELECT
+    NEWID(),
+    d.[id],
+    CONVERT(DECIMAL(12,2),
+      d.[capacity]
+      + (y.[year] - 2027) * 1.50
+      + (q.[quarter] - 4) * (2.00 + (d.[rn] % 3) * 0.25)
+    ),
+    y.[year],
+    q.[quarter],
+    DATEADD(
+      HOUR,
+      8,
+      CONVERT(DATETIME2, DATEFROMPARTS(y.[year], 2 + (q.[quarter] - 1) * 3, 15))
+    ),
+    '80000000-0000-4000-8000-000000000001'
+  FROM #Departments d
+  CROSS JOIN CapacityYears y
+  CROSS JOIN CapacityQuarters q
+  OPTION (MAXRECURSION 100);
+
   /* 80 глобальних ініціатив: 55 проєктів + 25 операційних задач. */
   CREATE TABLE #Roots (
     [initiative_id] UNIQUEIDENTIFIER PRIMARY KEY,[global_no] INT,[local_no] INT,[kind] VARCHAR(32),[name] NVARCHAR(500)
@@ -708,10 +745,38 @@ BEGIN TRY
     OR NOT EXISTS (SELECT 1 FROM [dbo].[audit_events] WHERE [action_code]='CARD_CREATED_FROM_BACKLOG')
     THROW 51113, N'Не сформовано повний набір card flows: backlog/continue/move.', 1;
 
+  IF EXISTS (
+    SELECT d.[id]
+    FROM [dbo].[departments] d
+    LEFT JOIN [dbo].[department_capacity_history] h ON h.[department_id]=d.[id]
+    GROUP BY d.[id]
+    HAVING COUNT(h.[id])<>48
+  ) THROW 51114, N'Кожен відділ повинен мати історію лімітів за 12 років і чотири квартали.', 1;
+
+  IF EXISTS (
+    SELECT h.[department_id],h.[effective_year]
+    FROM [dbo].[department_capacity_history] h
+    GROUP BY h.[department_id],h.[effective_year]
+    HAVING COUNT(DISTINCT h.[limit_points])<>4
+  ) THROW 51115, N'Для кожного відділу значення ліміту Q1–Q4 мають відрізнятися.', 1;
+
+  IF EXISTS (
+    SELECT 1
+    FROM [dbo].[departments] d
+    CROSS APPLY (
+      SELECT TOP (1) h.[limit_points]
+      FROM [dbo].[department_capacity_history] h
+      WHERE h.[department_id]=d.[id]
+      ORDER BY h.[effective_year] DESC,h.[effective_quarter] DESC,h.[changed_at] DESC
+    ) latest
+    WHERE latest.[limit_points]<>d.[capacity_limit_points]
+  ) THROW 51116, N'Актуальний ліміт відділу не збігається з останнім записом історії.', 1;
+
   COMMIT TRANSACTION;
 
   /* Підсумковий звіт після успішного COMMIT. */
   SELECT N'Підрозділи' [dataset],COUNT(*) [count] FROM [dbo].[departments]
+  UNION ALL SELECT N'Історія лімітів відділів',COUNT(*) FROM [dbo].[department_capacity_history]
   UNION ALL SELECT N'Користувачі',COUNT(*) FROM [dbo].[users]
   UNION ALL SELECT N'Менеджери',COUNT(*) FROM [dbo].[managers]
   UNION ALL SELECT N'Ініціативи',COUNT(*) FROM [dbo].[initiatives]
@@ -732,6 +797,17 @@ BEGIN TRY
     CONVERT(DECIMAL(6,2),100.0*COUNT(*)/SUM(COUNT(*)) OVER()) [percent_of_cards]
   FROM [dbo].[quarter_cards] c JOIN [dbo].[card_status_definitions] s ON s.[id]=c.[status_id]
   GROUP BY s.[name] ORDER BY [cards] DESC;
+
+  SELECT
+    h.[effective_year] [year],
+    CONCAT('Q',h.[effective_quarter]) [quarter],
+    MIN(h.[limit_points]) [minimum_department_limit],
+    CONVERT(DECIMAL(12,2),AVG(h.[limit_points])) [average_department_limit],
+    MAX(h.[limit_points]) [maximum_department_limit],
+    SUM(h.[limit_points]) [total_limit]
+  FROM [dbo].[department_capacity_history] h
+  GROUP BY h.[effective_year],h.[effective_quarter]
+  ORDER BY h.[effective_year],h.[effective_quarter];
 END TRY
 BEGIN CATCH
   IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;

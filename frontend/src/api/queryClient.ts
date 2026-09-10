@@ -43,6 +43,8 @@ export const queryKeys = {
     ["audit", aggregateType, aggregateId] as const,
   users: ["reference-data", "users"] as const,
   permissions: ["reference-data", "permissions"] as const,
+  departmentCapacityHistory: (id: string) =>
+    ["departments", id, "capacity-history"] as const,
   customFields: ["reference-data", "custom-fields"] as const,
   analytics: (
     mode: "quarterly" | "annual",

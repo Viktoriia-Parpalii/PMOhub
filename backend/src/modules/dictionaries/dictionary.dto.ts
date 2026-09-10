@@ -11,7 +11,7 @@ import {
 
 export class DictionaryDto {
   @IsOptional() @IsString() @MaxLength(200) name?: string;
-  @IsOptional() @IsNumber() @Min(0) capacity_limit_points?: number;
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) capacity_limit_points?: number;
   @IsOptional() @IsUUID() department_id?: string;
   @IsOptional() @IsHexColor() color?: string;
   @IsOptional() @IsNumber() @Min(0) weight?: number;

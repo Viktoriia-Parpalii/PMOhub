@@ -8,6 +8,7 @@ import {
   QuarterCardReadModel,
   BacklogQuarterCardSummary,
   User,
+  DepartmentCapacityHistoryItem,
 } from "../shared/types";
 import type {
   AnalyticsDrilldownResponse,
@@ -257,6 +258,11 @@ export const loadUsers = (signal?: AbortSignal) =>
 export const loadPermissions = (signal?: AbortSignal) =>
   apiRequest<ApiResponse<ReferenceDataState["rolePermissions"]>>(
     "/role-permissions",
+    { signal },
+  ).then((response) => response.data);
+export const loadDepartmentCapacityHistory = (id: string, signal?: AbortSignal) =>
+  apiRequest<ApiResponse<DepartmentCapacityHistoryItem[]>>(
+    `/dictionaries/departments/${id}/capacity-history`,
     { signal },
   ).then((response) => response.data);
 const wireKind = (kind: "project" | "task") =>

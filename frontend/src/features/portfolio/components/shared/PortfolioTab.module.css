@@ -224,16 +224,18 @@
 }
 
 .resetButton {
-  border: 0;
-  background: transparent;
-  padding: .25rem .5rem;
-  color: #64748b;
-  font-size: .875rem;
-  font-weight: 500;
+  min-height: 40px;
+  border: 1px solid #c7d2fe;
+  border-radius: .75rem;
+  background: #eef2ff;
+  padding: 0 .9rem;
+  color: #4338ca;
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .resetButton:hover {
-  color: #334155;
+  background: #e0e7ff;
 }
 
 .emptyState {

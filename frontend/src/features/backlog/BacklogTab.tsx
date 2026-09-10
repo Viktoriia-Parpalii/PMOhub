@@ -41,6 +41,10 @@ import {
 } from "../../components/ui/InitiativeListFeedback";
 import { notify } from "../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
+import {
+  filterDictionaryOptions,
+  hasDictionaryOption,
+} from "../../shared/filterDictionaryOptions";
 
 const quarters: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 
@@ -64,6 +68,7 @@ export const BacklogTab = () => {
     setInitiativeDataScope,
     businessPeriod,
     initiativeListState,
+    systemSettings,
   } = useAppContext();
   const [activeTab, setActiveTab] = useState<Tab>("PROJECTS");
   const [selectedYear, setSelectedYear] = useState(businessPeriod.year);
@@ -81,6 +86,28 @@ export const BacklogTab = () => {
     [availableYearsQuery.data, businessPeriod.year],
   );
   const listFilters = useInitiativeListFilters();
+  const filterVisibility = systemSettings.filterOptionVisibility.backlog;
+  const managerFilterOptions = useMemo(
+    () => filterDictionaryOptions(managers, filterVisibility),
+    [filterVisibility, managers],
+  );
+  const priorityFilterOptions = useMemo(
+    () => filterDictionaryOptions(priorities, filterVisibility),
+    [filterVisibility, priorities],
+  );
+  useEffect(() => {
+    if (!hasDictionaryOption(managerFilterOptions, listFilters.managerId))
+      listFilters.setManagerId("");
+    if (!hasDictionaryOption(priorityFilterOptions, listFilters.priorityId))
+      listFilters.setPriorityId("");
+  }, [
+    listFilters.managerId,
+    listFilters.priorityId,
+    listFilters.setManagerId,
+    listFilters.setPriorityId,
+    managerFilterOptions,
+    priorityFilterOptions,
+  ]);
   const serverFilters = useMemo(
     () => ({
       ...listFilters.filters,
@@ -363,8 +390,8 @@ export const BacklogTab = () => {
           goalSearch={listFilters.strategicGoal}
           managerFilter={listFilters.managerId}
           priorityFilter={listFilters.priorityId}
-          managers={managers}
-          priorities={priorities}
+          managers={managerFilterOptions}
+          priorities={priorityFilterOptions}
           onNameSearch={listFilters.setName}
           onGoalSearch={listFilters.setStrategicGoal}
           onManagerFilter={listFilters.setManagerId}

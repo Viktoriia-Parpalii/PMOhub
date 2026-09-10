@@ -500,6 +500,22 @@ export interface paths {
         patch: operations["AccessControlController_update"];
         trace?: never;
     };
+    "/api/v1/dictionaries/departments/{id}/capacity-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["DictionariesController_capacityHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dictionaries/{type}": {
         parameters: {
             query?: never;
@@ -610,6 +626,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system-settings/filter-option-visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["SystemSettingsController_updateFilterOptionVisibility"];
         trace?: never;
     };
     "/api/v1/analytics/quarterly/overview": {
@@ -1207,6 +1239,15 @@ export interface components {
             showInTable?: boolean;
             showInCards?: boolean;
             isActive?: boolean;
+        };
+        UpdateFilterOptionVisibilityDto: {
+            revision: number;
+            /** @enum {string} */
+            analytics: "ACTIVE_ONLY" | "ALL";
+            /** @enum {string} */
+            portfolio: "ACTIVE_ONLY" | "ALL";
+            /** @enum {string} */
+            backlog: "ACTIVE_ONLY" | "ALL";
         };
         AnalyticsDataResponseDto: {
             /** @enum {boolean} */
@@ -2221,6 +2262,25 @@ export interface operations {
             };
         };
     };
+    DictionariesController_capacityHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     DictionariesController_list: {
         parameters: {
             query?: never;
@@ -2463,6 +2523,27 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SystemSettingsController_updateFilterOptionVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFilterOptionVisibilityDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
