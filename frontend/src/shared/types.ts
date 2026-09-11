@@ -131,6 +131,7 @@ export interface BacklogQuarterCardSummary {
   status: { id: string; code: string; name: string; color: string };
   scope_total: number;
   scope_completed: number;
+  scope_in_progress: number;
   total_weight: number;
   revision: number;
   is_locked: boolean;
@@ -274,6 +275,8 @@ export interface PreparationStage {
 
 export interface InitiativeViewModel extends InitiativeMetadata {
   id: string;
+  /** Повний пул підрозділів картки, включно з поточними виконавцями. */
+  department_pool_ids?: string[];
   /** Server optimistic-concurrency version. */
   revision?: number;
   initiative_revision?: number;
@@ -286,7 +289,7 @@ export interface InitiativeViewModel extends InitiativeMetadata {
   health_status_id?: string;
   health_status_code?: string;
   checklist: ChecklistItem[];
-  scope_summary?: { total: number; completed: number };
+  scope_summary?: { total: number; completed: number; inProgress: number };
   record_type: "YEAR" | "CARD";
   moved_from?: string;
   history?: HistoryEvent[];

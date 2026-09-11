@@ -165,7 +165,10 @@ export const ProjectsTab = () => {
   };
 
   return (
-    <div className={styles.portfolioTab}>
+    <div
+      className={`${styles.portfolioTab} ${viewMode === "table" ? styles.tableMode : ""}`}
+      data-portfolio-table-mode={viewMode === "table" ? "true" : undefined}
+    >
       {isLoadingCard && <AppLoader label="Завантаження картки…" />}
       {isArchive && (
         <div className={styles.archiveBanner}>
@@ -314,35 +317,38 @@ export const ProjectsTab = () => {
           )}
         </div>
       </div>
-      {initiativeListState.isFetching ? (
-        <InitiativeListSkeleton variant={viewMode} />
-      ) : initiativeListState.isError ? (
-        <InitiativeListError retry={initiativeListState.retry} />
-      ) : portfolioProjects.length === 0 ? (
-        <div className={styles.emptyState}>
-          <p className={styles.emptyText}>Портфель порожній.</p>
-        </div>
-      ) : viewMode === "grid" ? (
-        <div className={styles.cardGrid}>
-          {portfolioProjects.map((p) => (
-            <div key={p.id} className={styles.cardWrapper}>
-              <ProjectCard
-                project={p}
-                onClick={() => openEditModal(p)}
-                hideColorPicker={!canEdit}
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <PortfolioTable
-          kind="project"
-          initiatives={portfolioProjects}
-          customFields={projCustomFields}
-          canEdit={canEdit}
-          onOpen={openEditModal}
-        />
-      )}
+      <div className={viewMode === "table" ? styles.tableContent : undefined}>
+        {initiativeListState.isFetching ? (
+          <InitiativeListSkeleton variant={viewMode} />
+        ) : initiativeListState.isError ? (
+          <InitiativeListError retry={initiativeListState.retry} />
+        ) : portfolioProjects.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyText}>Портфель порожній.</p>
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className={styles.cardGrid}>
+            {portfolioProjects.map((p) => (
+              <div key={p.id} className={styles.cardWrapper}>
+                <ProjectCard
+                  project={p}
+                  onClick={() => openEditModal(p)}
+                  hideColorPicker={!canEdit}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <PortfolioTable
+            kind="project"
+            initiatives={portfolioProjects}
+            customFields={projCustomFields}
+            canEdit={canEdit}
+            onOpen={openEditModal}
+            fillAvailableHeight
+          />
+        )}
+      </div>
 
       {isModalOpen && (
         <ProjectModal

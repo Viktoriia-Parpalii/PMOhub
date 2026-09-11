@@ -3834,6 +3834,9 @@
           "scope_completed": {
             "type": "number"
           },
+          "scope_in_progress": {
+            "type": "number"
+          },
           "total_weight": {
             "type": "number"
           },
@@ -3863,6 +3866,7 @@
           "status",
           "scope_total",
           "scope_completed",
+          "scope_in_progress",
           "total_weight",
           "revision",
           "is_locked",

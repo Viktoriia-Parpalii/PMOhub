@@ -94,6 +94,7 @@ export class InitiativeQueryService {
         { initiativeYear: { year: "desc" } },
         { quarter: "asc" },
         { createdAt: "desc" },
+        { id: "asc" },
       ],
     });
     return ok("Квартальні картки завантажено", cards.map(mapCardSummary));

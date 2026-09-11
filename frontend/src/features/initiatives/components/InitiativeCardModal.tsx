@@ -39,7 +39,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../../../api/queryClient";
 import { notify } from "../../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../../shared/constants/notificationConstants";
-import { isCompletedItem } from "../../../domain/initiatives";
+import {
+  getCardDepartmentPool,
+  isCompletedItem,
+} from "../../../domain/initiatives";
 import { shouldDisplayCustomField } from "../../../domain/customFields";
 
 type Initiative = InitiativeViewModel;
@@ -163,9 +166,8 @@ export const InitiativeCardModal = ({
     item?.health_status ?? "DEFAULT",
   );
   const [notes, setNotes] = useState(item?.notes ?? "");
-  const [involved, setInvolved] = useState<string[]>(
-    item?.cross_functional_dept_ids ?? [],
-  );
+  const initialDepartmentPool = getCardDepartmentPool(item);
+  const [involved, setInvolved] = useState<string[]>(initialDepartmentPool);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(
     item?.checklist ?? [],
   );
@@ -205,14 +207,24 @@ export const InitiativeCardModal = ({
   const [scopeTransferMode, setScopeTransferMode] = useState<"MOVE" | "COPY">(
     "MOVE",
   );
+  const executors = useMemo(
+    () =>
+      Array.from(
+        new Set(checklist.flatMap((scope) => scope.implementer_dept_ids ?? [])),
+      ),
+    [checklist],
+  );
+  const effectiveInvolved = involved.filter((id) => !executors.includes(id));
+  const selectableExecutors = Array.from(
+    new Set([...effectiveInvolved, ...executors]),
+  );
   const hasUnsavedChanges =
     Boolean(item) &&
     (managerId !== (item?.manager_id ?? "") ||
       priority !== (item?.priority ?? "") ||
       healthStatus !== (item?.health_status ?? "DEFAULT") ||
       notes !== (item?.notes ?? "") ||
-      JSON.stringify(involved) !==
-        JSON.stringify(item?.cross_functional_dept_ids ?? []) ||
+      JSON.stringify(involved) !== JSON.stringify(initialDepartmentPool) ||
       JSON.stringify(checklist) !== JSON.stringify(item?.checklist ?? []) ||
       JSON.stringify(fieldVals) !== JSON.stringify(item?.custom_fields ?? {}));
   const refreshCanonicalCard = async () => {
@@ -237,17 +249,6 @@ export const InitiativeCardModal = ({
       refetchType: "active",
     });
   };
-  const executors = useMemo(
-    () =>
-      Array.from(
-        new Set(checklist.flatMap((scope) => scope.implementer_dept_ids ?? [])),
-      ),
-    [checklist],
-  );
-  const effectiveInvolved = involved.filter((id) => !executors.includes(id));
-  const selectableExecutors = Array.from(
-    new Set([...effectiveInvolved, ...executors]),
-  );
   const customFieldsForKind = customFields.filter(
     (field) =>
       field.entityType === kind &&
@@ -950,7 +951,7 @@ export const InitiativeCardModal = ({
                                 weightSnapshot: makeWeightSnapshot(definition),
                               });
                           }}
-                          className="scope-select shrink-0"
+                          className={`scope-select ${styles.scopeWeightSelect}`}
                         >
                           <option value="">Вага</option>
                           {scope.weightSnapshot &&
@@ -990,7 +991,7 @@ export const InitiativeCardModal = ({
                             if (event.target.value)
                               setExecutor(scope, event.target.value);
                           }}
-                          className="scope-select min-w-[155px] shrink-0"
+                          className={`scope-select ${styles.scopeExecutorSelect}`}
                         >
                           <option value="">Додати виконавця</option>
                           {departments

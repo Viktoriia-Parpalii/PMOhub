@@ -166,7 +166,10 @@ export const TasksTab = () => {
   };
 
   return (
-    <div className={styles.portfolioTab}>
+    <div
+      className={`${styles.portfolioTab} ${viewMode === "table" ? styles.tableMode : ""}`}
+      data-portfolio-table-mode={viewMode === "table" ? "true" : undefined}
+    >
       {isLoadingCard && <AppLoader label="Завантаження картки…" />}
       {isArchive && (
         <div className={styles.archiveBanner}>
@@ -315,35 +318,38 @@ export const TasksTab = () => {
           )}
         </div>
       </div>
-      {initiativeListState.isFetching ? (
-        <InitiativeListSkeleton variant={viewMode} />
-      ) : initiativeListState.isError ? (
-        <InitiativeListError retry={initiativeListState.retry} />
-      ) : portfolioTasks.length === 0 ? (
-        <div className={styles.emptyState}>
-          <p className={styles.emptyText}>Задачі відсутні.</p>
-        </div>
-      ) : viewMode === "grid" ? (
-        <div className={styles.cardGrid}>
-          {portfolioTasks.map((t) => (
-            <div key={t.id} className={styles.cardWrapper}>
-              <TaskCard
-                task={t}
-                onClick={() => openEditModal(t)}
-                hideColorPicker={!canEdit}
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <PortfolioTable
-          kind="task"
-          initiatives={portfolioTasks}
-          customFields={taskCustomFields}
-          canEdit={canEdit}
-          onOpen={openEditModal}
-        />
-      )}
+      <div className={viewMode === "table" ? styles.tableContent : undefined}>
+        {initiativeListState.isFetching ? (
+          <InitiativeListSkeleton variant={viewMode} />
+        ) : initiativeListState.isError ? (
+          <InitiativeListError retry={initiativeListState.retry} />
+        ) : portfolioTasks.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyText}>Задачі відсутні.</p>
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className={styles.cardGrid}>
+            {portfolioTasks.map((t) => (
+              <div key={t.id} className={styles.cardWrapper}>
+                <TaskCard
+                  task={t}
+                  onClick={() => openEditModal(t)}
+                  hideColorPicker={!canEdit}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <PortfolioTable
+            kind="task"
+            initiatives={portfolioTasks}
+            customFields={taskCustomFields}
+            canEdit={canEdit}
+            onOpen={openEditModal}
+            fillAvailableHeight
+          />
+        )}
+      </div>
 
       {isModalOpen && (
         <TaskModal

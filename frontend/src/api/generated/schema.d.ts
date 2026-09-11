@@ -1126,6 +1126,7 @@ export interface components {
             status: Record<string, never>;
             scope_total: number;
             scope_completed: number;
+            scope_in_progress: number;
             total_weight: number;
             revision: number;
             is_locked: boolean;

@@ -56,6 +56,12 @@ describe("InitiativeQueryService backlog summaries", () => {
             },
           },
         },
+        orderBy: [
+          { initiativeYear: { year: "desc" } },
+          { quarter: "asc" },
+          { createdAt: "desc" },
+          { id: "asc" },
+        ],
       }),
     );
   });
@@ -170,7 +176,7 @@ describe("InitiativeQueryService backlog summaries", () => {
                 statusCode: "GREEN",
                 executors: [{ departmentId: "executor" }],
               },
-              { statusCode: "DEFAULT", executors: [] },
+              { statusCode: "YELLOW", executors: [] },
             ],
             totalWeight: { toNumber: () => 12.5 },
             revision: 3,
@@ -201,6 +207,7 @@ describe("InitiativeQueryService backlog summaries", () => {
       quarter: "Q2",
       scope_total: 2,
       scope_completed: 1,
+      scope_in_progress: 1,
       effective_involved_department_ids: ["involved"],
     });
     expect(result.data[0]).not.toHaveProperty("scope");

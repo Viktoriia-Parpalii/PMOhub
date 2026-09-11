@@ -11,6 +11,24 @@ export type InitiativeRecord = InitiativeViewModel;
 export const isCompletedItem = (item: ChecklistItem) =>
   item.is_completed || item.color === "GREEN" || item.status_code === "GREEN";
 
+/**
+ * Відновлює повний пул підрозділів картки. Виконавці залишаються частиною
+ * пулу, навіть коли тимчасово не показуються у переліку залучених.
+ */
+export const getCardDepartmentPool = (
+  record: InitiativeViewModel | null | undefined,
+): string[] =>
+  Array.from(
+    new Set([
+      ...(record?.department_pool_ids ?? []),
+      ...(record?.cross_functional_dept_ids ?? []),
+      ...(record?.implementer_dept_ids ?? []),
+      ...(record?.checklist.flatMap(
+        (item) => item.implementer_dept_ids ?? [],
+      ) ?? []),
+    ]),
+  );
+
 export const metadataFrom = (
   record: InitiativeMetadata,
 ): InitiativeMetadata => ({

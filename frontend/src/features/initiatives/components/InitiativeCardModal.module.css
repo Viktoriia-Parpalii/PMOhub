@@ -345,6 +345,16 @@
   margin-top: 0.75rem;
 }
 
+.scopeWeightSelect {
+  min-width: 170px;
+  flex: 1 1 190px;
+}
+
+.scopeExecutorSelect {
+  min-width: 155px;
+  flex: 1 1 190px;
+}
+
 .statusOptions {
   display: flex;
   flex-shrink: 0;
@@ -574,7 +584,7 @@
   border: 1px solid #c7d2fe;
   border-radius: 8px;
   background: #f8faff;
-  padding: 0 26px 0 9px;
+  padding: 0 22px 0 8px;
   font-size: 12px;
   font-weight: 700;
   color: #4f39f4;

@@ -24,6 +24,7 @@ type PortfolioTableProps = {
   customFields: CustomFieldDef[];
   canEdit: boolean;
   onOpen: (initiative: Initiative) => void;
+  fillAvailableHeight?: boolean;
 };
 
 const getScopeClasses = (color?: string) => {
@@ -46,6 +47,7 @@ export const PortfolioTable = ({
   customFields,
   canEdit,
   onOpen,
+  fillAvailableHeight = false,
 }: PortfolioTableProps) => {
   const {
     departments,
@@ -64,7 +66,9 @@ export const PortfolioTable = ({
   };
 
   return (
-    <div className={styles.container}>
+    <div
+      className={`${styles.container} ${fillAvailableHeight ? styles.fillAvailableHeight : ""}`}
+    >
       <table className={styles.table}>
         <thead className={styles.head}>
           <tr>

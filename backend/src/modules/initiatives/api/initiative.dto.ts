@@ -379,6 +379,7 @@ export class BacklogQuarterCardSummaryDto {
   };
   @ApiProperty() scope_total!: number;
   @ApiProperty() scope_completed!: number;
+  @ApiProperty() scope_in_progress!: number;
   @ApiProperty() total_weight!: number;
   @ApiProperty() revision!: number;
   @ApiProperty() is_locked!: boolean;

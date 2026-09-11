@@ -394,6 +394,9 @@ export const mapBacklogCardSummary = (card: any) => {
     scope_completed: card.scopeItems.filter(
       (item: any) => item.statusCode === "GREEN",
     ).length,
+    scope_in_progress: card.scopeItems.filter(
+      (item: any) => item.statusCode === "YELLOW",
+    ).length,
     total_weight: numberValue(card.totalWeight) ?? 0,
     revision: card.revision,
     is_locked: isPeriodLocked(card.initiativeYear.year, quarter),

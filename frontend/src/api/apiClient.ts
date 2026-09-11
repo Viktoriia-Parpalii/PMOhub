@@ -429,6 +429,7 @@ export const toQuarterCardViewModel = (
   priority: card.priority_id ?? undefined,
   notes: card.notes ?? undefined,
   implementer_dept_ids: [],
+  department_pool_ids: card.department_ids,
   cross_functional_dept_ids: card.effective_involved_department_ids,
   custom_fields: card.custom_fields,
   year: card.year,
@@ -486,6 +487,7 @@ export const toBacklogQuarterCardViewModel = (
   scope_summary: {
     total: card.scope_total,
     completed: card.scope_completed,
+    inProgress: card.scope_in_progress,
   },
   record_type: "CARD",
   history: [],

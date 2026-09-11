@@ -24,19 +24,26 @@ import styles from "../BacklogTab.module.css";
 
 const getScopeProgress = (card: BacklogInitiative) => {
   if (card.scope_summary) {
-    const { total, completed } = card.scope_summary;
+    const { total, completed, inProgress = 0 } = card.scope_summary;
     return {
       total,
       completed,
-      percent: total ? Math.round((completed / total) * 100) : 0,
+      percent: total
+        ? Math.round(((completed + inProgress * 0.5) / total) * 100)
+        : 0,
     };
   }
   const total = card.checklist.length;
   const completed = card.checklist.filter(isCompletedItem).length;
+  const inProgress = card.checklist.filter(
+    (item) => item.color === "YELLOW",
+  ).length;
   return {
     total,
     completed,
-    percent: total ? Math.round((completed / total) * 100) : 0,
+    percent: total
+      ? Math.round(((completed + inProgress * 0.5) / total) * 100)
+      : 0,
   };
 };
 const taskCountLabel = (count: number) => {
