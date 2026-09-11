@@ -1,0 +1,369 @@
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    width: 100vw;
+    min-height: 100vh;
+    height: 100dvh;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+    background: rgb(15 23 42 / .5);
+    padding: .75rem;
+    backdrop-filter: blur(4px);
+}
+
+.preparationBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    width: 100vw;
+    min-height: 100vh;
+    height: 100dvh;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    background: rgb(15 23 42 / .5);
+    padding: 1rem;
+    backdrop-filter: blur(4px);
+}
+
+.backlogModal {
+    display: flex;
+    width: 100%;
+    max-width: 780px;
+    max-height: 96vh;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 25px 50px rgb(15 23 42 / .25);
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 1.25rem 1.5rem;
+}
+
+.modalTitle {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.closeButton {
+    border: 0;
+    border-radius: .5rem;
+    background: transparent;
+    padding: .25rem;
+    font-size: 1.5rem;
+    color: #94a3b8;
+}
+
+.closeButton:hover {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.modalBody {
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+.modalBody>*+* {
+    margin-top: 1.25rem;
+}
+
+.error {
+    border: 1px solid #fecdd3;
+    border-radius: .75rem;
+    background: #fff1f2;
+    padding: .75rem;
+    font-size: .875rem;
+    font-weight: 600;
+    color: #be123c;
+}
+
+.fieldLabel {
+    display: block;
+    margin-bottom: .25rem;
+    font-size: .875rem;
+    font-weight: 700;
+    color: #334155;
+}
+
+.required {
+    color: #f43f5e;
+}
+
+.nameInput,
+.goalTextarea,
+.selectField {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: .75rem;
+    outline: none;
+}
+
+.nameInput {
+    padding: .75rem 1rem;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.5rem;
+    color: #1e293b;
+}
+
+.goalTextarea {
+    resize: vertical;
+    padding: .75rem 1rem;
+}
+
+.nameInput:focus,
+.goalTextarea:focus,
+.selectField:focus {
+    box-shadow: 0 0 0 2px #6366f1;
+}
+
+.infoBox {
+    margin: 0;
+    border: 1px solid #e0e7ff;
+    border-radius: .75rem;
+    background: #eef2ff;
+    padding: .75rem 1rem;
+    font-size: .875rem;
+    line-height: 1.5rem;
+    color: #3730a3;
+}
+
+.hiddenFieldGrid {
+    display: grid;
+    gap: 1rem;
+}
+
+.hiddenFieldLabel {
+    display: block;
+    margin-bottom: .25rem;
+    font-size: .875rem;
+    font-weight: 700;
+    color: #334155;
+}
+
+.hiddenSelect {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: .75rem;
+    padding: .625rem 1rem;
+}
+
+.hiddenDivider {
+    display: grid;
+    gap: 1rem;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 1.25rem;
+}
+
+.modalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: .75rem;
+    border-top: 1px solid #f1f5f9;
+    background: #fff;
+    padding: 1rem 1.5rem;
+}
+
+.footerCancel,
+.footerSave {
+    height: 2.5rem;
+    border: 0;
+    font-size: .875rem;
+    font-weight: 800;
+}
+
+.footerCancel {
+    padding: 0 .75rem;
+    background: transparent;
+    color: #475569;
+}
+
+.footerSave {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: .75rem;
+    background: #4f46e5;
+    padding: 0 1.25rem;
+    color: #fff;
+    box-shadow: 0 2px 5px rgb(79 57 244 / .25);
+}
+
+.footerSave:hover {
+    background: #4338ca;
+}
+
+.preparationModal {
+    display: flex;
+    width: 100%;
+    max-width: 36rem;
+    max-height: calc(100dvh - 2rem);
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 25px 50px rgb(15 23 42 / .25);
+}
+
+.preparationHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 1.5rem;
+}
+
+.preparationTitle {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.preparationDescription {
+    margin: .25rem 0 0;
+    font-size: .875rem;
+    color: #64748b;
+}
+
+.plainCloseButton {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font-size: 1.5rem;
+    color: #94a3b8;
+}
+
+.plainCloseButton:hover {
+    color: #334155;
+}
+
+.preparationBody {
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+.preparationBody>*+* {
+    margin-top: 1.25rem;
+}
+
+.twoColumnFields {
+    display: grid;
+    gap: 1rem;
+}
+
+.selectLabel {
+    font-size: .875rem;
+    font-weight: 700;
+    color: #334155;
+}
+
+.selectField {
+    display: block;
+    margin-top: .375rem;
+    padding: .75rem 1rem;
+    font-weight: 400;
+}
+
+.departmentLabel {
+    margin: 0 0 .5rem;
+    font-size: .875rem;
+    font-weight: 700;
+    color: #334155;
+}
+
+.departmentPicker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: .75rem;
+    background: #f8fafc;
+    padding: .75rem;
+}
+
+.departmentChip {
+    border: 1px solid #e2e8f0;
+    border-radius: .5rem;
+    background: #fff;
+    padding: .5rem .75rem;
+    font-size: .75rem;
+    font-weight: 700;
+    color: #475569;
+    transition: .15s;
+}
+
+.departmentChip:hover {
+    border-color: #a5b4fc;
+}
+
+.departmentChipSelected {
+    border-color: #fbbf24;
+    background: #f59e0b;
+    color: #fff;
+}
+
+.preparationFooter {
+    display: flex;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    gap: .75rem;
+    border-top: 1px solid #f1f5f9;
+    background: #f8fafc;
+    padding: 1.25rem;
+    border-radius: 0 0 calc(1rem - 1px) calc(1rem - 1px);
+}
+
+.preparationCancel,
+.preparationSave {
+    border: 0;
+    border-radius: .75rem;
+    padding: .625rem 1.25rem;
+    font-weight: 700;
+}
+
+.preparationCancel {
+    background: transparent;
+    color: #475569;
+}
+
+.preparationSave {
+    background: #4f46e5;
+    color: #fff;
+    box-shadow: 0 1px 2px rgb(15 23 42 / .08);
+}
+
+.preparationSave:hover {
+    background: #4338ca;
+}
+
+@media (min-width: 640px) {
+    .backdrop {
+        padding: 1.5rem;
+    }
+
+    .twoColumnFields,
+    .hiddenFieldGrid,
+    .hiddenDivider {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

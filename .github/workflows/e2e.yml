@@ -1,0 +1,54 @@
+name: E2E
+
+on:
+  pull_request:
+    paths: ['backend/**', 'frontend/**', '.github/workflows/e2e.yml']
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env: { ACCEPT_EULA: Y, MSSQL_SA_PASSWORD: CiOnly_Strong_123 }
+        ports: ['1433:1433']
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P CiOnly_Strong_123 -C -Q 'SELECT 1'"
+          --health-interval 10s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: sqlserver://localhost:1433;database=pmohub;schema=dbo;user=sa;password=CiOnly_Strong_123;encrypt=true;trustServerCertificate=true
+      JWT_ACCESS_SECRET: ci-only-access-secret-at-least-32-characters
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-at-least-32-characters
+      BOOTSTRAP_ADMIN_EMAIL: e2e-admin@example.com
+      BOOTSTRAP_ADMIN_NAME: E2E Admin
+      BOOTSTRAP_ADMIN_PASSWORD: E2e_Admin_12345!
+      E2E_ADMIN_EMAIL: e2e-admin@example.com
+      E2E_ADMIN_PASSWORD: E2e_Admin_12345!
+      FRONTEND_ORIGINS: http://127.0.0.1:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: backend/package-lock.json }
+      - run: npm ci
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+      - name: Create database
+        run: docker exec $(docker ps --filter ancestor=mcr.microsoft.com/mssql/server:2022-latest -q) /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P CiOnly_Strong_123 -C -Q "IF DB_ID('pmohub') IS NULL CREATE DATABASE [pmohub]"
+      - run: npm run prisma:generate && npm run db:migrate && npm run db:seed && npm run build
+        working-directory: backend
+      - name: Start backend
+        run: npm run start > backend.log 2>&1 &
+        working-directory: backend
+      - name: Wait for backend
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4000/api/v1/health/ready > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run test:e2e
+        working-directory: frontend
