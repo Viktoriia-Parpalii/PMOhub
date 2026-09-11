@@ -36,7 +36,22 @@ npm run dev
 npm run typecheck
 npm run test
 npm run build
+npm run check:bundle
 ```
+
+### Типи backend API
+
+Frontend-контракт генерується з `backend/openapi.json`. Після зміни backend route або DTO спочатку оновіть OpenAPI, а потім frontend-типи:
+
+```powershell
+Set-Location ../backend
+npm run openapi
+Set-Location ../frontend
+npm run api:generate
+npm run typecheck
+```
+
+Файл `src/api/generated/schema.d.ts` є згенерованим і не повинен редагуватися вручну.
 
 ## 2. Docker: production
 

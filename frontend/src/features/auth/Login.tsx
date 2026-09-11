@@ -6,6 +6,7 @@ import styles from "./Login.module.css";
 import { notify } from "../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
 import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
+import { AuthBackground } from "./AuthBackground";
 
 export const Login = () => {
   const { users, authenticate, departments, backendEnabled } = useAppContext();
@@ -46,6 +47,7 @@ export const Login = () => {
 
   return (
     <div className={styles.page}>
+      <AuthBackground />
       <div className={styles.panel}>
         <div className={styles.brand}>
           <div className={styles.brandRow}>

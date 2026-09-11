@@ -50,7 +50,7 @@ npm run dev
 Що роблять команди:
 
 - `npm ci` встановлює залежності та генерує Prisma Client;
-- `db:migrate` застосовує структуру таблиць і створює системні ролі, початкові права, DEFAULT-статус та DEFAULT-вагу;
+- `db:migrate` застосовує структуру таблиць і створює системні ролі, початкові права, DEFAULT-статус, DEFAULT-вагу та початкові системні налаштування;
 - `db:seed` потрібний лише опційно для створення першого адміністратора через `BOOTSTRAP_ADMIN_*`;
 - `npm run dev` запускає API з автоматичним перезапуском після змін.
 
@@ -101,16 +101,21 @@ Set-Location backend
 npm run typecheck
 npm run test
 npm run build
+npm run openapi
 ```
 
 Frontend:
 
 ```powershell
 Set-Location frontend
+npm run api:generate
 npm run typecheck
 npm run test
 npm run build
+npm run check:bundle
 ```
+
+`npm run openapi` генерує [backend/openapi.json](backend/openapi.json) безпосередньо з NestJS-контролерів і DTO. Після зміни API спочатку виконайте цю команду, а потім `npm run api:generate` у `frontend`, щоб оновити типи клієнта у `frontend/src/api/generated/schema.d.ts`. Обидва згенеровані файли потрібно додавати до тієї самої зміни; вручну їх не редагуйте.
 
 ## 2. Docker: production
 

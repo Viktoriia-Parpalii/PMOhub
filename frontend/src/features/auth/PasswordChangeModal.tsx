@@ -5,6 +5,7 @@ import styles from "./PasswordChangeModal.module.css";
 import { SYSTEM_MESSAGES } from "../../shared/constants/systemMessages";
 import { notify } from "../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../shared/constants/notificationConstants";
+import { AuthBackground } from "./AuthBackground";
 
 type PasswordChangeModalProps = {
   isOpen: boolean;
@@ -169,6 +170,7 @@ export const PasswordChangeModal = ({
   if (presentation === "page") {
     return (
       <main className={styles.page}>
+        <AuthBackground />
         <section className={styles.pageCard} aria-label="Обов’язкова зміна пароля">
           <div className={styles.brandRow}>
             <svg

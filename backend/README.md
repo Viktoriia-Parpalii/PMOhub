@@ -33,7 +33,7 @@ npm run db:migrate
 npm run dev
 ```
 
-`npm ci` автоматично генерує Prisma Client. `db:migrate` створює таблиці разом із системними ролями, правами та DEFAULT-довідниками. `db:seed` запускайте лише опційно для першого адміністратора, попередньо заповнивши всі `BOOTSTRAP_ADMIN_*` у `.env`.
+`npm ci` автоматично генерує Prisma Client. `db:migrate` створює таблиці разом із системними ролями, правами, DEFAULT-довідниками та початковими системними налаштуваннями. Initial migration також містить таблицю історії квартальних лімітів підрозділів. `db:seed` запускайте лише опційно для першого адміністратора, попередньо заповнивши всі `BOOTSTRAP_ADMIN_*` у `.env`.
 
 Таблиця `roles` є батьківським довідником для `users.role` і `role_permissions.role`. Роль за замовчуванням позначається `is_default`; активність ролі перевіряється під час login, refresh і авторизації запитів.
 
@@ -51,9 +51,24 @@ npm run dev
 npm run typecheck
 npm run test
 npm run build
+npm run openapi
 ```
 
 API readiness: [http://localhost:4000/api/v1/health/ready](http://localhost:4000/api/v1/health/ready). Swagger: [http://localhost:4000/api/docs](http://localhost:4000/api/docs).
+
+### Swagger і OpenAPI
+
+Swagger UI формується з актуальних NestJS-контролерів і DTO та доступний за адресою `/api/docs`. Версійований API має префікс `/api/v1`.
+
+Після будь-якої зміни route, query/body DTO або response DTO виконайте:
+
+```powershell
+npm run openapi
+Set-Location ../frontend
+npm run api:generate
+```
+
+Перша команда оновлює `backend/openapi.json`, друга — типізований frontend-контракт `frontend/src/api/generated/schema.d.ts`. Це згенеровані файли: не редагуйте їх вручну та зберігайте обидва в одній зміні.
 
 ## 2. Docker: production
 
