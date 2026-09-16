@@ -128,17 +128,33 @@ export const RichTextPreview: React.FC<RichTextPreviewProps> = ({
   useEffect(() => {
     if (!tooltip) return;
     const hide = () => setTooltip(null);
+    const onPointerMove = (event: PointerEvent) => {
+      const content = contentRef.current;
+      if (!content) {
+        hide();
+        return;
+      }
+      const rect = content.getBoundingClientRect();
+      const isInside =
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom;
+      if (!isInside) hide();
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") hide();
     };
     window.addEventListener("blur", hide);
     window.addEventListener("scroll", hide, true);
     window.addEventListener("pointerdown", hide);
+    window.addEventListener("pointermove", onPointerMove, true);
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("blur", hide);
       window.removeEventListener("scroll", hide, true);
       window.removeEventListener("pointerdown", hide);
+      window.removeEventListener("pointermove", onPointerMove, true);
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [tooltip]);

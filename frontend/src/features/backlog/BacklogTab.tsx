@@ -402,7 +402,7 @@ export const BacklogTab = () => {
             setQuarterFilter("ALL");
           }}
         />
-        {initiativeListState.isFetching ? (
+        {initiativeListState.isPending ? (
           <InitiativeListSkeleton variant="backlog" />
         ) : initiativeListState.isError ? (
           <InitiativeListError retry={initiativeListState.retry} />

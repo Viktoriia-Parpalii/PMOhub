@@ -319,7 +319,7 @@ export const TasksTab = () => {
         </div>
       </div>
       <div className={viewMode === "table" ? styles.tableContent : undefined}>
-        {initiativeListState.isFetching ? (
+        {initiativeListState.isPending ? (
           <InitiativeListSkeleton variant={viewMode} />
         ) : initiativeListState.isError ? (
           <InitiativeListError retry={initiativeListState.retry} />

@@ -113,7 +113,7 @@ export interface AppContextType extends ReferenceDataState {
   disableAdminData: () => void;
   setInitiativeDataScope: (scope: InitiativeDataScope) => void;
   initiativeListState: {
-    isFetching: boolean;
+    isPending: boolean;
     isError: boolean;
     retry: () => void;
   };
@@ -477,7 +477,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           ? taskYearsQuery
           : null;
   const initiativeListState = {
-    isFetching: activeInitiativeListQuery?.isFetching ?? false,
+    // A background refetch keeps the current list mounted, preserving the
+    // page/table scroll position. A new query key has no data and is pending,
+    // so filters and period changes still replace the old list with a skeleton.
+    isPending: activeInitiativeListQuery?.isPending ?? false,
     isError: activeInitiativeListQuery?.isError ?? false,
     retry: () => {
       void activeInitiativeListQuery?.refetch();
