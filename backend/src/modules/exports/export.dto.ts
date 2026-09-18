@@ -89,8 +89,6 @@ export class ExcelExportDto extends InitiativeExportFilterDto {
 }
 
 export class AiExportPrivacyDto {
-  @ApiProperty({ default: true }) @IsBoolean() include_name!: boolean;
-  @ApiProperty({ default: false }) @IsBoolean() include_strategic_goal!: boolean;
   @ApiProperty({ default: true }) @IsBoolean() include_manager!: boolean;
   @ApiProperty({ default: true }) @IsBoolean() include_departments!: boolean;
   @ApiProperty({ default: false }) @IsBoolean() include_notes!: boolean;

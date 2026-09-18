@@ -80,8 +80,6 @@ const EXCEL_FIELD_LABELS: Record<ExcelField, string> = {
 };
 
 const defaultPrivacy: AiExportPrivacy = {
-  include_name: true,
-  include_strategic_goal: false,
   include_manager: true,
   include_departments: true,
   include_notes: false,
@@ -385,10 +383,13 @@ export const ExportSection = () => {
           {aiOpen && (
             <div className={styles.excelSettingsColumns}>
               <section className={styles.excelSettingsSection}>
+                <div className={styles.aiRequiredFields}>
+                  <strong>Обов’язкові управлінські дані</strong>
+                  <p>Назва, період, статус, пріоритет, розмір, вага, прогрес і агрегований скоуп.</p>
+                  <small>Тексти завдань скоупу та їхні технічні ID у файл не потрапляють.</small>
+                </div>
                 <div className={`${styles.switchList} ${styles.aiStandardFields}`}>
                   {([
-                    ["include_name", "Назви ініціатив"],
-                    ["include_strategic_goal", "Стратегічні цілі"],
                     ["include_manager", "Менеджери"],
                     ["include_departments", "Підрозділи"],
                     ["include_notes", "Примітки"],

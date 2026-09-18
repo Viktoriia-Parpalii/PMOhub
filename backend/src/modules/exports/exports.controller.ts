@@ -19,6 +19,7 @@ import {
   InitiativeExportFilterDto,
 } from "./export.dto";
 import { ExportsService } from "./exports.service";
+import { AiManagementReportV2Dto } from "./ai-management-report.dto";
 
 const attachment = (response: Response, filename: string, contentType: string, body: Buffer) => {
   response.setHeader("Content-Type", contentType);
@@ -76,7 +77,10 @@ export class ExportsController {
   @RequirePermissions("canAccessAdmin")
   @ApiOperation({ summary: "Завантажити приватний JSON для AI" })
   @ApiProduces("application/json")
-  @ApiOkResponse({ schema: { type: "string", format: "binary" } })
+  @ApiOkResponse({
+    type: AiManagementReportV2Dto,
+    description: "JSON-звіт версії 2.0 для управлінського аналізу (завантажується як файл).",
+  })
   async aiJson(
     @CurrentUser() actor: AuthUser,
     @Body() request: AiJsonExportDto,

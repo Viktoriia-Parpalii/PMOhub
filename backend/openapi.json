@@ -2850,12 +2850,11 @@
         },
         "responses": {
           "200": {
-            "description": "",
+            "description": "JSON-звіт версії 2.0 для управлінського аналізу (завантажується як файл).",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string",
-                  "format": "binary"
+                  "$ref": "#/components/schemas/AiManagementReportV2Dto"
                 }
               }
             }
@@ -4789,14 +4788,6 @@
       "AiExportPrivacyDto": {
         "type": "object",
         "properties": {
-          "include_name": {
-            "type": "boolean",
-            "default": true
-          },
-          "include_strategic_goal": {
-            "type": "boolean",
-            "default": false
-          },
           "include_manager": {
             "type": "boolean",
             "default": true
@@ -4819,8 +4810,6 @@
           }
         },
         "required": [
-          "include_name",
-          "include_strategic_goal",
           "include_manager",
           "include_departments",
           "include_notes",
@@ -4867,6 +4856,64 @@
           "periods",
           "kinds",
           "privacy"
+        ]
+      },
+      "AiManagementReportV2Dto": {
+        "type": "object",
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "example": "2.0"
+          },
+          "report_context": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Період і фактичне охоплення без технічних фільтрів."
+          },
+          "executive_metrics": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Управлінські KPI для вибраного періоду."
+          },
+          "breakdowns": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": true
+            },
+            "description": "Розподіли, тренд і дозволена capacity-деталізація."
+          },
+          "initiatives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "Компактні ініціативи без текстів та ID завдань скоупу."
+          },
+          "data_quality": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Лічильники незаповнених управлінських атрибутів."
+          },
+          "analysis_brief": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Стабільне завдання для українського звіту керівництву."
+          }
+        },
+        "required": [
+          "schema_version",
+          "report_context",
+          "executive_metrics",
+          "breakdowns",
+          "initiatives",
+          "data_quality",
+          "analysis_brief"
         ]
       }
     }

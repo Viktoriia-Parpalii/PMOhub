@@ -54,7 +54,7 @@ export class ExportsService {
     await this.authorization.assertAdmin(actor);
     try {
       const dataset = await this.initiatives.load(request);
-      const value = this.json.ai(dataset, request, actor);
+      const value = this.json.ai(dataset, request);
       await this.audit.write(actor, "AI_JSON", "SUCCESS", {
         records: dataset.years.length + dataset.cards.length,
         filters: { years: request.years, periods: request.periods, kinds: request.kinds },

@@ -330,6 +330,15 @@
     font-size: .75rem;
 }
 
+.scopeNumber {
+    min-width: 1.15rem;
+    flex: 0 0 auto;
+    color: #64748b;
+    font-weight: 700;
+    line-height: 1.375;
+    text-align: right;
+}
+
 .scopeDot {
     width: .5rem;
     height: .5rem;

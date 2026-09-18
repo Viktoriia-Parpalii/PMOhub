@@ -1366,10 +1366,6 @@ export interface components {
         };
         AiExportPrivacyDto: {
             /** @default true */
-            include_name: boolean;
-            /** @default false */
-            include_strategic_goal: boolean;
-            /** @default true */
             include_manager: boolean;
             /** @default true */
             include_departments: boolean;
@@ -1383,6 +1379,34 @@ export interface components {
             periods: ("BACKLOG" | "Q1" | "Q2" | "Q3" | "Q4")[];
             kinds: ("PROJECT" | "OPERATIONAL_TASK")[];
             privacy: components["schemas"]["AiExportPrivacyDto"];
+        };
+        AiManagementReportV2Dto: {
+            /** @example 2.0 */
+            schema_version: string;
+            /** @description Період і фактичне охоплення без технічних фільтрів. */
+            report_context: {
+                [key: string]: unknown;
+            };
+            /** @description Управлінські KPI для вибраного періоду. */
+            executive_metrics: {
+                [key: string]: number;
+            };
+            /** @description Розподіли, тренд і дозволена capacity-деталізація. */
+            breakdowns: {
+                [key: string]: unknown[];
+            };
+            /** @description Компактні ініціативи без текстів та ID завдань скоупу. */
+            initiatives: {
+                [key: string]: unknown;
+            }[];
+            /** @description Лічильники незаповнених управлінських атрибутів. */
+            data_quality: {
+                [key: string]: number;
+            };
+            /** @description Стабільне завдання для українського звіту керівництву. */
+            analysis_brief: {
+                [key: string]: unknown;
+            };
         };
     };
     responses: never;
@@ -2887,12 +2911,13 @@ export interface operations {
             };
         };
         responses: {
+            /** @description JSON-звіт версії 2.0 для управлінського аналізу (завантажується як файл). */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": string;
+                    "application/json": components["schemas"]["AiManagementReportV2Dto"];
                 };
             };
         };

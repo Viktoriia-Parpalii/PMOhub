@@ -116,6 +116,75 @@ export class ExportSummaryService {
     };
   }
 
+  managementCapacity(dataset: InitiativeExportDataset, filter: InitiativeExportFilterDto) {
+    const quarters = filter.periods
+      .filter((period) => period !== "BACKLOG")
+      .map((period) => Number(period.slice(1)));
+    const periods = Array.from(
+      { length: filter.years.to - filter.years.from + 1 },
+      (_, index) => filter.years.from + index,
+    ).flatMap((year) => quarters.map((quarter) => ({ year, quarter })));
+    const resolvedLimits = resolveDepartmentCapacityLimits(
+      dataset.departments.map((department) => department.id),
+      periods,
+      dataset.departmentCapacityHistory ?? [],
+    );
+    const departmentTotals = new Map(
+      dataset.departments.map((department) => [
+        department.id,
+        { name: department.name, limit: 0, load: 0 },
+      ]),
+    );
+    const periodRows = periods.map((period) => {
+      const cards = dataset.cards.filter(
+        (card) => card.initiativeYear.year === period.year && card.quarter === period.quarter,
+      );
+      const loads = this.departmentLoads(cards);
+      const departments = dataset.departments.map((department) => {
+        const limit = round(
+          resolvedLimits.get(capacityPeriodKey(department.id, period)) ?? 0,
+        );
+        const load = round(loads.get(department.id) ?? 0);
+        const total = departmentTotals.get(department.id)!;
+        total.limit += limit;
+        total.load += load;
+        return { id: department.id, name: department.name, limit, load };
+      });
+      const limit = round(departments.reduce((sum, item) => sum + item.limit, 0));
+      const load = round(departments.reduce((sum, item) => sum + item.load, 0));
+      return {
+        year: period.year,
+        quarter: `Q${period.quarter}`,
+        limit,
+        load,
+        reserve: round(limit - load),
+        overloaded_departments: departments.filter((item) => item.load > item.limit).length,
+        departments,
+      };
+    });
+    const departments = [...departmentTotals.values()].map((department) => {
+      const limit = round(department.limit);
+      const load = round(department.load);
+      return {
+        name: department.name,
+        limit,
+        load,
+        reserve: round(limit - load),
+        is_over_capacity: load > limit,
+      };
+    });
+    const limit = round(departments.reduce((sum, item) => sum + item.limit, 0));
+    const load = round(departments.reduce((sum, item) => sum + item.load, 0));
+    return {
+      limit,
+      load,
+      reserve: round(limit - load),
+      overloaded_departments: departments.filter((item) => item.is_over_capacity).length,
+      periods: periodRows.map(({ departments: _departments, ...period }) => period),
+      departments,
+    };
+  }
+
   private departmentLoads(cards: ExportCard[]) {
     const loads = new Map<string, number>();
     for (const card of cards) {

@@ -269,10 +269,11 @@ export const PortfolioTable = ({
                 <td className={styles.cell}>
                   {initiative.checklist.length > 0 ? (
                     <ul className={styles.scopeList}>
-                      {initiative.checklist.map((item) => {
+                      {initiative.checklist.map((item, index) => {
                         const scope = getScopeClasses(item.color);
                         return (
                           <li key={item.id} className={styles.scopeItem}>
+                            <span className={styles.scopeNumber}>{index + 1}.</span>
                             <span
                               className={`${styles.scopeDot} ${scope.dot}`}
                             />

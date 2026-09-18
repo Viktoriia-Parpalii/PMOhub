@@ -61,6 +61,7 @@ describe("ExportSection", () => {
       matrix: [],
     });
     api.excel.mockResolvedValue({ blob: new Blob(), filename: "PMO_Hub.xlsx" });
+    api.ai.mockResolvedValue({ blob: new Blob(), filename: "PMO_Hub_AI.json" });
   });
 
   const renderSection = () => {
@@ -78,9 +79,31 @@ describe("ExportSection", () => {
     expect(screen.queryByText("Обрано полів для AI")).not.toBeInTheDocument();
     expect(screen.queryByText("Конфіденційний коментар")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Налаштувати приватність/i }));
+    expect(screen.getByText("Обов’язкові управлінські дані")).toBeInTheDocument();
+    expect(screen.getByText(/Тексти завдань скоупу та їхні технічні ID/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Назви ініціатив")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Стратегічні цілі")).not.toBeInTheDocument();
     expect(await screen.findByText("Конфіденційний коментар")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Знайти поле")).not.toBeInTheDocument();
     expect(api.availability).toHaveBeenCalledTimes(2);
+  });
+
+  it("sends only optional AI privacy settings", async () => {
+    renderSection();
+    fireEvent.click(screen.getByRole("button", { name: /Налаштувати приватність/i }));
+    fireEvent.click(screen.getByLabelText("Менеджери"));
+    fireEvent.click(screen.getByRole("button", { name: /Завантажити JSON для AI/i }));
+
+    await waitFor(() => expect(api.ai).toHaveBeenCalledTimes(1));
+    const privacy = api.ai.mock.calls[0][1];
+    expect(privacy).toEqual({
+      include_manager: false,
+      include_departments: true,
+      include_notes: false,
+      selected_custom_field_ids: [],
+    });
+    expect(privacy).not.toHaveProperty("include_name");
+    expect(privacy).not.toHaveProperty("include_strategic_goal");
   });
 
   it("requires explicit text confirmation for full snapshot", async () => {
@@ -109,5 +132,14 @@ describe("ExportSection", () => {
     expect(request.columns.selected_fields).toContain("NAME");
     expect(request.columns.selected_fields).not.toContain("NOTES");
     expect(request.columns.selected_custom_field_ids).toEqual([]);
+  });
+
+  it("keeps Excel and AI settings open at the same time", async () => {
+    renderSection();
+    fireEvent.click(screen.getByRole("button", { name: /Налаштувати поля Excel/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Налаштувати приватність/i }));
+
+    expect(screen.getByText("Стандартні поля")).toBeInTheDocument();
+    expect(screen.getByText("Обов’язкові управлінські дані")).toBeInTheDocument();
   });
 });

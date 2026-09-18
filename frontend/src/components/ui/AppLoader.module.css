@@ -24,7 +24,8 @@
 }
 
 .fullPage {
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   border: 0;
   border-radius: 0;
 }

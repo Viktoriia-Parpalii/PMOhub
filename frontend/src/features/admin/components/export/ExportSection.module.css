@@ -426,6 +426,33 @@
   gap: 1.25rem;
 }
 
+.aiRequiredFields {
+  display: grid;
+  gap: .35rem;
+  border: 1px solid #c7d2fe;
+  border-radius: .75rem;
+  padding: .75rem;
+  background: #f8faff;
+}
+
+.aiRequiredFields strong {
+  color: #312e81;
+  font-size: .82rem;
+}
+
+.aiRequiredFields p,
+.aiRequiredFields small {
+  margin: 0;
+  color: #64748b;
+  font-size: .75rem;
+  line-height: 1.45;
+}
+
+.aiRequiredFields small {
+  color: #7c3aed;
+  font-weight: 700;
+}
+
 .excelSettingsSection {
   display: grid;
   min-width: 0;
@@ -447,12 +474,8 @@
 
 .customFieldList {
   display: grid;
-  max-height: 16rem;
   gap: .35rem;
-  overflow-y: auto;
   padding-right: .3rem;
-  scrollbar-color: #a5b4fc #eef2ff;
-  scrollbar-width: thin;
 }
 
 .customFieldList>p {
