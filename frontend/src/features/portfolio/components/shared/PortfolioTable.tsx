@@ -14,6 +14,7 @@ import {
 import { RichTextPreview } from "../../../../components/ui/RichTextEditor";
 import styles from "./PortfolioTable.module.css";
 import { customFieldDisplayValue } from "../../../../domain/customFields";
+import { buildScopeBlocks } from "../../../../domain/scopeGroups";
 
 type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
@@ -38,6 +39,20 @@ const getScopeClasses = (color?: string) => {
     default:
       return { dot: styles.scopeDotDefault, text: styles.scopeTextDefault };
   }
+};
+const TableScopeLine = ({ item, number, nested = false }: {
+  item: InitiativeViewModel["checklist"][number];
+  number: string;
+  nested?: boolean;
+}) => {
+  const scope = getScopeClasses(item.color);
+  return (
+    <li className={`${styles.scopeItem} ${nested ? styles.scopeItemNested : ""}`}>
+      <span className={styles.scopeNumber}>{number}</span>
+      <span className={`${styles.scopeDot} ${scope.dot}`} />
+      <span className={`${styles.scopeText} ${scope.text}`} title={item.text}>{item.text}</span>
+    </li>
+  );
 };
 
 /** Shared project and operational-task portfolio table. */
@@ -269,23 +284,21 @@ export const PortfolioTable = ({
                 <td className={styles.cell}>
                   {initiative.checklist.length > 0 ? (
                     <ul className={styles.scopeList}>
-                      {initiative.checklist.map((item, index) => {
-                        const scope = getScopeClasses(item.color);
-                        return (
-                          <li key={item.id} className={styles.scopeItem}>
-                            <span className={styles.scopeNumber}>{index + 1}.</span>
-                            <span
-                              className={`${styles.scopeDot} ${scope.dot}`}
-                            />
-                            <span
-                              className={`${styles.scopeText} ${scope.text}`}
-                              title={item.text}
-                            >
-                              {item.text}
-                            </span>
-                          </li>
-                        );
-                      })}
+                      {buildScopeBlocks(initiative.checklist, initiative.scopeGroups).map((block) =>
+                        block.kind === "ITEM" ? (
+                          <TableScopeLine key={block.key} item={block.item} number={block.number} />
+                        ) : (
+                          <React.Fragment key={block.key}>
+                            <li className={`${styles.scopeGroup} ${block.color ? styles[`scopeGroup${block.color}`] ?? "" : ""}`}>
+                              <span className={styles.scopeNumber}>{block.number}</span>
+                              <span className={styles.scopeGroupTitle}>{block.group.title}</span>
+                            </li>
+                            {block.items.map(({ item, number }) => (
+                              <TableScopeLine key={item.id} item={item} number={number} nested />
+                            ))}
+                          </React.Fragment>
+                        ),
+                      )}
                     </ul>
                   ) : (
                     <span className={styles.emptyMark}>—</span>

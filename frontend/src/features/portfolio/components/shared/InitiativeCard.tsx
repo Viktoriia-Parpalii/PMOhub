@@ -17,6 +17,7 @@ import {
   customFieldDisplayValue,
   shouldDisplayCustomField,
 } from "../../../../domain/customFields";
+import { buildScopeBlocks } from "../../../../domain/scopeGroups";
 
 type Initiative = InitiativeViewModel;
 type InitiativeKind = "project" | "task";
@@ -40,6 +41,24 @@ const getScopeColor = (color?: string) => {
     default:
       return { dot: "bg-slate-400", text: "text-slate-700" };
   }
+};
+const ScopeLine = ({ item, number, nested = false }: {
+  item: InitiativeViewModel["checklist"][number];
+  number: string;
+  nested?: boolean;
+}) => {
+  const presentation = getScopeColor(item.color);
+  return (
+    <li className={`${styles.scopeItem} ${nested ? styles.scopeItemNested : ""}`}>
+      <div className={styles.scopeMarker}>
+        <span className={styles.scopeNumber}>{number}</span>
+        <div className={`${styles.scopeDot} ${presentation.dot}`} />
+      </div>
+      <span className={`${styles.scopeText} ${presentation.text}`} title={item.text}>
+        {item.text}
+      </span>
+    </li>
+  );
 };
 
 export const InitiativeCard: React.FC<InitiativeCardProps> = ({
@@ -176,25 +195,21 @@ export const InitiativeCard: React.FC<InitiativeCardProps> = ({
             <div className={styles.scopeBlock}>
               <h4 className={styles.scopeTitle}>Скоуп:</h4>
               <ul className={styles.scopeList}>
-                {initiative.checklist.map((item, index) => {
-                  const presentation = getScopeColor(item.color);
-                  return (
-                    <li key={item.id} className={styles.scopeItem}>
-                      <div className={styles.scopeMarker}>
-                        <span className={styles.scopeNumber}>{index + 1}.</span>
-                        <div
-                          className={`${styles.scopeDot} ${presentation.dot}`}
-                        />
-                      </div>
-                      <span
-                        className={`${styles.scopeText} ${presentation.text}`}
-                        title={item.text}
-                      >
-                        {item.text}
-                      </span>
-                    </li>
-                  );
-                })}
+                {buildScopeBlocks(initiative.checklist, initiative.scopeGroups).map((block) =>
+                  block.kind === "ITEM" ? (
+                    <ScopeLine key={block.key} item={block.item} number={block.number} />
+                  ) : (
+                    <React.Fragment key={block.key}>
+                      <li className={`${styles.scopeGroup} ${block.color ? styles[`scopeGroup${block.color}`] ?? "" : ""}`}>
+                        <span className={styles.scopeNumber}>{block.number}</span>
+                        <span className={styles.scopeGroupTitle}>{block.group.title}</span>
+                      </li>
+                      {block.items.map(({ item, number }) => (
+                        <ScopeLine key={item.id} item={item} number={number} nested />
+                      ))}
+                    </React.Fragment>
+                  ),
+                )}
               </ul>
             </div>
           )}

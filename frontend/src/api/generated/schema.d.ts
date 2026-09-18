@@ -918,8 +918,14 @@ export interface components {
             /** @default [] */
             department_ids: string[];
         };
+        ScopeGroupDto: {
+            id: string;
+            lineage_id?: string;
+            title: string;
+        };
         CreateScopeItemDto: {
             lineage_id?: string;
+            group_id?: string;
             text: string;
             /** @enum {string} */
             status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
@@ -939,6 +945,7 @@ export interface components {
             custom_fields?: {
                 [key: string]: unknown;
             };
+            scope_groups?: components["schemas"]["ScopeGroupDto"][];
             /** @default [] */
             scope: components["schemas"]["CreateScopeItemDto"][];
         };
@@ -1054,10 +1061,17 @@ export interface components {
             source_years: components["schemas"]["RevisionTargetDto"][];
             target_year: number;
         };
+        ScopeGroupReadModelDto: {
+            id: string;
+            lineage_id: string;
+            title: string;
+        };
         ScopeItemReadModelDto: {
             id: string;
             lineage_id?: string;
             copied_from_item_id?: string | null;
+            group_id: string | null;
+            sort_order: number;
             text: string;
             /** @enum {string} */
             status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
@@ -1096,6 +1110,7 @@ export interface components {
             custom_fields: {
                 [key: string]: unknown;
             };
+            scope_groups: components["schemas"]["ScopeGroupReadModelDto"][];
             scope: components["schemas"]["ScopeItemReadModelDto"][];
             moved_from: Record<string, never> | null;
             revision: number;
@@ -1150,6 +1165,7 @@ export interface components {
         };
         ScopeItemDto: {
             lineage_id?: string;
+            group_id?: string;
             text: string;
             /** @enum {string} */
             status_code: "DEFAULT" | "GREEN" | "YELLOW" | "RED";
@@ -1167,6 +1183,7 @@ export interface components {
             department_ids: string[];
             status_id: string;
             notes?: string;
+            scope_groups?: components["schemas"]["ScopeGroupDto"][];
             custom_fields?: {
                 [key: string]: unknown;
             };

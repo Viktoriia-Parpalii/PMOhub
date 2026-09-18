@@ -2997,10 +2997,32 @@
           "department_ids"
         ]
       },
+      "ScopeGroupDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lineage_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ]
+      },
       "CreateScopeItemDto": {
         "type": "object",
         "properties": {
           "lineage_id": {
+            "type": "string"
+          },
+          "group_id": {
             "type": "string"
           },
           "text": {
@@ -3067,6 +3089,12 @@
           "custom_fields": {
             "type": "object",
             "additionalProperties": true
+          },
+          "scope_groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScopeGroupDto"
+            }
           },
           "scope": {
             "default": [],
@@ -3548,6 +3576,25 @@
           "target_year"
         ]
       },
+      "ScopeGroupReadModelDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lineage_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lineage_id",
+          "title"
+        ]
+      },
       "ScopeItemReadModelDto": {
         "type": "object",
         "properties": {
@@ -3560,6 +3607,13 @@
           "copied_from_item_id": {
             "type": "string",
             "nullable": true
+          },
+          "group_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "sort_order": {
+            "type": "number"
           },
           "text": {
             "type": "string"
@@ -3601,6 +3655,8 @@
         },
         "required": [
           "id",
+          "group_id",
+          "sort_order",
           "text",
           "status_code",
           "executor_department_ids"
@@ -3696,6 +3752,12 @@
             "type": "object",
             "additionalProperties": true
           },
+          "scope_groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScopeGroupReadModelDto"
+            }
+          },
           "scope": {
             "type": "array",
             "items": {
@@ -3738,6 +3800,7 @@
           "total_weight",
           "size_snapshot",
           "custom_fields",
+          "scope_groups",
           "scope",
           "moved_from",
           "revision",
@@ -3941,6 +4004,9 @@
           "lineage_id": {
             "type": "string"
           },
+          "group_id": {
+            "type": "string"
+          },
           "text": {
             "type": "string"
           },
@@ -4003,6 +4069,12 @@
           },
           "notes": {
             "type": "string"
+          },
+          "scope_groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScopeGroupDto"
+            }
           },
           "custom_fields": {
             "type": "object",

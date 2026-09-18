@@ -82,6 +82,7 @@ export class InitiativesService {
           if (initial.status_id)
             await this.assertCardStatus(tx, initial.status_id);
           this.assertNewScopePayload(initial.scope);
+          this.assertScopeGroups(initial.scope_groups ?? [], initial.scope);
         }
         const initiative = await tx.initiative.create({
           data: {
@@ -132,12 +133,15 @@ export class InitiativesService {
               where: { id: card.id },
               data: { statusId: initial.status_id },
             });
-          for (const item of initial.scope) {
+          await this.upsertScopeGroups(tx, card.id, initial.scope_groups ?? []);
+          for (const [sortOrder, item] of initial.scope.entries()) {
             const weight = weights.get(item.weight_definition_id)!;
             await tx.scopeItem.create({
               data: {
                 quarterCardId: card.id,
                 lineageId: item.lineage_id ?? randomUUID(),
+                scopeGroupId: item.group_id ?? null,
+                sortOrder,
                 text: item.text.trim(),
                 statusCode: item.status_code,
                 weightDefinitionId: weight.id,
@@ -153,6 +157,7 @@ export class InitiativesService {
               },
             });
           }
+          await this.deleteUnusedScopeGroups(tx, card.id);
           const executorIds = initial.scope.flatMap(
             (item) => item.executor_department_ids,
           );
@@ -432,6 +437,7 @@ export class InitiativesService {
         ]);
         await this.assertCardStatus(tx, dto.status_id);
         this.assertScopePayload(current.scopeItems, dto.scope);
+        this.assertScopeGroups(dto.scope_groups ?? [], dto.scope);
         const currentScopeById = new Map(
           current.scopeItems.map((item) => [item.id, item]),
         );
@@ -473,6 +479,7 @@ export class InitiativesService {
         });
         if (!changed.count) await this.throwConflict(tx, "QuarterCard", id);
 
+        await this.upsertScopeGroups(tx, id, dto.scope_groups ?? []);
         const removedIds = current.scopeItems
           .filter((item) => !incomingIds.has(item.id))
           .map((item) => item.id);
@@ -485,7 +492,7 @@ export class InitiativesService {
         await tx.scopeItem.deleteMany({
           where: { quarterCardId: id, id: { notIn: [...incomingIds] } },
         });
-        for (const item of dto.scope) {
+        for (const [sortOrder, item] of dto.scope.entries()) {
           if (item.id) {
             const currentScope = currentScopeById.get(item.id)!;
             const weightChanged =
@@ -502,6 +509,8 @@ export class InitiativesService {
               data: {
                 text: item.text.trim(),
                 statusCode: item.status_code,
+                scopeGroupId: item.group_id ?? null,
+                sortOrder,
                 ...(weight
                   ? {
                       weightDefinitionId: weight.id,
@@ -532,6 +541,8 @@ export class InitiativesService {
               data: {
                 quarterCardId: id,
                 lineageId: item.lineage_id ?? randomUUID(),
+                scopeGroupId: item.group_id ?? null,
+                sortOrder,
                 text: item.text.trim(),
                 statusCode: item.status_code,
                 weightDefinitionId: weight.id,
@@ -551,6 +562,7 @@ export class InitiativesService {
         const executorIds = dto.scope.flatMap(
           (item) => item.executor_department_ids,
         );
+        await this.deleteUnusedScopeGroups(tx, id);
         await this.replaceCardDepartments(
           tx,
           id,
@@ -1061,7 +1073,10 @@ export class InitiativesService {
           include: {
             initiativeYear: { include: { initiative: true } },
             departments: true,
-            scopeItems: { include: { executors: true } },
+            scopeItems: {
+              include: { executors: true, scopeGroup: true },
+              orderBy: { sortOrder: "asc" },
+            },
             customFieldValues: {
               include: {
                 definition: {
@@ -1159,6 +1174,48 @@ export class InitiativesService {
             { scope_item_id: duplicate.id, target_card_id: target.id },
           );
 
+        let targetGroupId: string | null = null;
+        if (item.scopeGroup) {
+          const matchingGroup = await tx.scopeGroup.findUnique({
+            where: {
+              quarterCardId_lineageId: {
+                quarterCardId: target.id,
+                lineageId: item.scopeGroup.lineageId,
+              },
+            },
+          });
+          const targetGroup =
+            matchingGroup ??
+            (await tx.scopeGroup.create({
+              data: {
+                quarterCardId: target.id,
+                lineageId: item.scopeGroup.lineageId,
+                title: item.scopeGroup.title,
+              },
+            }));
+          targetGroupId = targetGroup.id;
+        }
+
+        const targetScope = await tx.scopeItem.findMany({
+          where: { quarterCardId: target.id },
+          select: { sortOrder: true, scopeGroupId: true },
+          orderBy: { sortOrder: "asc" },
+        });
+        const groupOrders = targetGroupId
+          ? targetScope
+              .filter((candidate) => candidate.scopeGroupId === targetGroupId)
+              .map((candidate) => candidate.sortOrder)
+          : [];
+        const targetSortOrder = groupOrders.length
+          ? Math.max(...groupOrders) + 1
+          : targetScope.length;
+        await tx.scopeItem.updateMany({
+          where: {
+            quarterCardId: target.id,
+            sortOrder: { gte: targetSortOrder },
+          },
+          data: { sortOrder: { increment: 1 } },
+        });
         let createdScopeItemId: string | undefined;
         if (mode === "MOVE") {
           const sourceChanged = await tx.quarterCard.updateMany({
@@ -1176,6 +1233,8 @@ export class InitiativesService {
             data: {
               quarterCardId: target.id,
               movedFromCardId: source.id,
+              scopeGroupId: targetGroupId,
+              sortOrder: targetSortOrder,
               revision: { increment: 1 },
             },
           });
@@ -1185,6 +1244,8 @@ export class InitiativesService {
           const copied = await tx.scopeItem.create({
             data: {
               quarterCardId: target.id,
+              scopeGroupId: targetGroupId,
+              sortOrder: targetSortOrder,
               lineageId: item.lineageId,
               copiedFromItemId: item.id,
               text: item.text,
@@ -1202,6 +1263,16 @@ export class InitiativesService {
             },
           });
           createdScopeItemId = copied.id;
+        }
+        if (mode === "MOVE") {
+          if (item.scopeGroupId)
+            await tx.scopeGroup.deleteMany({
+              where: {
+                id: item.scopeGroupId,
+                scopeItems: { none: {} },
+              },
+            });
+          await this.normalizeScopeOrder(tx, source.id);
         }
         if (targetExisted) {
           if (dto.target_revision === undefined) {
@@ -1648,6 +1719,117 @@ export class InitiativesService {
     }
   }
 
+  private assertScopeGroups(
+    groups: Array<{ id: string; title: string }>,
+    incoming: Array<{ group_id?: string }>,
+  ) {
+    const ids = groups.map((group) => group.id);
+    if (new Set(ids).size !== ids.length)
+      throw new AppError(
+        "DUPLICATE_SCOPE_GROUP",
+        "Групи скоупу дублюються у запиті.",
+      );
+
+    const normalizedTitles = groups.map((group) =>
+      group.title.trim().toLocaleLowerCase("uk-UA"),
+    );
+    if (new Set(normalizedTitles).size !== normalizedTitles.length)
+      throw new AppError(
+        "DUPLICATE_SCOPE_GROUP_TITLE",
+        "Назви груп скоупу в межах картки мають бути унікальними.",
+      );
+
+    const allowed = new Set(ids);
+    for (const item of incoming) {
+      if (item.group_id && !allowed.has(item.group_id))
+        throw new AppError(
+          "INVALID_SCOPE_GROUP",
+          "Обрана група не належить цій квартальній картці.",
+        );
+    }
+
+    const closed = new Set<string>();
+    let active: string | null = null;
+    for (const item of incoming) {
+      const next = item.group_id ?? null;
+      if (next === active) continue;
+      if (active) closed.add(active);
+      if (next && closed.has(next))
+        throw new AppError(
+          "NON_CONTIGUOUS_SCOPE_GROUP",
+          "Завдання однієї групи мають розташовуватися послідовно.",
+        );
+      active = next;
+    }
+  }
+
+  private async upsertScopeGroups(
+    tx: Tx,
+    cardId: string,
+    groups: Array<{ id: string; lineage_id?: string; title: string }>,
+  ) {
+    if (!groups.length) return;
+    const ids = groups.map((group) => group.id);
+    const foreign = await tx.scopeGroup.findFirst({
+      where: { id: { in: ids }, quarterCardId: { not: cardId } },
+      select: { id: true },
+    });
+    if (foreign)
+      throw new AppError(
+        "INVALID_SCOPE_GROUP",
+        "Група не належить цій квартальній картці.",
+      );
+
+    const existing = new Set(
+      (
+        await tx.scopeGroup.findMany({
+          where: { quarterCardId: cardId, id: { in: ids } },
+          select: { id: true },
+        })
+      ).map((group) => group.id),
+    );
+    for (const group of groups) {
+      const title = group.title.trim();
+      if (existing.has(group.id)) {
+        await tx.scopeGroup.update({
+          where: { id: group.id },
+          data: { title },
+        });
+      } else {
+        await tx.scopeGroup.create({
+          data: {
+            id: group.id,
+            quarterCardId: cardId,
+            lineageId: group.lineage_id ?? randomUUID(),
+            title,
+          },
+        });
+      }
+    }
+  }
+
+  private async deleteUnusedScopeGroups(tx: Tx, cardId: string) {
+    await tx.scopeGroup.deleteMany({
+      where: {
+        quarterCardId: cardId,
+        scopeItems: { none: {} },
+      },
+    });
+  }
+  private async normalizeScopeOrder(tx: Tx, cardId: string) {
+    const items = await tx.scopeItem.findMany({
+      where: { quarterCardId: cardId },
+      select: { id: true, sortOrder: true },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    });
+    for (const [sortOrder, item] of items.entries()) {
+      if (item.sortOrder === sortOrder) continue;
+      await tx.scopeItem.update({
+        where: { id: item.id },
+        data: { sortOrder },
+      });
+    }
+  }
   private async loadWeights(tx: Tx, ids: string[]) {
     const uniqueIds = unique(ids);
     const weights = await tx.taskWeight.findMany({

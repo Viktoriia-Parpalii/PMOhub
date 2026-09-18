@@ -38,9 +38,10 @@ const CARD_INCLUDE = {
   scopeItems: {
     include: {
       weightDefinition: true,
+      scopeGroup: true,
       executors: { include: { department: true } },
     },
-    orderBy: { createdAt: "asc" as const },
+    orderBy: { sortOrder: "asc" as const },
   },
   customFieldValues: { include: { definition: true } },
 } satisfies Prisma.QuarterCardInclude;

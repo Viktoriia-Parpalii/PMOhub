@@ -36,6 +36,8 @@ describe('mapCardSummary', () => {
         lineageId: 'lineage-1',
         text: 'Завдання',
         statusCode: 'YELLOW',
+        scopeGroupId: null,
+        sortOrder: 0,
         weightDefinitionId: 'weight-1',
         weightSnapshotName: 'Medium',
         weightSnapshotValue: { toNumber: () => 3 },
@@ -49,6 +51,8 @@ describe('mapCardSummary', () => {
     expect(result.scope).toEqual([{
       id: 'scope-1',
       text: 'Завдання',
+      group_id: null,
+      sort_order: 0,
       status_code: 'YELLOW',
       executor_department_ids: ['department-1'],
     }]);

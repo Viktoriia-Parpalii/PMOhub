@@ -67,6 +67,12 @@ export interface InitiativeYearReadModel {
   locked_at: string;
 }
 
+export interface ScopeGroup {
+  id: string;
+  lineage_id?: string;
+  title: string;
+}
+
 export interface ScopeItemReadModel {
   id: string;
   lineage_id?: string;
@@ -76,6 +82,8 @@ export interface ScopeItemReadModel {
   weight_definition_id?: string;
   weight_snapshot?: { name: string; value: number };
   executor_department_ids: string[];
+  group_id?: string | null;
+  sort_order?: number;
   executors?: Array<{ id: string; name: string }>;
   moved_from_card_id?: string | null;
   revision?: number;
@@ -109,6 +117,7 @@ export interface QuarterCardReadModel {
   };
   custom_fields: Record<string, unknown>;
   scope: ScopeItemReadModel[];
+  scope_groups: ScopeGroup[];
   moved_from: { year: number; quarter: Quarter } | null;
   revision: number;
   is_locked: boolean;
@@ -208,6 +217,8 @@ export interface Manager {
 export interface ChecklistItem {
   id: string;
   revision?: number;
+  groupId?: string | null;
+  sortOrder?: number;
   text: string;
   is_completed: boolean;
   color?: "GREEN" | "YELLOW" | "RED" | "GRAY" | "DEFAULT";
@@ -290,6 +301,7 @@ export interface InitiativeViewModel extends InitiativeMetadata {
   health_status_code?: string;
   checklist: ChecklistItem[];
   scope_summary?: { total: number; completed: number; inProgress: number };
+  scopeGroups?: ScopeGroup[];
   record_type: "YEAR" | "CARD";
   moved_from?: string;
   history?: HistoryEvent[];

@@ -134,8 +134,19 @@ export class CreateQuarterCardDto {
   @IsIn(QUARTERS) quarter!: QuarterDto;
 }
 
+export class ScopeGroupDto {
+  @IsUniqueIdentifier() id!: string;
+  @IsOptional() @IsUniqueIdentifier() lineage_id?: string;
+  @Transform(trimmed)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  title!: string;
+}
+
 export class CreateScopeItemDto {
   @IsOptional() @IsUniqueIdentifier() lineage_id?: string;
+  @IsOptional() @IsUniqueIdentifier() group_id?: string;
   @IsString() @IsNotEmpty() text!: string;
   @IsIn(["DEFAULT", "GREEN", "YELLOW", "RED"]) status_code!:
     | "DEFAULT"
@@ -158,6 +169,11 @@ export class InitialQuarterCardDto extends PreparationInputDto {
   @IsOptional() @IsUniqueIdentifier() status_id?: string;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsObject() custom_fields?: Record<string, unknown>;
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ScopeGroupDto)
+  scope_groups?: ScopeGroupDto[];
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateScopeItemDto)
@@ -185,6 +201,11 @@ export class UpdateCardDto {
   @IsArray() @IsUniqueIdentifier({ each: true }) department_ids: string[] = [];
   @IsUniqueIdentifier() status_id!: string;
   @IsOptional() @IsString() notes?: string;
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ScopeGroupDto)
+  scope_groups?: ScopeGroupDto[];
   @IsOptional() @IsObject() custom_fields?: Record<string, unknown>;
   @IsArray()
   @ValidateNested({ each: true })
@@ -292,10 +313,20 @@ export class InitiativeYearReadModelDto {
   @ApiProperty() locked_at!: string;
 }
 
+export class ScopeGroupReadModelDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() lineage_id!: string;
+  @ApiProperty() title!: string;
+}
+
 export class ScopeItemReadModelDto {
   @ApiProperty() id!: string;
   @ApiProperty({ required: false }) lineage_id?: string;
   @ApiProperty({ nullable: true, required: false }) copied_from_item_id?: string | null;
+  @ApiProperty({ nullable: true })
+  group_id!: string | null;
+  @ApiProperty()
+  sort_order!: number;
   @ApiProperty() text!: string;
   @ApiProperty({ enum: ["DEFAULT", "GREEN", "YELLOW", "RED"] })
   status_code!: string;
@@ -347,6 +378,8 @@ export class QuarterCardReadModelDto {
   @ApiProperty({ type: Object }) size_snapshot!: Record<string, unknown>;
   @ApiProperty({ type: Object, additionalProperties: true })
   custom_fields!: Record<string, unknown>;
+  @ApiProperty({ type: [ScopeGroupReadModelDto] })
+  scope_groups!: ScopeGroupReadModelDto[];
   @ApiProperty({ type: [ScopeItemReadModelDto] })
   scope!: ScopeItemReadModelDto[];
   @ApiProperty({ nullable: true, type: Object }) moved_from!: {

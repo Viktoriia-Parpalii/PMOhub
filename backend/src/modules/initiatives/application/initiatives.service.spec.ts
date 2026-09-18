@@ -188,6 +188,7 @@ describe('InitiativesService transactional rules', () => {
         findFirst: vi.fn(async () => ({ id: 'status-in-progress', isActive: true })),
       },
       taskWeight: { findMany: vi.fn(async () => []) },
+      scopeGroup: { deleteMany: vi.fn(async () => ({ count: 0 })) },
       scopeItem: {
         updateMany: vi.fn(async () => ({ count: 0 })),
         deleteMany: vi.fn(async () => ({ count: 0 })),
@@ -317,6 +318,7 @@ describe('InitiativesService transactional rules', () => {
         findFirst: vi.fn(async () => ({ id: 'status-in-progress', isActive: true })),
       },
       taskWeight: { findMany: findWeights },
+      scopeGroup: { deleteMany: vi.fn(async () => ({ count: 0 })) },
       department: { count: vi.fn(async () => 1) },
       scopeItem: {
         updateMany: updateScope,

@@ -305,6 +305,7 @@ model QuarterCard {
   departments       QuarterCardDepartment[]
   customFieldValues CustomFieldValue[]
   scopeItems        ScopeItem[]             @relation("CardScopeItems")
+  scopeGroups       ScopeGroup[]
   movedScopeItems   ScopeItem[]             @relation("MovedFromCard")
 
   @@unique([initiativeYearId, quarter], map: "UX_quarter_cards_year_quarter")
@@ -322,10 +323,27 @@ model QuarterCardDepartment {
   @@map("quarter_card_departments")
 }
 
+model ScopeGroup {
+  id            String      @id @default(uuid()) @db.UniqueIdentifier
+  quarterCardId String      @map("quarter_card_id") @db.UniqueIdentifier
+  lineageId     String      @map("lineage_id") @db.UniqueIdentifier
+  title         String      @db.NVarChar(200)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.DateTime2
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.DateTime2
+  quarterCard   QuarterCard @relation(fields: [quarterCardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  scopeItems    ScopeItem[]
+
+  @@unique([quarterCardId, lineageId], map: "UX_scope_groups_card_lineage")
+  @@unique([quarterCardId, title], map: "UX_scope_groups_card_title")
+  @@map("scope_groups")
+}
+
 model ScopeItem {
   id                  String              @id @default(uuid()) @db.UniqueIdentifier
   quarterCardId       String              @map("quarter_card_id") @db.UniqueIdentifier
   lineageId           String              @map("lineage_id") @db.UniqueIdentifier
+  scopeGroupId        String?             @map("scope_group_id") @db.UniqueIdentifier
+  sortOrder           Int                 @map("sort_order")
   copiedFromItemId    String?             @map("copied_from_item_id") @db.UniqueIdentifier
   text                String              @db.NVarChar(2000)
   statusCode          String              @default("DEFAULT") @map("status_code") @db.VarChar(16)
@@ -338,6 +356,7 @@ model ScopeItem {
   updatedAt           DateTime            @updatedAt @map("updated_at") @db.DateTime2
   quarterCard         QuarterCard         @relation("CardScopeItems", fields: [quarterCardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   copiedFromItem      ScopeItem?          @relation("ScopeItemCopies", fields: [copiedFromItemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  scopeGroup          ScopeGroup?         @relation(fields: [scopeGroupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   copies              ScopeItem[]         @relation("ScopeItemCopies")
   weightDefinition    TaskWeight          @relation(fields: [weightDefinitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   movedFromCard       QuarterCard?        @relation("MovedFromCard", fields: [movedFromCardId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -345,6 +364,8 @@ model ScopeItem {
 
   @@unique([quarterCardId, lineageId], map: "UX_scope_items_card_lineage")
   @@index([lineageId], map: "IX_scope_items_lineage")
+  @@index([quarterCardId, sortOrder], map: "IX_scope_items_card_sort_order")
+  @@index([scopeGroupId], map: "IX_scope_items_scope_group_id")
   @@map("scope_items")
 }
 

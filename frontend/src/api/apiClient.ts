@@ -437,9 +437,12 @@ export const toQuarterCardViewModel = (
   health_status: card.status_id,
   health_status_id: card.status_id,
   health_status_code: card.status_code,
+  scopeGroups: card.scope_groups ?? [],
   checklist: card.scope.map((item) => ({
     id: item.id,
     revision: item.revision,
+    groupId: item.group_id ?? null,
+    sortOrder: item.sort_order,
     text: item.text,
     is_completed: item.status_code === "GREEN",
     color: item.status_code,

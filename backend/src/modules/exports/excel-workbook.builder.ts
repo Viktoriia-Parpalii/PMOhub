@@ -259,7 +259,7 @@ export class ExcelWorkbookBuilder {
       const progressColumn = columnIndex("PROGRESS");
       if (progressColumn) row.getCell(progressColumn).numFmt = "0%";
       const scopeColumn = columnIndex("SCOPE");
-      if (scopeColumn) row.getCell(scopeColumn).value = { richText: this.scopeRichText(card) };
+      if (scopeColumn) row.getCell(scopeColumn).value = { richText: this.groupedScopeRichText(card) };
       const notesColumn = columnIndex("NOTES");
       if (notesColumn) {
         const noteRuns = this.notes.convert(card.notes);
@@ -306,6 +306,69 @@ export class ExcelWorkbookBuilder {
     ]);
   }
 
+  private groupedScopeRichText(card: ExportCard): ExcelJS.RichText[] {
+    if (!card.scopeItems.length)
+      return [{
+        text: "Скоуп відсутній",
+        font: { italic: true, color: { argb: COLORS.slate500 } },
+      }];
+
+    const result: ExcelJS.RichText[] = [];
+    let topLevel = 0;
+    let activeGroupId: string | null = null;
+    let childIndex = 0;
+
+    card.scopeItems.forEach((item) => {
+      if (item.scopeGroupId) {
+        if (item.scopeGroupId !== activeGroupId) {
+          topLevel += 1;
+          childIndex = 1;
+          activeGroupId = item.scopeGroupId;
+          const members = card.scopeItems.filter(
+            (candidate) => candidate.scopeGroupId === item.scopeGroupId,
+          );
+          const status = members.every(
+            (candidate) => candidate.statusCode === members[0].statusCode,
+          )
+            ? members[0].statusCode
+            : "DEFAULT";
+          result.push({
+            text: `${result.length ? "\n\n" : ""}${topLevel}. ${safeText(item.scopeGroup?.title ?? "")}\n`,
+            font: {
+              bold: true,
+              color: { argb: SCOPE_COLORS[status] ?? COLORS.slate500 },
+            },
+          });
+        } else {
+          childIndex += 1;
+        }
+      } else {
+        topLevel += 1;
+        childIndex = 0;
+        activeGroupId = null;
+      }
+
+      const number = item.scopeGroupId
+        ? `${topLevel}.${childIndex}`
+        : `${topLevel}.`;
+      result.push(
+        {
+          text: `${item.scopeGroupId ? "" : result.length ? "\n\n" : ""}${number} ● ${safeText(item.text)}\n`,
+          font: {
+            bold: true,
+            color: {
+              argb: SCOPE_COLORS[item.statusCode] ?? COLORS.slate500,
+            },
+          },
+        },
+        {
+          text: `${SCOPE_LABELS[item.statusCode] ?? item.statusCode} · Вага: ${safeText(item.weightSnapshotName)} — ${item.weightSnapshotValue.toNumber()} балів · Виконавці: ${safeText(item.executors.map((link) => link.department.name).join(", ") || "Не визначено")}`,
+          font: { color: { argb: COLORS.slate700 } },
+        },
+      );
+    });
+    return result;
+  }
   private customFieldValue(card: ExportCard, field: ExportCustomField) {
     const value = card.customFieldValues.find((candidate) => candidate.definitionId === field.id);
     if (!value) return "";

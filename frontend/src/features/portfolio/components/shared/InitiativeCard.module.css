@@ -163,6 +163,32 @@
   font-size: 0.75rem;
 }
 
+.scopeGroup {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: .45rem;
+  border-radius: .5rem;
+  background: #f1f5f9;
+  padding: .35rem .45rem;
+  color: #475569;
+  font-size: .75rem;
+  font-weight: 900;
+}
+
+.scopeGroupTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scopeItemNested {
+  padding-left: 1rem;
+}
+
+.scopeGroupGREEN { background: #ecfdf5; color: #047857; }
+.scopeGroupYELLOW { background: #fffbeb; color: #b45309; }
+.scopeGroupRED { background: #fff1f2; color: #be123c; }
 .scopeMarker {
   display: flex;
   flex-shrink: 0;

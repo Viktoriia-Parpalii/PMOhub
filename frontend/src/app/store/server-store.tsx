@@ -527,6 +527,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     )?.id;
     const scope = record.checklist.map((item) => ({
       text: item.text,
+      group_id: uuidOrUndefined(item.groupId ?? undefined),
       status_code: (item.color === "GRAY"
         ? "DEFAULT"
         : (item.color ?? (item.is_completed ? "GREEN" : "DEFAULT"))) as
@@ -550,6 +551,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ),
       status_id: statusId,
       notes: record.notes,
+      scope_groups: (record.scopeGroups ?? []).filter((group) => scope.some((item) => item.group_id === group.id)),
       custom_fields: record.custom_fields ?? {},
       scope,
     };
@@ -566,6 +568,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         ? { revision: item.revision }
         : {}),
       text: item.text,
+      group_id: uuidOrUndefined(item.groupId ?? undefined),
       status_code: (item.color === "GRAY"
         ? "DEFAULT"
         : (item.color ?? (item.is_completed ? "GREEN" : "DEFAULT"))) as
@@ -587,6 +590,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ),
       status_id: statusId,
       notes: record.notes,
+      scope_groups: (record.scopeGroups ?? []).filter((group) => scope.some((item) => item.group_id === group.id)),
       custom_fields: record.custom_fields ?? {},
       scope,
     };

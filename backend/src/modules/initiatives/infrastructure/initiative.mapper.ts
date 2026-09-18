@@ -33,9 +33,10 @@ export const cardInclude = {
   scopeItems: {
     include: {
       weightDefinition: true,
+      scopeGroup: true,
       executors: { include: { department: true } },
     },
-    orderBy: { createdAt: "asc" as const },
+    orderBy: { sortOrder: "asc" as const },
   },
 } as const;
 
@@ -47,6 +48,9 @@ export const analyticsCardInclude = {
     select: {
       id: true,
       lineageId: true,
+      scopeGroupId: true,
+      sortOrder: true,
+      scopeGroup: { select: { id: true, lineageId: true, title: true } },
       text: true,
       statusCode: true,
       weightDefinitionId: true,
@@ -55,7 +59,7 @@ export const analyticsCardInclude = {
       revision: true,
       executors: { select: { departmentId: true } },
     },
-    orderBy: { createdAt: "asc" as const },
+    orderBy: { sortOrder: "asc" as const },
   },
 } as const;
 
@@ -82,10 +86,13 @@ export const cardSummaryInclude = {
     select: {
       id: true,
       text: true,
+      scopeGroupId: true,
+      sortOrder: true,
+      scopeGroup: { select: { id: true, lineageId: true, title: true } },
       statusCode: true,
       executors: { select: { departmentId: true } },
     },
-    orderBy: { createdAt: "asc" as const },
+    orderBy: { sortOrder: "asc" as const },
   },
 } satisfies Prisma.QuarterCardInclude;
 
@@ -152,6 +159,8 @@ export const mapScopeItem = (item: any) => ({
   copied_from_item_id: item.copiedFromItemId ?? null,
   text: item.text,
   status_code: item.statusCode,
+  group_id: item.scopeGroupId ?? null,
+  sort_order: item.sortOrder,
   weight_definition_id: item.weightDefinitionId,
   weight_snapshot: {
     name: item.weightSnapshotName,
@@ -166,8 +175,24 @@ export const mapScopeItem = (item: any) => ({
   revision: item.revision,
 });
 
+const mapScopeGroups = (items: any[]) => [
+  ...new Map(
+    items
+      .filter((item: any) => item.scopeGroup)
+      .map((item: any) => [
+        item.scopeGroup.id,
+        {
+          id: item.scopeGroup.id,
+          lineage_id: item.scopeGroup.lineageId,
+          title: item.scopeGroup.title,
+        },
+      ]),
+  ).values(),
+];
+
 export const mapCard = (card: any) => {
   const executorIds = new Set<string>(
+
     card.scopeItems.flatMap((item: any) =>
       item.executors.map((link: any) => link.departmentId),
     ),
@@ -216,6 +241,7 @@ export const mapCard = (card: any) => {
       ? { year: card.movedFromYear, quarter: `Q${card.movedFromQuarter}` }
       : null,
     revision: card.revision,
+    scope_groups: mapScopeGroups(card.scopeItems),
     is_locked: isPeriodLocked(
       card.initiativeYear.year,
       `Q${card.quarter}` as Quarter,
@@ -267,11 +293,14 @@ export const mapAnalyticsCard = (card: any) => {
       min: numberValue(card.sizeSnapshotMin),
       max: numberValue(card.sizeSnapshotMax),
     },
+    scope_groups: mapScopeGroups(card.scopeItems),
     custom_fields: {},
     scope: card.scopeItems.map((item: any) => ({
       id: item.id,
       lineage_id: item.lineageId,
       copied_from_item_id: null,
+      group_id: item.scopeGroupId ?? null,
+      sort_order: item.sortOrder,
       text: item.text,
       status_code: item.statusCode,
       weight_definition_id: item.weightDefinitionId,
@@ -338,10 +367,13 @@ export const mapCardSummary = (card: any) => {
       max: null,
     },
     custom_fields: mapCustomFields(card.customFieldValues),
+    scope_groups: mapScopeGroups(card.scopeItems),
     scope: card.scopeItems.map((item: any) => ({
       id: item.id,
       text: item.text,
       status_code: item.statusCode,
+      group_id: item.scopeGroupId ?? null,
+      sort_order: item.sortOrder,
       executor_department_ids: item.executors.map(
         (link: any) => link.departmentId,
       ),

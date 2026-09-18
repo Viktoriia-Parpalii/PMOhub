@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
   Copy,
   Plus,
   Trash2,
@@ -11,6 +13,7 @@ import {
 import { useAppContext } from "../../../app/store";
 import {
   ChecklistItem,
+  ScopeGroup,
   CustomFieldDef,
   MutationResult,
   Priority,
@@ -43,6 +46,14 @@ import {
   getCardDepartmentPool,
   isCompletedItem,
 } from "../../../domain/initiatives";
+import {
+  assignScopeGroup,
+  buildScopeBlocks,
+  cleanScopeGroups,
+  moveScopeEntry,
+  moveScopeGroup,
+  scopeNumberMap,
+} from "../../../domain/scopeGroups";
 import { shouldDisplayCustomField } from "../../../domain/customFields";
 
 type Initiative = InitiativeViewModel;
@@ -174,6 +185,9 @@ export const InitiativeCardModal = ({
   const [fieldVals, setFieldVals] = useState<Record<string, unknown>>(
     item?.custom_fields ?? {},
   );
+  const [scopeGroups, setScopeGroups] = useState<ScopeGroup[]>(
+    item?.scopeGroups ?? [],
+  );
   const [activeTab, setActiveTab] = useState<"SCOPE" | "HISTORY">("SCOPE");
   const auditQuery = useAuditQuery(
     activeTab === "HISTORY" && item ? "QuarterCard" : undefined,
@@ -214,6 +228,12 @@ export const InitiativeCardModal = ({
       ),
     [checklist],
   );
+  const scopeBlocks = useMemo(
+    () => buildScopeBlocks(checklist, scopeGroups),
+    [checklist, scopeGroups],
+  );
+  const scopeNumbers = useMemo(() => scopeNumberMap(checklist, scopeGroups), [checklist, scopeGroups]);
+  const firstGroupByItem = useMemo(() => new Map(scopeBlocks.filter((block) => block.kind === "GROUP").map((block) => [block.items[0]?.item.id, block])), [scopeBlocks]);
   const effectiveInvolved = involved.filter((id) => !executors.includes(id));
   const selectableExecutors = Array.from(
     new Set([...effectiveInvolved, ...executors]),
@@ -226,6 +246,7 @@ export const InitiativeCardModal = ({
       notes !== (item?.notes ?? "") ||
       JSON.stringify(involved) !== JSON.stringify(initialDepartmentPool) ||
       JSON.stringify(checklist) !== JSON.stringify(item?.checklist ?? []) ||
+      JSON.stringify(scopeGroups) !== JSON.stringify(item?.scopeGroups ?? []) ||
       JSON.stringify(fieldVals) !== JSON.stringify(item?.custom_fields ?? {}));
   const refreshCanonicalCard = async () => {
     if (!item) return;
@@ -264,6 +285,48 @@ export const InitiativeCardModal = ({
     setChecklist((items) =>
       items.map((scope) => (scope.id === id ? { ...scope, ...patch } : scope)),
     );
+  const changeScopeGroup = (scope: ChecklistItem, value: string) => {
+    if (value === "__CREATE__") {
+      const id = crypto.randomUUID();
+      const usedTitles = new Set(scopeGroups.map((group) => group.title));
+      let title = "\u041d\u043e\u0432\u0430 \u0433\u0440\u0443\u043f\u0430";
+      let suffix = 2;
+      while (usedTitles.has(title)) title = `\u041d\u043e\u0432\u0430 \u0433\u0440\u0443\u043f\u0430 ${suffix++}`;
+      setScopeGroups((groups) => [...groups, { id, lineage_id: id, title }]);
+      setChecklist((items) =>
+        items.map((candidate) =>
+          candidate.id === scope.id ? { ...candidate, groupId: id } : candidate,
+        ),
+      );
+      return;
+    }
+    setChecklist((items) => {
+      const next = assignScopeGroup(items, scope.id, value || null);
+      setScopeGroups((groups) => cleanScopeGroups(next, groups));
+      return next;
+    });
+  };
+  const renameScopeGroup = (id: string, title: string) =>
+    setScopeGroups((groups) =>
+      groups.map((group) => group.id === id ? { ...group, title } : group),
+    );
+  const dissolveScopeGroup = (id: string) => {
+    setChecklist((items) =>
+      items.map((scope) => scope.groupId === id ? { ...scope, groupId: null } : scope),
+    );
+    setScopeGroups((groups) => groups.filter((group) => group.id !== id));
+  };
+  const removeScope = (scope: ChecklistItem) => {
+    if (isCompletedItem(scope)) {
+      notifyCompletedScopeAction();
+      return;
+    }
+    setChecklist((items) => {
+      const next = items.filter((candidate) => candidate.id !== scope.id);
+      setScopeGroups((groups) => cleanScopeGroups(next, groups));
+      return next;
+    });
+  };
   const notifyCompletedScopeAction = () =>
     notify(
       NOTIFICATION_KINDS.error,
@@ -420,6 +483,20 @@ export const InitiativeCardModal = ({
       notify(NOTIFICATION_KINDS.error, `Вкажіть назву ${noun}`);
       return;
     }
+    const savedGroups = cleanScopeGroups(checklist, scopeGroups);
+    const normalizedGroupTitles = savedGroups.map((group) =>
+      group.title.trim().toLocaleLowerCase("uk-UA"),
+    );
+    if (
+      normalizedGroupTitles.some((title) => !title) ||
+      new Set(normalizedGroupTitles).size !== normalizedGroupTitles.length
+    ) {
+      notify(
+        NOTIFICATION_KINDS.error,
+        "\u041d\u0430\u0437\u0432\u0438 \u0433\u0440\u0443\u043f \u043c\u0430\u044e\u0442\u044c \u0431\u0443\u0442\u0438 \u0437\u0430\u043f\u043e\u0432\u043d\u0435\u043d\u0438\u043c\u0438 \u0442\u0430 \u0443\u043d\u0456\u043a\u0430\u043b\u044c\u043d\u0438\u043c\u0438.",
+      );
+      return;
+    }
     if (!isArchivedCard) {
       const validation = validateChecklistAssignments(checklist, taskWeights);
       if (validation.length) {
@@ -446,6 +523,7 @@ export const InitiativeCardModal = ({
         quarter,
         health_status: healthStatus,
         checklist,
+        scopeGroups: cleanScopeGroups(checklist, scopeGroups),
         record_type: "CARD",
         initiative_id: item?.initiative_id ?? item?.id ?? "",
         initiative_year_id: item?.initiative_year_id,
@@ -916,13 +994,53 @@ export const InitiativeCardModal = ({
                       Завдань у скоупі поки немає. Додайте перше завдання нижче.
                     </div>
                   )}
-                  {checklist.map((scope, index) => (
-                    <div
-                      key={scope.id}
-                      className={`scope-item scope-item-${scope.color ?? "DEFAULT"}`}
-                    >
-                      <div className={styles.scopeInputRow}>
-                        <span className="scope-item-number">{index + 1}.</span>
+                  {checklist.map((scope) => {
+                    const groupBlock = firstGroupByItem.get(scope.id);
+                    return (
+                      <React.Fragment key={scope.id}>
+                        {groupBlock && (
+                          <div
+                            className={`${styles.scopeGroupHeader} ${styles[`scopeGroup${groupBlock.color ?? "DEFAULT"}`] ?? ""}`}
+                          >
+                            <span className={styles.scopeGroupNumber}>{groupBlock.number}</span>
+                            <input
+                              disabled={standardFieldsReadOnly}
+                              value={groupBlock.group.title}
+                              maxLength={200}
+                              onChange={(event) => renameScopeGroup(groupBlock.group.id, event.target.value)}
+                              className={styles.scopeGroupTitle}
+                              aria-label={"\u041d\u0430\u0437\u0432\u0430 \u0433\u0440\u0443\u043f\u0438"}
+                            />
+                            {!standardFieldsReadOnly && (
+                              <div className={styles.scopeOrderActions}>
+                                <button
+                                  type="button"
+                                  disabled={moveScopeGroup(checklist, scopeGroups, groupBlock.group.id, -1) === checklist}
+                                  onClick={() => setChecklist((items) => moveScopeGroup(items, scopeGroups, groupBlock.group.id, -1))}
+                                  className="icon-action"
+                                  title={"\u041f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438\u0442\u0438 \u0433\u0440\u0443\u043f\u0443 \u0432\u0433\u043e\u0440\u0443"}
+                                ><ChevronUp size={16} /></button>
+                                <button
+                                  type="button"
+                                  disabled={moveScopeGroup(checklist, scopeGroups, groupBlock.group.id, 1) === checklist}
+                                  onClick={() => setChecklist((items) => moveScopeGroup(items, scopeGroups, groupBlock.group.id, 1))}
+                                  className="icon-action"
+                                  title={"\u041f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438\u0442\u0438 \u0433\u0440\u0443\u043f\u0443 \u0432\u043d\u0438\u0437"}
+                                ><ChevronDown size={16} /></button>
+                                <button
+                                  type="button"
+                                  onClick={() => dissolveScopeGroup(groupBlock.group.id)}
+                                  className={styles.dissolveGroup}
+                                >{"\u0420\u043e\u0437\u0444\u043e\u0440\u043c\u0443\u0432\u0430\u0442\u0438"}</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div
+                          className={`scope-item scope-item-${scope.color ?? "DEFAULT"}`}
+                        >
+                          <div className={styles.scopeInputRow}>
+                            <span className="scope-item-number">{scopeNumbers.get(scope.id)}</span>
                         <input
                           disabled={standardFieldsReadOnly}
                           value={scope.text}
@@ -934,6 +1052,37 @@ export const InitiativeCardModal = ({
                         />
                       </div>
                       <div className={styles.scopeControls}>
+                        <select
+                          disabled={standardFieldsReadOnly}
+                          value={scope.groupId ?? ""}
+                          onChange={(event) => changeScopeGroup(scope, event.target.value)}
+                          className={`scope-select ${styles.scopeGroupSelect}`}
+                          aria-label={"\u0413\u0440\u0443\u043f\u0430 \u0437\u0430\u0432\u0434\u0430\u043d\u043d\u044f"}
+                        >
+                          <option value="">{"\u0411\u0435\u0437 \u0433\u0440\u0443\u043f\u0438"}</option>
+                          {scopeGroups.map((group) => (
+                            <option key={group.id} value={group.id}>{group.title}</option>
+                          ))}
+                          <option value="__CREATE__">{"+ \u0421\u0442\u0432\u043e\u0440\u0438\u0442\u0438 \u0433\u0440\u0443\u043f\u0443"}</option>
+                        </select>
+                        {!standardFieldsReadOnly && (
+                          <div className={styles.scopeOrderActions}>
+                            <button
+                              type="button"
+                              disabled={moveScopeEntry(checklist, scopeGroups, scope.id, -1) === checklist}
+                              onClick={() => setChecklist((items) => moveScopeEntry(items, scopeGroups, scope.id, -1))}
+                              className="icon-action"
+                              title={"\u041f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043d\u043d\u044f \u0432\u0433\u043e\u0440\u0443"}
+                            ><ChevronUp size={16} /></button>
+                            <button
+                              type="button"
+                              disabled={moveScopeEntry(checklist, scopeGroups, scope.id, 1) === checklist}
+                              onClick={() => setChecklist((items) => moveScopeEntry(items, scopeGroups, scope.id, 1))}
+                              className="icon-action"
+                              title={"\u041f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043d\u043d\u044f \u0432\u043d\u0438\u0437"}
+                            ><ChevronDown size={16} /></button>
+                          </div>
+                        )}
                         <select
                           disabled={isReadOnly || scopeWeightLocked}
                           value={
@@ -1085,17 +1234,7 @@ export const InitiativeCardModal = ({
                                 : "Видалити завдання"
                             }
                             aria-disabled={isCompletedItem(scope)}
-                            onClick={() => {
-                              if (isCompletedItem(scope)) {
-                                notifyCompletedScopeAction();
-                                return;
-                              }
-                              setChecklist((items) =>
-                                items.filter(
-                                  (candidate) => candidate.id !== scope.id,
-                                ),
-                              );
-                            }}
+                            onClick={() => removeScope(scope)}
                             className={`icon-action shrink-0 ${isCompletedItem(scope) ? styles.blockedIconAction : "text-slate-400 hover:text-rose-500"}`}
                           >
                             <Trash2 size={16} />
@@ -1123,8 +1262,10 @@ export const InitiativeCardModal = ({
                         </div>
                       )}
                       {showMove && movingId === scope.id && movePanel(true)}
-                    </div>
-                  ))}
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
                 {!isReadOnly && !scopeWeightLocked && (
                   <div className={styles.addScope}>
