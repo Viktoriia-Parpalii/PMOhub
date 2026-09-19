@@ -1,0 +1,106 @@
+.activeStatus,
+.inactiveStatus {
+  display: inline-block;
+  border-radius: .25rem;
+  padding: .25rem .5rem;
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.activeStatus {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.inactiveStatus {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.actionGroup {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .5rem;
+  white-space: nowrap;
+}
+
+.deactivateButton,
+.activateButton,
+.deleteButton,
+.iconButton,
+.applyButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color .15s, background-color .15s;
+}
+
+.deactivateButton,
+.activateButton,
+.deleteButton {
+  padding: 0;
+}
+
+.deactivateButton:hover {
+  color: #f59e0b;
+}
+
+.activateButton:hover {
+  color: #10b981;
+}
+
+.deleteButton:hover {
+  color: #f43f5e;
+}
+
+.compactIconButton {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: .5rem;
+}
+
+.deactivateButton.compactIconButton:hover {
+  background: #fffbeb;
+}
+
+.activateButton.compactIconButton:hover {
+  background: #ecfdf5;
+}
+
+.deleteButton.compactIconButton:hover {
+  background: #fff1f2;
+}
+
+.iconButton {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: .5rem;
+}
+
+.iconButton:hover {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.applyButton {
+  height: 2rem;
+  flex: 0 0 auto;
+  border: 1px solid #c7d2fe;
+  border-radius: .5rem;
+  padding: 0 .625rem;
+  color: #4f46e5;
+  font-size: .6875rem;
+  font-weight: 700;
+}
+
+.applyButton:hover {
+  background: #eef2ff;
+}
