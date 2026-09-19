@@ -9,6 +9,30 @@
     border-radius: .75rem;
     background: #fff;
     box-shadow: 0 1px 2px rgb(0 0 0 / .05);
+    scrollbar-color: #c7d2fe transparent;
+    scrollbar-width: thin;
+}
+
+.container::-webkit-scrollbar,
+.scopeList::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+}
+
+.container::-webkit-scrollbar-track,
+.scopeList::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.container::-webkit-scrollbar-thumb,
+.scopeList::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #c7d2fe;
+}
+
+.container::-webkit-scrollbar-thumb:hover,
+.scopeList::-webkit-scrollbar-thumb:hover {
+    background: #a5b4fc;
 }
 
 .fillAvailableHeight {
@@ -320,6 +344,8 @@
     gap: .25rem;
     overflow-y: auto;
     padding-right: .25rem;
+    scrollbar-color: #c7d2fe transparent;
+    scrollbar-width: thin;
 }
 
 .scopeItem {

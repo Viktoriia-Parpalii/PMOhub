@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InitiativeViewModel } from "../../../shared/types";
 
 const appContext = vi.hoisted(() => ({
@@ -98,7 +98,49 @@ const archivedCard: InitiativeViewModel = {
   notes: "Історична примітка",
 };
 
+const currentCard: InitiativeViewModel = {
+  ...archivedCard,
+  id: "card-current",
+  year: 2026,
+  quarter: "Q3",
+  is_locked: false,
+  scopeGroups: [
+    { id: "group-1", lineage_id: "group-lineage-1", title: "Група один" },
+  ],
+  checklist: [
+    {
+      ...archivedCard.checklist[0],
+      id: "scope-current",
+      color: "YELLOW",
+      is_completed: false,
+      groupId: null,
+    },
+  ],
+};
+
+const renderModal = (
+  card: InitiativeViewModel,
+  props: Partial<React.ComponentProps<typeof InitiativeCardModal>> = {},
+) => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <InitiativeCardModal
+        kind="project"
+        item={card}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        {...props}
+      />
+    </QueryClientProvider>,
+  );
+};
+
 describe("InitiativeCardModal archived correction mode", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("opens read-only and unlocks only statuses and notes for correction", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -142,5 +184,116 @@ describe("InitiativeCardModal archived correction mode", () => {
     expect(
       screen.queryByRole("button", { name: /продовжити/i }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("InitiativeCardModal scope actions", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("moves grouping into the actions menu and assigns an existing group", () => {
+    renderModal(currentCard);
+
+    expect(screen.queryByLabelText("Група завдання")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Інші дії із завданням" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Змінити групу" }));
+    fireEvent.click(
+      screen.getByRole("menuitemradio", { name: "Група один" }),
+    );
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Назва групи")).toHaveValue("Група один");
+  });
+
+  it("opens the transfer panel from the actions menu", () => {
+    renderModal(currentCard);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Інші дії із завданням" }),
+    );
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Перенести завдання" }),
+    );
+
+    expect(
+      screen.getByText("Перенесення завдання в інший період"),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the copy panel from the actions menu", () => {
+    renderModal(currentCard);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Інші дії із завданням" }),
+    );
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Копіювати завдання" }),
+    );
+
+    expect(
+      screen.getByText("Копіювання завдання в інший період"),
+    ).toBeInTheDocument();
+  });
+
+  it("creates and assigns a group from the actions submenu", () => {
+    renderModal(currentCard);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Інші дії із завданням" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Змінити групу" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Створити групу" }));
+
+    expect(screen.getByLabelText("Назва групи")).toHaveValue("Нова група");
+  });
+
+  it("removes an unfinished scope item from the actions menu", () => {
+    renderModal(currentCard);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Інші дії із завданням" }),
+    );
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Видалити завдання" }),
+    );
+
+    expect(screen.queryByPlaceholderText("Назва завдання")).not.toBeInTheDocument();
+  });
+
+  it("keeps destructive actions blocked for a completed scope item", () => {
+    renderModal({
+      ...currentCard,
+      checklist: currentCard.checklist.map((scope) => ({
+        ...scope,
+        color: "GREEN",
+        is_completed: true,
+      })),
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Інші дії із завданням" }),
+    );
+    const deleteAction = screen.getByRole("menuitem", {
+      name: "Видалити завдання",
+    });
+    expect(deleteAction).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(deleteAction);
+
+    expect(screen.getByPlaceholderText("Назва завдання")).toBeInTheDocument();
+  });
+
+  it("closes the actions menu with Escape and returns focus", () => {
+    renderModal(currentCard);
+    const trigger = screen.getByRole("button", {
+      name: "Інші дії із завданням",
+    });
+
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 });

@@ -395,6 +395,11 @@
     text-align: left;
 }
 
+.tableGoalHeader {
+    width: 22rem;
+    min-width: 18rem;
+}
+
 .quarterHeader {
     width: 4.5rem;
     padding: 1rem 0;
@@ -492,7 +497,9 @@
 }
 
 .goalCell {
-    max-width: 20rem;
+    width: 22rem;
+    min-width: 18rem;
+    max-width: 22rem;
 }
 
 .goalText {

@@ -77,6 +77,39 @@
 .modalBody {
     overflow-y: auto;
     padding: 1.5rem;
+    scrollbar-color: #a5b4fc transparent;
+    scrollbar-width: thin;
+}
+
+.modalBody::-webkit-scrollbar,
+.goalTextarea::-webkit-scrollbar {
+    width: 7px;
+}
+
+.modalBody::-webkit-scrollbar-track,
+.goalTextarea::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modalBody::-webkit-scrollbar-thumb,
+.goalTextarea::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background: #a5b4fc;
+    background-clip: padding-box;
+}
+
+.modalBody::-webkit-scrollbar-thumb:hover,
+.goalTextarea::-webkit-scrollbar-thumb:hover {
+    background: #818cf8;
+    background-clip: padding-box;
+}
+
+.modalBody::-webkit-scrollbar-button,
+.goalTextarea::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
 }
 
 .modalBody>*+* {
@@ -126,6 +159,8 @@
 .goalTextarea {
     resize: vertical;
     padding: .75rem 1rem;
+    scrollbar-color: #a5b4fc transparent;
+    scrollbar-width: thin;
 }
 
 .nameInput:focus,

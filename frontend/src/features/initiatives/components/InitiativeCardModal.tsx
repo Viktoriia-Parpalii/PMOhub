@@ -1,4 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
@@ -6,6 +13,8 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
+  FolderInput,
+  MoreHorizontal,
   Plus,
   Trash2,
   X,
@@ -101,6 +110,322 @@ const makeItem = (text = ""): ChecklistItem => ({
   color: "DEFAULT",
   implementer_dept_ids: [],
 });
+
+interface AutoGrowTextareaProps
+  extends Omit<
+    React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+    "value" | "onChange"
+  > {
+  value: string;
+  onValueChange: (value: string) => void;
+  maxHeight: number;
+}
+
+const AutoGrowTextarea = ({
+  value,
+  onValueChange,
+  maxHeight,
+  style,
+  ...props
+}: AutoGrowTextareaProps) => {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const resizeToContent = () => {
+    const element = ref.current;
+    if (!element) return;
+    element.style.height = "auto";
+    const minHeight = Number.parseFloat(getComputedStyle(element).minHeight) || 0;
+    const nextHeight = Math.max(minHeight, Math.min(element.scrollHeight, maxHeight));
+    element.style.height = `${nextHeight}px`;
+    element.style.overflowY = element.scrollHeight > maxHeight ? "auto" : "hidden";
+  };
+
+  useLayoutEffect(resizeToContent, [value, maxHeight]);
+
+  return (
+    <textarea
+      {...props}
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={(event) => onValueChange(event.target.value)}
+      onInput={resizeToContent}
+      style={{ ...style, maxHeight }}
+    />
+  );
+};
+
+interface ScopeActionsMenuProps {
+  groups: ScopeGroup[];
+  currentGroupId?: string | null;
+  allowGrouping: boolean;
+  allowTransfer: boolean;
+  allowCopy: boolean;
+  allowDelete: boolean;
+  actionsBlocked: boolean;
+  blockedReason?: string;
+  onChangeGroup: (value: string) => void;
+  onTransfer: () => void;
+  onCopy: () => void;
+  onDelete: () => void;
+}
+
+const ScopeActionsMenu = ({
+  groups,
+  currentGroupId,
+  allowGrouping,
+  allowTransfer,
+  allowCopy,
+  allowDelete,
+  actionsBlocked,
+  blockedReason,
+  onChangeGroup,
+  onTransfer,
+  onCopy,
+  onDelete,
+}: ScopeActionsMenuProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [showGroups, setShowGroups] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  const hasActions = allowGrouping || allowTransfer || allowCopy || allowDelete;
+
+  const close = () => {
+    setIsOpen(false);
+    setShowGroups(false);
+  };
+
+  const placeMenu = () => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const width = 260;
+    setPosition({
+      top: rect.bottom + 6,
+      left: Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12)),
+    });
+  };
+
+  const open = () => {
+    placeMenu();
+    setIsOpen(true);
+  };
+
+  useLayoutEffect(() => {
+    if (!isOpen || !menuRef.current || !triggerRef.current) return;
+    const triggerRect = triggerRef.current.getBoundingClientRect();
+    const menuRect = menuRef.current.getBoundingClientRect();
+    const top =
+      triggerRect.bottom + menuRect.height + 12 <= window.innerHeight
+        ? triggerRect.bottom + 6
+        : Math.max(12, triggerRect.top - menuRect.height - 6);
+    const left = Math.max(
+      12,
+      Math.min(triggerRect.right - menuRect.width, window.innerWidth - menuRect.width - 12),
+    );
+    setPosition((current) =>
+      current.top === top && current.left === left ? current : { top, left },
+    );
+  }, [isOpen, showGroups, groups.length]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (
+        !menuRef.current?.contains(target) &&
+        !triggerRef.current?.contains(target)
+      )
+        close();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        close();
+        triggerRef.current?.focus();
+      }
+    };
+    const onScroll = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && menuRef.current?.contains(target)) return;
+      close();
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    menuRef.current?.querySelector<HTMLButtonElement>("button:not([disabled])")?.focus();
+  }, [isOpen]);
+
+  const runAndClose = (action: () => void) => {
+    close();
+    action();
+  };
+
+  const handleMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const items = Array.from(
+      menuRef.current?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? [],
+    );
+    if (items.length === 0) return;
+    event.preventDefault();
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? items.length - 1
+          : event.key === "ArrowDown"
+            ? (currentIndex + 1 + items.length) % items.length
+            : (currentIndex - 1 + items.length) % items.length;
+    items[nextIndex]?.focus();
+  };
+
+  if (!hasActions) return null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="icon-action shrink-0"
+        aria-label="Інші дії із завданням"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? menuId : undefined}
+        onClick={() => (isOpen ? close() : open())}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            open();
+          }
+        }}
+      >
+        <MoreHorizontal size={18} />
+      </button>
+      {isOpen &&
+        createPortal(
+          <div
+            ref={menuRef}
+            id={menuId}
+            role="menu"
+            aria-label="Дії із завданням"
+            className={styles.scopeActionsMenu}
+            style={{ top: position.top, left: position.left }}
+            onKeyDown={handleMenuKeyDown}
+          >
+            {allowGrouping && (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.scopeMenuItem}
+                  aria-haspopup="menu"
+                  aria-expanded={showGroups}
+                  onClick={() => setShowGroups((visible) => !visible)}
+                >
+                  <FolderInput size={16} />
+                  <span>Змінити групу</span>
+                  <ChevronDown
+                    size={15}
+                    className={showGroups ? styles.scopeMenuChevronOpen : styles.scopeMenuChevron}
+                  />
+                </button>
+                {showGroups && (
+                  <div role="group" aria-label="Група завдання" className={styles.scopeGroupMenu}>
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={!currentGroupId}
+                      className={styles.scopeGroupMenuItem}
+                      onClick={() => runAndClose(() => onChangeGroup(""))}
+                    >
+                      <span aria-hidden="true">{!currentGroupId ? "✓" : ""}</span>
+                      Без групи
+                    </button>
+                    {groups.map((group) => (
+                      <button
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={currentGroupId === group.id}
+                        className={styles.scopeGroupMenuItem}
+                        key={group.id}
+                        onClick={() => runAndClose(() => onChangeGroup(group.id))}
+                      >
+                        <span aria-hidden="true">{currentGroupId === group.id ? "✓" : ""}</span>
+                        {group.title}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={styles.scopeGroupMenuItem}
+                      onClick={() => runAndClose(() => onChangeGroup("__CREATE__"))}
+                    >
+                      <Plus size={14} aria-hidden="true" />
+                      Створити групу
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {(allowTransfer || allowCopy || allowDelete) && allowGrouping && (
+              <div className={styles.scopeMenuDivider} />
+            )}
+            {allowTransfer && (
+              <button
+                type="button"
+                role="menuitem"
+                aria-disabled={actionsBlocked}
+                title={actionsBlocked ? blockedReason : undefined}
+                className={`${styles.scopeMenuItem} ${actionsBlocked ? styles.scopeMenuItemBlocked : ""}`}
+                onClick={() => runAndClose(onTransfer)}
+              >
+                <ArrowRight size={16} />
+                Перенести завдання
+              </button>
+            )}
+            {allowCopy && (
+              <button
+                type="button"
+                role="menuitem"
+                aria-disabled={actionsBlocked}
+                title={actionsBlocked ? blockedReason : undefined}
+                className={`${styles.scopeMenuItem} ${actionsBlocked ? styles.scopeMenuItemBlocked : ""}`}
+                onClick={() => runAndClose(onCopy)}
+              >
+                <Copy size={16} />
+                Копіювати завдання
+              </button>
+            )}
+            {allowDelete && (
+              <button
+                type="button"
+                role="menuitem"
+                aria-disabled={actionsBlocked}
+                title={actionsBlocked ? blockedReason : undefined}
+                className={`${styles.scopeMenuItem} ${styles.scopeMenuDelete} ${actionsBlocked ? styles.scopeMenuItemBlocked : ""}`}
+                onClick={() => runAndClose(onDelete)}
+              >
+                <Trash2 size={16} />
+                Видалити завдання
+              </button>
+            )}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+};
 
 export const InitiativeCardModal = ({
   kind,
@@ -823,11 +1148,12 @@ export const InitiativeCardModal = ({
             <label className="modal-label">
               Назва <span className="text-rose-500">*</span>
             </label>
-            <input
+            <AutoGrowTextarea
               disabled={Boolean(item) || isReadOnly}
               value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="modal-field text-lg leading-6 font-semibold"
+              onValueChange={setName}
+              maxHeight={96}
+              className={`modal-field text-lg leading-6 font-semibold ${styles.nameTextarea}`}
               placeholder={`Введіть назву ${noun}...`}
             />
           </div>
@@ -1003,11 +1329,12 @@ export const InitiativeCardModal = ({
                             className={`${styles.scopeGroupHeader} ${styles[`scopeGroup${groupBlock.color ?? "DEFAULT"}`] ?? ""}`}
                           >
                             <span className={styles.scopeGroupNumber}>{groupBlock.number}</span>
-                            <input
+                            <AutoGrowTextarea
                               disabled={standardFieldsReadOnly}
                               value={groupBlock.group.title}
                               maxLength={200}
-                              onChange={(event) => renameScopeGroup(groupBlock.group.id, event.target.value)}
+                              onValueChange={(value) => renameScopeGroup(groupBlock.group.id, value)}
+                              maxHeight={68}
                               className={styles.scopeGroupTitle}
                               aria-label={"\u041d\u0430\u0437\u0432\u0430 \u0433\u0440\u0443\u043f\u0438"}
                             />
@@ -1041,48 +1368,16 @@ export const InitiativeCardModal = ({
                         >
                           <div className={styles.scopeInputRow}>
                             <span className="scope-item-number">{scopeNumbers.get(scope.id)}</span>
-                        <input
+                        <AutoGrowTextarea
                           disabled={standardFieldsReadOnly}
                           value={scope.text}
-                          onChange={(event) =>
-                            updateScope(scope.id, { text: event.target.value })
-                          }
+                          onValueChange={(value) => updateScope(scope.id, { text: value })}
+                          maxHeight={80}
                           className={styles.scopeTextInput}
                           placeholder="Назва завдання"
                         />
                       </div>
                       <div className={styles.scopeControls}>
-                        <select
-                          disabled={standardFieldsReadOnly}
-                          value={scope.groupId ?? ""}
-                          onChange={(event) => changeScopeGroup(scope, event.target.value)}
-                          className={`scope-select ${styles.scopeGroupSelect}`}
-                          aria-label={"\u0413\u0440\u0443\u043f\u0430 \u0437\u0430\u0432\u0434\u0430\u043d\u043d\u044f"}
-                        >
-                          <option value="">{"\u0411\u0435\u0437 \u0433\u0440\u0443\u043f\u0438"}</option>
-                          {scopeGroups.map((group) => (
-                            <option key={group.id} value={group.id}>{group.title}</option>
-                          ))}
-                          <option value="__CREATE__">{"+ \u0421\u0442\u0432\u043e\u0440\u0438\u0442\u0438 \u0433\u0440\u0443\u043f\u0443"}</option>
-                        </select>
-                        {!standardFieldsReadOnly && (
-                          <div className={styles.scopeOrderActions}>
-                            <button
-                              type="button"
-                              disabled={moveScopeEntry(checklist, scopeGroups, scope.id, -1) === checklist}
-                              onClick={() => setChecklist((items) => moveScopeEntry(items, scopeGroups, scope.id, -1))}
-                              className="icon-action"
-                              title={"\u041f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043d\u043d\u044f \u0432\u0433\u043e\u0440\u0443"}
-                            ><ChevronUp size={16} /></button>
-                            <button
-                              type="button"
-                              disabled={moveScopeEntry(checklist, scopeGroups, scope.id, 1) === checklist}
-                              onClick={() => setChecklist((items) => moveScopeEntry(items, scopeGroups, scope.id, 1))}
-                              className="icon-action"
-                              title={"\u041f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043d\u043d\u044f \u0432\u043d\u0438\u0437"}
-                            ><ChevronDown size={16} /></button>
-                          </div>
-                        )}
                         <select
                           disabled={isReadOnly || scopeWeightLocked}
                           value={
@@ -1176,70 +1471,54 @@ export const InitiativeCardModal = ({
                             />
                           ))}
                         </div>
-                        {item && !isReadOnly && !isArchivedCard && (
-                          <button
-                            type="button"
-                            title={
-                              isCompletedItem(scope)
-                                ? SYSTEM_MESSAGES.initiatives
-                                    .completedScopeActionDenied
-                                : "Перенести завдання"
-                            }
-                            aria-disabled={isCompletedItem(scope)}
-                            onClick={() => {
-                              if (isCompletedItem(scope)) {
-                                notifyCompletedScopeAction();
-                                return;
-                              }
-                              setMovingId(scope.id);
-                              setScopeTransferMode("MOVE");
-                              setShowMove(true);
-                            }}
-                            className={`icon-action shrink-0 ${isCompletedItem(scope) ? styles.blockedIconAction : ""}`}
-                          >
-                            <ArrowRight size={17} />
-                          </button>
+                        {!standardFieldsReadOnly && (
+                          <div className={styles.scopeOrderActions}>
+                            <button
+                              type="button"
+                              disabled={moveScopeEntry(checklist, scopeGroups, scope.id, -1) === checklist}
+                              onClick={() => setChecklist((items) => moveScopeEntry(items, scopeGroups, scope.id, -1))}
+                              className="icon-action"
+                              title={"\u041f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043d\u043d\u044f \u0432\u0433\u043e\u0440\u0443"}
+                            ><ChevronUp size={16} /></button>
+                            <button
+                              type="button"
+                              disabled={moveScopeEntry(checklist, scopeGroups, scope.id, 1) === checklist}
+                              onClick={() => setChecklist((items) => moveScopeEntry(items, scopeGroups, scope.id, 1))}
+                              className="icon-action"
+                              title={"\u041f\u0435\u0440\u0435\u043c\u0456\u0441\u0442\u0438\u0442\u0438 \u0437\u0430\u0432\u0434\u0430\u043d\u043d\u044f \u0432\u043d\u0438\u0437"}
+                            ><ChevronDown size={16} /></button>
+                          </div>
                         )}
-                        {canCopyScope && !isReadOnly && (
-                          <button
-                            type="button"
-                            title={
-                              isCompletedItem(scope)
-                                ? SYSTEM_MESSAGES.initiatives
-                                    .completedScopeActionDenied
-                                : "Копіювати завдання"
+                        <ScopeActionsMenu
+                          groups={scopeGroups}
+                          currentGroupId={scope.groupId}
+                          allowGrouping={!standardFieldsReadOnly}
+                          allowTransfer={Boolean(item && !isReadOnly && !isArchivedCard)}
+                          allowCopy={canCopyScope && !isReadOnly}
+                          allowDelete={!isReadOnly && !scopeWeightLocked}
+                          actionsBlocked={isCompletedItem(scope)}
+                          blockedReason={SYSTEM_MESSAGES.initiatives.completedScopeActionDenied}
+                          onChangeGroup={(value) => changeScopeGroup(scope, value)}
+                          onTransfer={() => {
+                            if (isCompletedItem(scope)) {
+                              notifyCompletedScopeAction();
+                              return;
                             }
-                            aria-disabled={isCompletedItem(scope)}
-                            onClick={() => {
-                              if (isCompletedItem(scope)) {
-                                notifyCompletedScopeAction();
-                                return;
-                              }
-                              setMovingId(scope.id);
-                              setScopeTransferMode("COPY");
-                              setShowMove(true);
-                            }}
-                            className={`icon-action shrink-0 ${isCompletedItem(scope) ? styles.blockedIconAction : ""}`}
-                          >
-                            <Copy size={16} />
-                          </button>
-                        )}
-                        {!isReadOnly && !scopeWeightLocked && (
-                          <button
-                            type="button"
-                            title={
-                              isCompletedItem(scope)
-                                ? SYSTEM_MESSAGES.initiatives
-                                    .completedScopeActionDenied
-                                : "Видалити завдання"
+                            setMovingId(scope.id);
+                            setScopeTransferMode("MOVE");
+                            setShowMove(true);
+                          }}
+                          onCopy={() => {
+                            if (isCompletedItem(scope)) {
+                              notifyCompletedScopeAction();
+                              return;
                             }
-                            aria-disabled={isCompletedItem(scope)}
-                            onClick={() => removeScope(scope)}
-                            className={`icon-action shrink-0 ${isCompletedItem(scope) ? styles.blockedIconAction : "text-slate-400 hover:text-rose-500"}`}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
+                            setMovingId(scope.id);
+                            setScopeTransferMode("COPY");
+                            setShowMove(true);
+                          }}
+                          onDelete={() => removeScope(scope)}
+                        />
                       </div>
                       {(scope.implementer_dept_ids ?? []).length > 0 && (
                         <div className={styles.implementerList}>

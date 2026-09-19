@@ -50,10 +50,8 @@ const ScopeLine = ({ item, number, nested = false }: {
   const presentation = getScopeColor(item.color);
   return (
     <li className={`${styles.scopeItem} ${nested ? styles.scopeItemNested : ""}`}>
-      <div className={styles.scopeMarker}>
-        <span className={styles.scopeNumber}>{number}</span>
-        <div className={`${styles.scopeDot} ${presentation.dot}`} />
-      </div>
+      <span className={styles.scopeNumber}>{number}</span>
+      <span className={`${styles.scopeDot} ${presentation.dot}`} />
       <span className={`${styles.scopeText} ${presentation.text}`} title={item.text}>
         {item.text}
       </span>
@@ -202,6 +200,7 @@ export const InitiativeCard: React.FC<InitiativeCardProps> = ({
                     <React.Fragment key={block.key}>
                       <li className={`${styles.scopeGroup} ${block.color ? styles[`scopeGroup${block.color}`] ?? "" : ""}`}>
                         <span className={styles.scopeNumber}>{block.number}</span>
+                        <span className={styles.scopeGroupSpacer} aria-hidden="true" />
                         <span className={styles.scopeGroupTitle}>{block.group.title}</span>
                       </li>
                       {block.items.map(({ item, number }) => (

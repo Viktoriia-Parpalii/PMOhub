@@ -272,13 +272,13 @@
 .cardGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  align-items: start;
+  align-items: stretch;
   gap: 1rem;
 }
 
 .cardWrapper {
   position: relative;
-  height: fit-content;
+  height: 100%;
 }
 
 @media (min-width: 640px) {
