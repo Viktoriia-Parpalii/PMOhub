@@ -46,7 +46,7 @@ import styles from "./InitiativeCardModal.module.css";
 import { SYSTEM_MESSAGES } from "../../../shared/constants/systemMessages";
 import { InitiativeHistory } from "./InitiativeHistory";
 import { useAuditQuery } from "../../../api/hooks";
-import { ApiError, loadInitiativeCardModel } from "../../../api/apiClient";
+import { ApiError, loadInitiativeCardModel, loadQuarterCards } from "../../../api/apiClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../../../api/queryClient";
 import { notify } from "../../../components/ui/ToastNotifications";
@@ -64,6 +64,7 @@ import {
   scopeNumberMap,
 } from "../../../domain/scopeGroups";
 import { shouldDisplayCustomField } from "../../../domain/customFields";
+import { findSimilarScopeItem } from "../../../domain/scopeTransfer";
 
 type Initiative = InitiativeViewModel;
 type Kind = "project" | "task";
@@ -543,6 +544,8 @@ export const InitiativeCardModal = ({
   const [movingId, setMovingId] = useState<string | null>(null);
   const [showDiscardConfirmation, setShowDiscardConfirmation] =
     useState(false);
+  const [duplicateTransferRevision, setDuplicateTransferRevision] =
+    useState<number | null | undefined>(undefined);
   const [scopeTransferMode, setScopeTransferMode] = useState<"MOVE" | "COPY">(
     "MOVE",
   );
@@ -668,8 +671,9 @@ export const InitiativeCardModal = ({
   const closeMove = () => {
     setShowMove(false);
     setMovingId(null);
+    setDuplicateTransferRevision(undefined);
   };
-  const performMove = async () =>
+  const performMove = async (expectedTargetRevision?: number | null) =>
     !item
       ? undefined
       : movingId
@@ -680,6 +684,7 @@ export const InitiativeCardModal = ({
               moveYear,
               moveQuarter,
               kind === "project",
+              expectedTargetRevision,
             )
           : moveScopeItem(
               item.id,
@@ -687,6 +692,7 @@ export const InitiativeCardModal = ({
               moveYear,
               moveQuarter,
               kind === "project",
+              expectedTargetRevision,
             )
         : moveCard(item.id, moveYear, moveQuarter, kind === "project");
   const targetIsArchived = () =>
@@ -700,16 +706,57 @@ export const InitiativeCardModal = ({
       NOTIFICATION_KINDS.error,
       SYSTEM_MESSAGES.initiatives.archivedTransferDenied,
     );
-  const executeMove = async () => {
+  const executeMove = async (expectedTargetRevision?: number | null) => {
     setIsPending(true);
     try {
-      const result = await performMove();
+      const result = await performMove(expectedTargetRevision);
       if (!result) return;
       if (!result.success) {
         notify(NOTIFICATION_KINDS.error, result.message);
         return;
       }
       onClose();
+    } finally {
+      setIsPending(false);
+    }
+  };
+  const prepareMove = async () => {
+    if (!movingId || !item) {
+      await executeMove();
+      return;
+    }
+    setIsPending(true);
+    try {
+      const targetCards = await loadQuarterCards(kind, undefined, moveYear, moveQuarter);
+      const targetSummary = targetCards.find((candidate) => candidate.initiative_id === item.initiative_id);
+      const target = targetSummary
+        ? (await loadInitiativeCardModel(targetSummary.id)).data
+        : undefined;
+      const source = item.checklist.find((candidate) => candidate.id === movingId);
+      if (!source) {
+        notify(NOTIFICATION_KINDS.error, "Завдання не знайдено. Оновіть картку та повторіть дію.");
+        return;
+      }
+      if (target?.scope.some((candidate) =>
+        source.lineage_id && candidate.lineage_id === source.lineage_id,
+      )) {
+        notify(NOTIFICATION_KINDS.error, "Це завдання вже існує у цільовій картці.");
+        return;
+      }
+      const effectiveWeight = scopeTransferMode === "COPY"
+        ? taskWeights.find((weight) => weight.is_default && weight.is_system && weight.is_active)?.weight
+        : source.weightSnapshot?.value;
+      if (target && effectiveWeight !== undefined &&
+        findSimilarScopeItem(source, target.scope, Number(effectiveWeight))) {
+        setDuplicateTransferRevision(target.revision);
+        return;
+      }
+      await executeMove(target?.revision ?? null);
+    } catch (error) {
+      notify(
+        NOTIFICATION_KINDS.error,
+        error instanceof ApiError ? error.message : SYSTEM_MESSAGES.api.targetQuarterCheckFailed,
+      );
     } finally {
       setIsPending(false);
     }
@@ -738,7 +785,7 @@ export const InitiativeCardModal = ({
       setShowDiscardConfirmation(true);
       return;
     }
-    await executeMove();
+    await prepareMove();
   };
   const requestContinuation = async () => {
     if (!item || isPending) return;
@@ -1704,11 +1751,62 @@ export const InitiativeCardModal = ({
                 type="button"
                 onClick={() => {
                   setShowDiscardConfirmation(false);
-                  void executeMove();
+                  void prepareMove();
                 }}
                 className={styles.confirmationConfirm}
               >
                 Відкинути та продовжити
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {duplicateTransferRevision !== undefined && (
+        <div className={styles.confirmationBackdrop}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="similar-scope-title"
+            aria-describedby="similar-scope-description"
+            className={styles.confirmationDialog}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setDuplicateTransferRevision(undefined);
+            }}
+          >
+            <div className={styles.confirmationHeader}>
+              <span className={styles.confirmationIcon} aria-hidden="true">
+                <AlertTriangle size={22} />
+              </span>
+              <div>
+                <h3 id="similar-scope-title" className={styles.confirmationTitle}>
+                  Схоже завдання вже є
+                </h3>
+                <p id="similar-scope-description" className={styles.confirmationText}>
+                  Завдання з такою самою назвою, вагою та виконавцями вже є у {moveQuarter} {moveYear}.
+                  Усе одно {scopeTransferMode === "COPY" ? "скопіювати" : "перенести"}?
+                </p>
+              </div>
+            </div>
+            <div className={styles.confirmationActions}>
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setDuplicateTransferRevision(undefined)}
+                className={styles.confirmationCancel}
+              >
+                Скасувати
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  const revision = duplicateTransferRevision;
+                  setDuplicateTransferRevision(undefined);
+                  void executeMove(revision);
+                }}
+                className={styles.confirmationConfirm}
+              >
+                {scopeTransferMode === "COPY" ? "Усе одно копіювати" : "Усе одно перенести"}
               </button>
             </div>
           </section>

@@ -216,6 +216,7 @@ export interface Manager {
 
 export interface ChecklistItem {
   id: string;
+  lineage_id?: string;
   revision?: number;
   groupId?: string | null;
   sortOrder?: number;
@@ -253,6 +254,7 @@ export interface MutationResult<T = undefined> {
   status?: "COMMIT_FAILED" | "COMMITTED_REFRESH_FAILED" | "SUCCESS";
   committed?: boolean;
   errorCode?: string;
+  errorDetails?: unknown;
 }
 
 export type Priority = string;

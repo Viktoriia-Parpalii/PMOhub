@@ -76,12 +76,15 @@ erDiagram
 - Create backlog: atomically creates Initiative, InitiativeYear and PreparationStage.
 - Create card: backend copies manager, priority and effective involved departments from the nearest earlier card in the same year; PreparationStage is the fallback. Status is DEFAULT; notes, scope and custom fields start empty.
 - Extend year: strategic goal is empty. Preparation defaults come from the latest source card, otherwise from the source PreparationStage.
+- Resume year: an existing Initiative can receive a new InitiativeYear after a gap, even when the source year is archived. The target year must be later and open; the source revision is checked. A new PreparationStage has empty manager, priority and departments, while historical years remain untouched. The command emits `YEAR_RESUMED`.
 - Continue card: creates a new DEFAULT card with source metadata, notes and custom values, but no scope.
 - Move card: preserves the card ID and content, changes its year/quarter, and resets card status to DEFAULT. Occupied targets are rejected.
 - Move scope: non-GREEN item preserves ID, lineage, status, weight snapshot and executors. Both cards are recalculated.
 - Copy scope: non-GREEN item receives a new ID but preserves lineage, text and executors; target status and weight reset to the system DEFAULT values. Duplicate lineage is rejected.
+- Grouped scope transfer: the target group is resolved by lineage first, then by trimmed case-insensitive title; otherwise a new group is created. The existing group's title and lineage are unchanged. Tasks append within that group, order is normalized, and empty source groups are removed on move. A concurrent group conflict returns HTTP 409.
+- Similar scope warning: the frontend reads the current target card and compares normalized text, numeric weight and executor set. A match requires explicit confirmation but does not block the operation. Copy comparison uses the DEFAULT weight that the copy will receive. Existing target cards require the current `target_revision` on write.
 
-Every write executes in a serializable transaction where needed. Revisions are checked with conditional `updateMany`; stale aggregates return HTTP 409 `REVISION_CONFLICT`. Archived source periods cannot be mutated, while copying from an archived card into an open target remains allowed.
+Every write executes in a serializable transaction where needed. Revisions are checked with conditional `updateMany`; stale aggregates return HTTP 409 `REVISION_CONFLICT`. Archived source periods cannot be mutated for card or scope transfers, while copying from an archived card into an open target remains allowed. Resuming an archived backlog year creates a separate, open-year record without editing the archive.
 
 A card with completed (`GREEN`) scope items cannot be moved or deleted. A department remains in the card department pool while it is an executor; if its last scope assignment is removed, it becomes effectively involved again unless the user explicitly removes it from the pool.
 

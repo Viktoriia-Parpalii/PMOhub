@@ -440,6 +440,7 @@ export const toQuarterCardViewModel = (
   scopeGroups: card.scope_groups ?? [],
   checklist: card.scope.map((item) => ({
     id: item.id,
+    lineage_id: item.lineage_id,
     revision: item.revision,
     groupId: item.group_id ?? null,
     sortOrder: item.sort_order,

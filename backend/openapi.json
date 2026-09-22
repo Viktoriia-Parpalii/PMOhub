@@ -141,7 +141,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -150,9 +150,6 @@
                 }
               }
             }
-          },
-          "201": {
-            "description": ""
           }
         },
         "security": [
@@ -617,7 +614,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -626,9 +623,6 @@
                 }
               }
             }
-          },
-          "201": {
-            "description": ""
           }
         },
         "security": [
@@ -656,7 +650,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -665,9 +659,6 @@
                 }
               }
             }
-          },
-          "201": {
-            "description": ""
           }
         },
         "security": [
@@ -675,6 +666,93 @@
             "bearer": []
           }
         ],
+        "tags": [
+          "initiative-years"
+        ]
+      }
+    },
+    "/api/v1/initiative-years/resume": {
+      "post": {
+        "operationId": "InitiativeYearsController_resume",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeYearDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeYearResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Помилка валідації або INVALID_RESUME_YEAR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Немає прав на редагування.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Вихідний річний запис не знайдено.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "INVALID_RESUME_SOURCE, YEAR_ALREADY_EXISTS або REVISION_CONFLICT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Відновити проєкт або операційну задачу в новому році після паузи",
         "tags": [
           "initiative-years"
         ]
@@ -1049,7 +1127,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -1058,9 +1136,6 @@
                 }
               }
             }
-          },
-          "201": {
-            "description": ""
           }
         },
         "security": [
@@ -1097,7 +1172,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -1106,9 +1181,6 @@
                 }
               }
             }
-          },
-          "201": {
-            "description": ""
           }
         },
         "security": [
@@ -1153,18 +1225,65 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiSuccessDto"
+                  "$ref": "#/components/schemas/ScopeTransferResponseDto"
                 }
               }
             }
           },
-          "201": {
-            "description": ""
+          "400": {
+            "description": "Помилка валідації або неприпустимий цільовий період.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Немає прав на редагування або період архівний.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Картку або завдання не знайдено.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "TARGET_REVISION_REQUIRED, REVISION_CONFLICT, SCOPE_LINEAGE_CONFLICT або TARGET_SCOPE_GROUP_CONFLICT; оновіть цільову картку перед повтором.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1172,6 +1291,7 @@
             "bearer": []
           }
         ],
+        "summary": "Перенести завдання до іншої квартальної картки",
         "tags": [
           "quarter-cards"
         ]
@@ -1209,18 +1329,65 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiSuccessDto"
+                  "$ref": "#/components/schemas/ScopeTransferResponseDto"
                 }
               }
             }
           },
-          "201": {
-            "description": ""
+          "400": {
+            "description": "Помилка валідації або неприпустимий цільовий період.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Немає прав на редагування або період архівний.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Картку або завдання не знайдено.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "TARGET_REVISION_REQUIRED, REVISION_CONFLICT, SCOPE_LINEAGE_CONFLICT або TARGET_SCOPE_GROUP_CONFLICT; оновіть цільову картку перед повтором.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1228,6 +1395,7 @@
             "bearer": []
           }
         ],
+        "summary": "Скопіювати завдання до іншої квартальної картки",
         "tags": [
           "quarter-cards"
         ]
@@ -1265,7 +1433,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -1274,9 +1442,6 @@
                 }
               }
             }
-          },
-          "201": {
-            "description": ""
           }
         },
         "security": [
@@ -1367,7 +1532,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -1376,9 +1541,6 @@
                 }
               }
             }
-          },
-          "201": {
-            "description": ""
           }
         },
         "security": [
@@ -1542,7 +1704,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -1551,9 +1713,6 @@
                 }
               }
             }
-          },
-          "201": {
-            "description": ""
           }
         },
         "security": [
@@ -1676,7 +1835,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -1685,9 +1844,6 @@
                 }
               }
             }
-          },
-          "201": {
-            "description": ""
           }
         },
         "security": [
@@ -1705,7 +1861,7 @@
         "operationId": "DictionariesController_recalculateSizes",
         "parameters": [],
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -1714,9 +1870,6 @@
                 }
               }
             }
-          },
-          "201": {
-            "description": ""
           }
         },
         "security": [
@@ -1761,7 +1914,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -1770,9 +1923,6 @@
                 }
               }
             }
-          },
-          "201": {
-            "description": ""
           }
         },
         "security": [
@@ -3576,6 +3726,105 @@
           "target_year"
         ]
       },
+      "ResumeYearDto": {
+        "type": "object",
+        "properties": {
+          "source_year_id": {
+            "type": "string",
+            "description": "ID останнього наявного річного запису проєкту або операційної задачі."
+          },
+          "source_revision": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Актуальна ревізія вихідного річного запису."
+          },
+          "target_year": {
+            "type": "number",
+            "minimum": 2000,
+            "maximum": 2200,
+            "description": "Новий рік після перерви; рік має бути пізнішим за вихідний."
+          },
+          "strategic_goal": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "source_year_id",
+          "source_revision",
+          "target_year"
+        ]
+      },
+      "ResumeYearResultDto": {
+        "type": "object",
+        "properties": {
+          "source_year_id": {
+            "type": "string"
+          },
+          "target_year_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "source_year_id",
+          "target_year_id",
+          "revision"
+        ]
+      },
+      "ResumeYearResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ResumeYearResultDto"
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ]
+      },
+      "ApiErrorDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false,
+            "enum": [
+              false
+            ]
+          },
+          "code": {
+            "type": "string",
+            "example": "VALIDATION_ERROR"
+          },
+          "message": {
+            "type": "string",
+            "example": "Некоректні дані"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "success",
+          "code",
+          "message"
+        ]
+      },
       "ScopeGroupReadModelDto": {
         "type": "object",
         "properties": {
@@ -4150,6 +4399,11 @@
       "PeriodCommandDto": {
         "type": "object",
         "properties": {
+          "target_revision": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Поточна ревізія цільової квартальної картки. Обов'язкова, якщо картка вже існує; не передається для нової картки."
+          },
           "revision": {
             "type": "number",
             "minimum": 1
@@ -4167,16 +4421,61 @@
               "Q4"
             ],
             "type": "string"
-          },
-          "target_revision": {
-            "type": "number",
-            "minimum": 1
           }
         },
         "required": [
           "revision",
           "to_year",
           "to_quarter"
+        ]
+      },
+      "ScopeTransferResultDto": {
+        "type": "object",
+        "properties": {
+          "source_card_id": {
+            "type": "string"
+          },
+          "target_card_id": {
+            "type": "string"
+          },
+          "scope_item_id": {
+            "type": "string"
+          },
+          "source_card_revision": {
+            "type": "number"
+          },
+          "target_card_revision": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "source_card_id",
+          "target_card_id",
+          "scope_item_id",
+          "source_card_revision",
+          "target_card_revision"
+        ]
+      },
+      "ScopeTransferResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ScopeTransferResultDto"
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
         ]
       },
       "CreateUserDto": {

@@ -162,6 +162,7 @@ export interface AppContextType extends ReferenceDataState {
     toYear: number,
     toQuarter: Quarter,
     isProject: boolean,
+    expectedTargetRevision?: number | null,
   ) => Promise<MutationResult>;
   copyScopeItem: (
     cardId: string,
@@ -169,6 +170,7 @@ export interface AppContextType extends ReferenceDataState {
     toYear: number,
     toQuarter: Quarter,
     isProject: boolean,
+    expectedTargetRevision?: number | null,
   ) => Promise<MutationResult>;
   createBacklogSnapshot: (
     kind: InitiativeKind,
@@ -182,6 +184,13 @@ export interface AppContextType extends ReferenceDataState {
     sourceYear: number,
     targetYear: number,
   ) => Promise<MutationResult<{ created: number }>>;
+  resumeBacklogYear: (
+    kind: InitiativeKind,
+    sourceYearId: string,
+    sourceRevision: number,
+    targetYear: number,
+    strategicGoal?: string,
+  ) => Promise<MutationResult>;
   createBacklogWithCards: (
     kind: InitiativeKind,
     master: InitiativeViewModel,
@@ -956,39 +965,28 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     toYear: number,
     toQuarter: Quarter,
     isProject: boolean,
+    expectedTargetRevision?: number | null,
   ) => {
     const kind = isProject ? "project" : "task";
     const records = recordsFor(kind);
     const card = records.find((item) => item.id === cardId);
     if (!card?.revision)
       return fail(SYSTEM_MESSAGES.initiatives.cardRevisionMissing);
-    let target = records.find(
-      (item) =>
-        item.record_type === "CARD" &&
-        getChainId(item) === getChainId(card) &&
-        item.year === toYear &&
-        item.quarter === toQuarter,
-    );
-    if (!target) {
-      try {
-        const targetCards = await loadQuarterCards(
-          kind,
-          undefined,
-          toYear,
-          toQuarter,
-        );
-        const targetModel = targetCards.find(
-          (item) => item.initiative_id === getChainId(card),
-        );
-        if (targetModel) target = toQuarterCardViewModel(targetModel);
-      } catch (error) {
-        return fail(
-          error instanceof ApiError
-            ? error.message
-            : SYSTEM_MESSAGES.api.targetQuarterCheckFailed,
-        );
-      }
+    let targetRevision: number | null = null;
+    try {
+      const targetCards = await loadQuarterCards(kind, undefined, toYear, toQuarter);
+      targetRevision = targetCards.find(
+        (candidate) => candidate.initiative_id === getChainId(card),
+      )?.revision ?? null;
+    } catch (error) {
+      return fail(
+        error instanceof ApiError
+          ? error.message
+          : SYSTEM_MESSAGES.api.targetQuarterCheckFailed,
+      );
     }
+    if (expectedTargetRevision !== undefined && targetRevision !== expectedTargetRevision)
+      return fail("Цільову картку змінено. Перевірте її та повторіть дію.");
     return executeRemote(
       () =>
         mode === "MOVE"
@@ -998,7 +996,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               card.revision!,
               toYear,
               toQuarter,
-              target?.revision,
+              targetRevision ?? undefined,
             )
           : serverCommands.copyScope(
               cardId,
@@ -1006,7 +1004,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               card.revision!,
               toYear,
               toQuarter,
-              target?.revision,
+              targetRevision ?? undefined,
             ),
       () => refreshKind(kind),
     );
@@ -1017,14 +1015,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     toYear: number,
     toQuarter: Quarter,
     isProject: boolean,
-  ) => scopeTransfer("MOVE", cardId, itemId, toYear, toQuarter, isProject);
+    expectedTargetRevision?: number | null,
+  ) => scopeTransfer("MOVE", cardId, itemId, toYear, toQuarter, isProject, expectedTargetRevision);
   const copyScopeItem = (
     cardId: string,
     itemId: string,
     toYear: number,
     toQuarter: Quarter,
     isProject: boolean,
-  ) => scopeTransfer("COPY", cardId, itemId, toYear, toQuarter, isProject);
+    expectedTargetRevision?: number | null,
+  ) => scopeTransfer("COPY", cardId, itemId, toYear, toQuarter, isProject, expectedTargetRevision);
   const createBacklogSnapshots = (
     kind: InitiativeKind,
     masterIds: string[],
@@ -1064,6 +1064,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ? ok(SYSTEM_MESSAGES.initiatives.snapshotCreated)
       : fail(result.message);
   };
+  const resumeBacklogYear = (
+    kind: InitiativeKind,
+    sourceYearId: string,
+    sourceRevision: number,
+    targetYear: number,
+    strategicGoal?: string,
+  ) => executeRemote(
+    () => serverCommands.resumeYear({
+      source_year_id: sourceYearId,
+      source_revision: sourceRevision,
+      target_year: targetYear,
+      strategic_goal: strategicGoal,
+    }),
+    () => refreshKind(kind),
+  );
   const createBacklogWithCards = async (
     kind: InitiativeKind,
     raw: Initiative,
@@ -1226,6 +1241,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     copyScopeItem,
     createBacklogSnapshot,
     createBacklogSnapshots,
+    resumeBacklogYear,
     createBacklogWithCards,
     updatePreparationStage,
     addPriority: priorities.add,

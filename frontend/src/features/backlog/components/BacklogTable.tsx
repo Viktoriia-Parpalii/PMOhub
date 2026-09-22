@@ -1,5 +1,5 @@
 import React from "react";
-import { Check, Edit2, Eye, Plus, Trash2 } from "lucide-react";
+import { Check, Edit2, Eye, Plus, RotateCcw, Trash2 } from "lucide-react";
 import {
   Department,
   InitiativeStatusDef,
@@ -68,6 +68,7 @@ interface BacklogTableProps {
   departments: Department[];
   initiativeStatuses: InitiativeStatusDef[];
   canEdit: boolean;
+  canResume: boolean;
   isSelecting: boolean;
   selectedIds: string[];
   eligibleIds: Set<string>;
@@ -81,6 +82,7 @@ interface BacklogTableProps {
   isPastQuarter: (quarter: Quarter) => boolean;
   onEditMaster: (item: BacklogInitiative) => void;
   onDeleteMaster: (item: BacklogInitiative) => void;
+  onResumeMaster: (item: BacklogInitiative) => void;
   onOpenCard: (item: BacklogInitiative) => void;
   onOpenPreparation: (item: BacklogInitiative) => void;
 }
@@ -201,6 +203,13 @@ export const BacklogTable = (props: BacklogTableProps) => {
                   })}
                   <td className={styles.actionsCell}>
                     <div className={styles.rowActions}>
+                      {props.canResume && (
+                        <button type="button" onClick={() => props.onResumeMaster(master)}
+                          title="Відновити в іншому році" aria-label={`Відновити ${master.name}`}
+                          className={styles.iconButton}>
+                          <RotateCcw size={17} />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => props.onEditMaster(master)}

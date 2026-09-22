@@ -10,6 +10,7 @@ import {
 import { isPeriodLockedAtBusinessDate } from "../../shared/utils";
 import { getHistoricalAndPlanningYears } from "../../shared/utils";
 import { BacklogModal } from "./components/BacklogModal";
+import { ResumeBacklogModal, type ResumeCandidate } from "./components/ResumeBacklogModal";
 import { PreparationStageModal } from "./components/PreparationStageModal";
 import { InitiativeCardModal } from "../initiatives/components/InitiativeCardModal";
 import { BacklogHeader } from "./components/BacklogHeader";
@@ -138,6 +139,7 @@ export const BacklogTab = () => {
   );
   const [editingCard, setEditingCard] = useState<Initiative | null>(null);
   const [masterToDelete, setMasterToDelete] = useState<Initiative | null>(null);
+  const [resumeCandidate, setResumeCandidate] = useState<ResumeCandidate | null>(null);
   const pendingCommands = useRef(new Set<string>());
   const openCard = async (card: Initiative) => {
     try {
@@ -420,6 +422,7 @@ export const BacklogTab = () => {
           departments={departments}
           initiativeStatuses={initiativeStatuses}
           canEdit={canEdit}
+          canResume={Boolean(permission?.canCreateEditInitiatives && !permission.isReadOnly && archive)}
           isSelecting={isSelectingForExtension}
           selectedIds={selectedIds}
           eligibleIds={eligibleIds}
@@ -438,6 +441,17 @@ export const BacklogTab = () => {
             setIsModalOpen(true);
           }}
           onDeleteMaster={setMasterToDelete}
+          onResumeMaster={(master) => {
+            if (master.revision === undefined) return;
+            setResumeCandidate({
+              kind: activeTab === "PROJECTS" ? "project" : "task",
+              name: master.name,
+              sourceYearId: master.id,
+              sourceYear: master.year,
+              sourceRevision: master.revision,
+              targetYear: Math.max(businessPeriod.year, master.year + 1),
+            });
+          }}
           onOpenCard={(card) => {
             void openCard(card);
           }}
@@ -452,8 +466,17 @@ export const BacklogTab = () => {
           editItem={editingItem}
           selectedYear={selectedYear}
           isReadOnly={!canEdit}
+          onResumeCandidate={(candidate) => {
+            setIsModalOpen(false);
+            setResumeCandidate(candidate);
+          }}
           onClose={() => setIsModalOpen(false)}
         />
+      )}
+      {resumeCandidate && (
+        <ResumeBacklogModal candidate={resumeCandidate} years={backlogYears}
+          onClose={() => setResumeCandidate(null)}
+          onSuccess={(year) => { setResumeCandidate(null); changeYear(year); }} />
       )}
       {preparationItem && (
         <PreparationStageModal

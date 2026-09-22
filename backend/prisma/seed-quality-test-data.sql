@@ -2,7 +2,7 @@
   PMO Hub — якісний набір тестових даних для SQL Server.
 
   Передумови:
-  1. Виконана initial migration 20260824190000_initial.
+  1. Виконані міграції, зокрема 20260918120000_add_scope_groups_and_ordering.
   2. Бізнес-таблиці й користувацькі довідники порожні.
   3. Системні DEFAULT status/weight можуть уже існувати.
 
@@ -471,17 +471,62 @@ BEGIN TRY
   ) source
   WHERE target.[item_no]=2 AND target.[card_no]%9=0 AND target.[status_code]<>'GREEN';
 
-  INSERT INTO [dbo].[scope_items]
-    ([id],[quarter_card_id],[lineage_id],[copied_from_item_id],[text],[status_code],[weight_definition_id],
-     [weight_snapshot_name],[weight_snapshot_value],[moved_from_card_id],[revision],[created_at],[updated_at])
-  SELECT s.[scope_id],s.[card_id],s.[lineage_id],NULL,s.[text],s.[status_code],s.[weight_id],s.[weight_name],s.[weight_value],s.[moved_from_card_id],1,@Now,@Now
-  FROM #ScopePlan s WHERE s.[copied_from_item_id] IS NULL;
+  /*
+    Групи для перевірки ієрархії та перенесення між кварталами:
+    завдання 1 і 5 (та 9–15) лишаються без групи, 2–4 і 6–8 утворюють
+    компактні блоки. Однакові назви в різних картках іноді мають спільний
+    lineage, іноді — незалежний, як при ручному створенні групи.
+  */
+  CREATE TABLE #ScopeGroupPlan (
+    [group_id] UNIQUEIDENTIFIER PRIMARY KEY,[card_no] INT,[card_id] UNIQUEIDENTIFIER,
+    [group_no] INT,[lineage_id] UNIQUEIDENTIFIER,[title] NVARCHAR(200)
+  );
+  INSERT INTO #ScopeGroupPlan ([group_id],[card_no],[card_id],[group_no],[lineage_id],[title])
+  SELECT NEWID(),c.[card_no],c.[card_id],g.[group_no],NEWID(),
+    CASE g.[group_no] WHEN 1 THEN N'Підготовка та погодження' ELSE N'Реалізація та запуск' END
+  FROM #CardPlan c
+  CROSS JOIN (VALUES (1,4),(2,8)) g([group_no],[last_item_no])
+  WHERE EXISTS (
+    SELECT 1 FROM #ScopePlan s
+    WHERE s.[card_id]=c.[card_id] AND s.[item_no]=g.[last_item_no]
+  );
+
+  UPDATE target
+  SET [lineage_id]=source.[lineage_id]
+  FROM #ScopeGroupPlan target
+  JOIN #CardPlan targetCard ON targetCard.[card_no]=target.[card_no]
+  CROSS APPLY (
+    SELECT TOP (1) sourceGroup.[lineage_id]
+    FROM #ScopeGroupPlan sourceGroup
+    JOIN #CardPlan sourceCard ON sourceCard.[card_no]=sourceGroup.[card_no]
+    WHERE sourceCard.[initiative_id]=targetCard.[initiative_id]
+      AND sourceCard.[year]*10+sourceCard.[quarter] < targetCard.[year]*10+targetCard.[quarter]
+      AND sourceGroup.[group_no]=target.[group_no]
+    ORDER BY sourceCard.[year],sourceCard.[quarter]
+  ) source
+  WHERE target.[card_no]%3<>0;
+
+  INSERT INTO [dbo].[scope_groups]
+    ([id],[quarter_card_id],[lineage_id],[title],[created_at],[updated_at])
+  SELECT [group_id],[card_id],[lineage_id],[title],@Now,@Now FROM #ScopeGroupPlan;
 
   INSERT INTO [dbo].[scope_items]
-    ([id],[quarter_card_id],[lineage_id],[copied_from_item_id],[text],[status_code],[weight_definition_id],
+    ([id],[quarter_card_id],[lineage_id],[scope_group_id],[sort_order],[copied_from_item_id],[text],[status_code],[weight_definition_id],
      [weight_snapshot_name],[weight_snapshot_value],[moved_from_card_id],[revision],[created_at],[updated_at])
-  SELECT s.[scope_id],s.[card_id],s.[lineage_id],s.[copied_from_item_id],s.[text],s.[status_code],s.[weight_id],s.[weight_name],s.[weight_value],s.[moved_from_card_id],1,@Now,@Now
-  FROM #ScopePlan s WHERE s.[copied_from_item_id] IS NOT NULL;
+  SELECT s.[scope_id],s.[card_id],s.[lineage_id],g.[group_id],s.[item_no]-1,NULL,s.[text],s.[status_code],s.[weight_id],s.[weight_name],s.[weight_value],s.[moved_from_card_id],1,@Now,@Now
+  FROM #ScopePlan s
+  LEFT JOIN #ScopeGroupPlan g ON g.[card_id]=s.[card_id]
+    AND ((g.[group_no]=1 AND s.[item_no] BETWEEN 2 AND 4) OR (g.[group_no]=2 AND s.[item_no] BETWEEN 6 AND 8))
+  WHERE s.[copied_from_item_id] IS NULL;
+
+  INSERT INTO [dbo].[scope_items]
+    ([id],[quarter_card_id],[lineage_id],[scope_group_id],[sort_order],[copied_from_item_id],[text],[status_code],[weight_definition_id],
+     [weight_snapshot_name],[weight_snapshot_value],[moved_from_card_id],[revision],[created_at],[updated_at])
+  SELECT s.[scope_id],s.[card_id],s.[lineage_id],g.[group_id],s.[item_no]-1,s.[copied_from_item_id],s.[text],s.[status_code],s.[weight_id],s.[weight_name],s.[weight_value],s.[moved_from_card_id],1,@Now,@Now
+  FROM #ScopePlan s
+  LEFT JOIN #ScopeGroupPlan g ON g.[card_id]=s.[card_id]
+    AND ((g.[group_no]=1 AND s.[item_no] BETWEEN 2 AND 4) OR (g.[group_no]=2 AND s.[item_no] BETWEEN 6 AND 8))
+  WHERE s.[copied_from_item_id] IS NOT NULL;
 
   /* 40% завдань мають одного виконавця, інші — 2–5. */
   INSERT INTO [dbo].[scope_item_executors] ([scope_item_id],[department_id])
@@ -710,6 +755,29 @@ BEGIN TRY
     WHERE scopeStats.[scope_count] NOT BETWEEN 0 AND 15
   ) THROW 51109, N'Кількість завдань у картці вийшла за діапазон 0–15.', 1;
 
+  IF NOT EXISTS (SELECT 1 FROM [dbo].[scope_groups])
+    OR NOT EXISTS (SELECT 1 FROM [dbo].[scope_items] WHERE [scope_group_id] IS NOT NULL)
+    OR NOT EXISTS (SELECT 1 FROM [dbo].[scope_items] WHERE [scope_group_id] IS NULL)
+    OR NOT EXISTS (
+      SELECT 1 FROM [dbo].[scope_groups] g
+      GROUP BY g.[quarter_card_id] HAVING COUNT(*)=2
+    )
+    THROW 51117, N'Не сформовано повний набір групованих і негрупованих завдань.', 1;
+
+  IF EXISTS (
+    SELECT 1 FROM [dbo].[scope_items] s
+    JOIN [dbo].[scope_groups] g ON g.[id]=s.[scope_group_id]
+    WHERE s.[quarter_card_id]<>g.[quarter_card_id]
+  ) OR EXISTS (
+    SELECT 1 FROM [dbo].[scope_groups] g
+    WHERE NOT EXISTS (SELECT 1 FROM [dbo].[scope_items] s WHERE s.[scope_group_id]=g.[id])
+  ) OR EXISTS (
+    SELECT s.[quarter_card_id],s.[sort_order]
+    FROM [dbo].[scope_items] s
+    GROUP BY s.[quarter_card_id],s.[sort_order]
+    HAVING COUNT(*)>1
+  ) THROW 51118, N'Некоректна належність або послідовність групованих завдань.', 1;
+
   IF EXISTS (
     SELECT c.[id]
     FROM [dbo].[quarter_cards] c
@@ -782,8 +850,30 @@ BEGIN TRY
   UNION ALL SELECT N'Ініціативи',COUNT(*) FROM [dbo].[initiatives]
   UNION ALL SELECT N'Річні записи',COUNT(*) FROM [dbo].[initiative_years]
   UNION ALL SELECT N'Квартальні картки',COUNT(*) FROM [dbo].[quarter_cards]
+  UNION ALL SELECT N'Групи скоупу',COUNT(*) FROM [dbo].[scope_groups]
+  UNION ALL SELECT N'Завдання в групах',COUNT(*) FROM [dbo].[scope_items] WHERE [scope_group_id] IS NOT NULL
   UNION ALL SELECT N'Завдання скоупу',COUNT(*) FROM [dbo].[scope_items]
   UNION ALL SELECT N'Скопійовані завдання',COUNT(*) FROM [dbo].[scope_items] WHERE [copied_from_item_id] IS NOT NULL;
+
+  /* Приклади пар для ручної перевірки перенесення в однойменну незалежну групу. */
+  SELECT TOP (10)
+    i.[name] [initiative],sourceYear.[year] [source_year],CONCAT('Q',sourceCard.[quarter]) [source_quarter],
+    targetYear.[year] [target_year],CONCAT('Q',targetCard.[quarter]) [target_quarter],
+    sourceGroup.[title] [group_title]
+  FROM [dbo].[scope_groups] sourceGroup
+  JOIN [dbo].[quarter_cards] sourceCard ON sourceCard.[id]=sourceGroup.[quarter_card_id]
+  JOIN [dbo].[initiative_years] sourceYear ON sourceYear.[id]=sourceCard.[initiative_year_id]
+  JOIN [dbo].[initiatives] i ON i.[id]=sourceYear.[initiative_id]
+  JOIN [dbo].[initiative_years] targetYear ON targetYear.[initiative_id]=i.[id]
+  JOIN [dbo].[quarter_cards] targetCard ON targetCard.[initiative_year_id]=targetYear.[id]
+  JOIN [dbo].[scope_groups] targetGroup ON targetGroup.[quarter_card_id]=targetCard.[id]
+    AND targetGroup.[title]=sourceGroup.[title] AND targetGroup.[lineage_id]<>sourceGroup.[lineage_id]
+  WHERE sourceYear.[year]*10+sourceCard.[quarter] < targetYear.[year]*10+targetCard.[quarter]
+    AND EXISTS (
+      SELECT 1 FROM [dbo].[scope_items] scopeItem
+      WHERE scopeItem.[scope_group_id]=sourceGroup.[id] AND scopeItem.[status_code]<>'GREEN'
+    )
+  ORDER BY sourceYear.[year] DESC,sourceCard.[quarter],targetYear.[year],targetCard.[quarter];
 
   SELECT iy.[year],i.[kind],COUNT(*) [initiative_years],
     SUM(CASE WHEN cards.[card_count]=4 THEN 1 ELSE 0 END) [in_all_four_quarters]

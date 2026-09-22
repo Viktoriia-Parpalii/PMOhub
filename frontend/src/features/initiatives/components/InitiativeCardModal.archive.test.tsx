@@ -1,8 +1,9 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { InitiativeViewModel } from "../../../shared/types";
+import { InitiativeViewModel, QuarterCardReadModel } from "../../../shared/types";
+import * as apiClient from "../../../api/apiClient";
 
 const appContext = vi.hoisted(() => ({
   customFields: [],
@@ -26,7 +27,7 @@ const appContext = vi.hoisted(() => ({
     },
   ],
   taskWeights: [
-    { id: "weight-1", name: "Стандартна", weight: 10, is_active: true },
+    { id: "weight-1", name: "Стандартна", weight: 10, is_active: true, is_default: true, is_system: true },
   ],
   projects: [],
   tasks: [],
@@ -111,6 +112,7 @@ const currentCard: InitiativeViewModel = {
     {
       ...archivedCard.checklist[0],
       id: "scope-current",
+      lineage_id: "lineage-current",
       color: "YELLOW",
       is_completed: false,
       groupId: null,
@@ -188,7 +190,103 @@ describe("InitiativeCardModal archived correction mode", () => {
 });
 
 describe("InitiativeCardModal scope actions", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
+  const targetCard = (changes: Record<string, unknown> = {}) => ({
+    id: "target-card",
+    initiative_id: currentCard.initiative_id,
+    revision: 4,
+    scope: [{
+      id: "target-scope",
+      lineage_id: "other-lineage",
+      text: "Історичне завдання",
+      status_code: "DEFAULT",
+      weight_snapshot: { name: "Стандартна", value: 10 },
+      executor_department_ids: ["department-1"],
+    }],
+    ...changes,
+  }) as unknown as QuarterCardReadModel;
+
+  const mockTarget = (card = targetCard()) => {
+    // The list endpoint only returns scope preview fields, without weight or lineage.
+    vi.spyOn(apiClient, "loadQuarterCards").mockResolvedValue([{
+      id: card.id,
+      initiative_id: card.initiative_id,
+      revision: card.revision,
+      scope: card.scope.map(({ id, text, status_code, executor_department_ids }) => ({
+        id, text, status_code, executor_department_ids,
+      })),
+    } as unknown as QuarterCardReadModel]);
+    vi.spyOn(apiClient, "loadInitiativeCardModel").mockResolvedValue({ success: true, data: card });
+  };
+
+  const openTransfer = (action: "Перенести завдання" | "Копіювати завдання") => {
+    fireEvent.click(screen.getByRole("button", { name: "Інші дії із завданням" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: action }));
+    fireEvent.click(screen.getByRole("button", { name: action === "Перенести завдання" ? "Перенести" : "Копіювати" }));
+  };
+
+  it("warns about an identical target task and transfers only after explicit confirmation", async () => {
+    mockTarget();
+    appContext.moveScopeItem.mockResolvedValue({ success: true, message: "Завдання перенесено" });
+    renderModal(currentCard);
+    openTransfer("Перенести завдання");
+
+    expect(await screen.findByRole("dialog", { name: "Схоже завдання вже є" })).toBeInTheDocument();
+    expect(apiClient.loadInitiativeCardModel).toHaveBeenCalledWith("target-card");
+    expect(appContext.moveScopeItem).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Схоже завдання вже є" }))
+      .getByRole("button", { name: "Скасувати" }));
+    expect(appContext.moveScopeItem).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Перенести" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Усе одно перенести" }));
+    await waitFor(() => expect(appContext.moveScopeItem).toHaveBeenCalledWith(
+      currentCard.id, "scope-current", 2026, "Q4", true, 4,
+    ));
+  });
+
+  it("uses the copy's default weight for the warning", async () => {
+    mockTarget();
+    renderModal({ ...currentCard, checklist: [{ ...currentCard.checklist[0], weightSnapshot: { name: "Інша", value: 5 } }] });
+    openTransfer("Копіювати завдання");
+    expect(await screen.findByRole("dialog", { name: "Схоже завдання вже є" })).toBeInTheDocument();
+  });
+
+  it("skips the warning when the target has a different weight", async () => {
+    mockTarget(targetCard({
+      scope: [{ ...targetCard().scope[0], weight_snapshot: { name: "Інша", value: 7 } }],
+    }));
+    appContext.moveScopeItem.mockResolvedValue({ success: true, message: "Завдання перенесено" });
+    renderModal(currentCard);
+    openTransfer("Перенести завдання");
+    await waitFor(() => expect(appContext.moveScopeItem).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog", { name: "Схоже завдання вже є" })).not.toBeInTheDocument();
+  });
+
+  it("skips the warning when the executor set differs", async () => {
+    mockTarget(targetCard({
+      scope: [{ ...targetCard().scope[0], executor_department_ids: [] }],
+    }));
+    appContext.moveScopeItem.mockResolvedValue({ success: true, message: "Завдання перенесено" });
+    renderModal(currentCard);
+    openTransfer("Перенести завдання");
+    await waitFor(() => expect(appContext.moveScopeItem).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog", { name: "Схоже завдання вже є" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the lineage conflict blocked without a duplicate override", async () => {
+    mockTarget(targetCard({
+      scope: [{ ...targetCard().scope[0], lineage_id: "lineage-current" }],
+    }));
+    renderModal(currentCard);
+    openTransfer("Перенести завдання");
+    await waitFor(() => expect(apiClient.loadQuarterCards).toHaveBeenCalled());
+    expect(appContext.moveScopeItem).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "Схоже завдання вже є" })).not.toBeInTheDocument();
+  });
 
   it("moves grouping into the actions menu and assigns an existing group", () => {
     renderModal(currentCard);

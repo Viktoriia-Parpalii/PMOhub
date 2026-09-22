@@ -46,6 +46,22 @@ describe("server command routing", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("/role-permissions/ADMIN");
   });
 
+  it("resumes an existing backlog chain into a selected year", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(JSON.stringify({ success: true }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await serverCommands.resumeYear({
+      source_year_id: "year-2026", source_revision: 2,
+      target_year: 2029, strategic_goal: "Нова ціль",
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/initiative-years/resume");
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      source_year_id: "year-2026", source_revision: 2,
+      target_year: 2029, strategic_goal: "Нова ціль",
+    });
+  });
+
   it("uses a dedicated scope copy command without sending client snapshots", async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
       new Response(JSON.stringify({ success: true }), { status: 200 }),

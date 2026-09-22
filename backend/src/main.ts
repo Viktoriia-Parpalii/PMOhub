@@ -3,13 +3,14 @@ import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { NestExpressApplication } from "@nestjs/platform-express";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { SwaggerModule } from "@nestjs/swagger";
 import cookieParser from "cookie-parser";
 import { json, urlencoded } from "express";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { AppExceptionFilter } from "./common/filters/app-exception.filter";
 import { validationExceptionFactory } from "./common/validation/validation-exception.factory";
+import { createSwaggerDocument } from "./swagger-document";
 
 export async function createApp() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -45,14 +46,7 @@ export async function createApp() {
   app.useGlobalFilters(new AppExceptionFilter(config));
   app.enableShutdownHooks();
 
-  const document = SwaggerModule.createDocument(
-    app,
-    new DocumentBuilder()
-      .setTitle("PMO Hub API")
-      .setVersion("1.0")
-      .addBearerAuth()
-      .build(),
-  );
+  const document = createSwaggerDocument(app);
   SwaggerModule.setup("api/docs", app, document);
   return app;
 }

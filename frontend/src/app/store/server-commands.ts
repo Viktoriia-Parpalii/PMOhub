@@ -82,6 +82,8 @@ export const serverCommands = {
       preparation: body.preparation,
       initial_card: body.initial_card,
     }),
+  resumeYear: (body: Schemas["ResumeYearDto"]) =>
+    command<CommandResult>("/initiative-years/resume", "POST", body),
   updateInitiative: (id: string, revision: number, name: string) =>
     command<CommandResult>(`/initiatives/${id}`, "PATCH", { revision, name }),
   updateYear: (id: string, revision: number, strategicGoal?: string) =>

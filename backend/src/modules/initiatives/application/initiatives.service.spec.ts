@@ -97,7 +97,7 @@ describe('InitiativesService transactional rules', () => {
 
   it('rejects a duplicate initiative name in the same portfolio kind', async () => {
     const tx: any = {
-      initiative: { findFirst: vi.fn(async () => ({ id: 'existing-initiative' })) },
+      initiative: { findFirst: vi.fn(async () => ({ id: 'existing-initiative', years: [{ id: 'year-2026', year: 2026, revision: 2 }] })) },
     };
     const prisma: any = {
       rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
@@ -109,12 +109,126 @@ describe('InitiativesService transactional rules', () => {
       name: ' Existing initiative ',
       year: 2027,
       preparation: { department_ids: [] },
-    }, actor)).rejects.toMatchObject({ code: 'INITIATIVE_NAME_CONFLICT', status: 409 });
+    }, actor)).rejects.toMatchObject({
+      code: 'INITIATIVE_NAME_CONFLICT', status: 409,
+      message: 'Проєкт з такою назвою вже існує.',
+      details: { source_year_id: 'year-2026', source_year: 2026, source_revision: 2, target_year_exists: false },
+    });
 
     expect(tx.initiative.findFirst).toHaveBeenCalledWith({
       where: { kind: 'PROJECT', name: 'Existing initiative' },
-      select: { id: true },
+      select: { id: true, years: { select: { id: true, year: true, revision: true }, orderBy: { year: 'desc' } } },
     });
+  });
+
+  it('names an operational task explicitly in duplicate-name errors', async () => {
+    const tx: any = {
+      initiative: { findFirst: vi.fn(async () => ({ id: 'task-1', years: [{ id: 'year-2026', year: 2026, revision: 1 }] })) },
+    };
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+    await expect(new InitiativesService(prisma).create({
+      kind: 'OPERATIONAL_TASK', name: 'Річний звіт', year: 2099,
+      preparation: { department_ids: [] },
+    }, actor)).rejects.toMatchObject({
+      code: 'INITIATIVE_NAME_CONFLICT',
+      message: 'Операційна задача з такою назвою вже існує.',
+    });
+  });
+
+  it('resumes an old project directly into an open year without changing the archive', async () => {
+    const tx: any = {
+      initiativeYear: {
+        findUnique: vi.fn(async ({ where }: any) => where.id
+          ? ({ id: 'year-2026', initiativeId: 'initiative-1', year: 2026, revision: 3 })
+          : null),
+        findFirst: vi.fn(async () => ({ id: 'year-2026', year: 2026 })),
+        create: vi.fn(async () => ({ id: 'year-2099', revision: 1 })),
+      },
+      auditEvent: { create: vi.fn(async () => ({})) },
+    };
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+    const result = await new InitiativesService(prisma).resumeYear({
+      source_year_id: 'year-2026', source_revision: 3, target_year: 2099,
+      strategic_goal: 'Нова мета',
+    }, actor);
+    expect(result.data).toMatchObject({ source_year_id: 'year-2026', target_year_id: 'year-2099' });
+    expect(tx.initiativeYear.create).toHaveBeenCalledWith({ data: {
+      initiativeId: 'initiative-1', year: 2099, strategicGoal: 'Нова мета',
+      preparationStage: { create: {
+        managerId: null, priorityId: null,
+        departments: { createMany: { data: [] } },
+      } },
+    } });
+    expect(tx.initiativeYear.updateMany).toBeUndefined();
+  });
+
+  it('rejects resuming when the target year already exists', async () => {
+    const tx: any = { initiativeYear: {
+      findUnique: vi.fn(async ({ where }: any) => where.id
+        ? ({ id: 'year-2026', initiativeId: 'initiative-1', year: 2026, revision: 3 })
+        : ({ id: 'year-2099' })),
+      findFirst: vi.fn(async () => ({ id: 'year-2028', year: 2028 })),
+    } };
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+    await expect(new InitiativesService(prisma).resumeYear({
+      source_year_id: 'year-2026', source_revision: 3, target_year: 2099,
+    }, actor)).rejects.toMatchObject({ code: 'YEAR_ALREADY_EXISTS', status: 409 });
+  });
+
+  it('does not resume into an archived year', async () => {
+    const tx: any = { initiativeYear: { findUnique: vi.fn() } };
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+    await expect(new InitiativesService(prisma).resumeYear({
+      source_year_id: 'year-2026', source_revision: 1, target_year: 2001,
+    }, actor)).rejects.toMatchObject({ code: 'ARCHIVED_PERIOD', status: 409 });
+    expect(tx.initiativeYear.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('requires edit permission to resume from the archive', async () => {
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: true, canCreateEditInitiatives: true })) },
+      $transaction: vi.fn(),
+    };
+    await expect(new InitiativesService(prisma).resumeYear({
+      source_year_id: 'year-2026', source_revision: 1, target_year: 2099,
+    }, actor)).rejects.toMatchObject({ code: 'FORBIDDEN', status: 403 });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('uses the latest prior year even when launched from an older archive', async () => {
+    const tx: any = {
+      initiativeYear: {
+        findUnique: vi.fn(async ({ where }: any) => where.id
+          ? ({ id: 'year-2026', initiativeId: 'initiative-1', year: 2026, revision: 3 })
+          : null),
+        findFirst: vi.fn(async () => ({ id: 'year-2028', year: 2028 })),
+        create: vi.fn(async () => ({ id: 'year-2099', revision: 1 })),
+      },
+      auditEvent: { create: vi.fn(async () => ({})) },
+    };
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+    const result = await new InitiativesService(prisma).resumeYear({
+      source_year_id: 'year-2026', source_revision: 3, target_year: 2099,
+    }, actor);
+    expect(result.data.source_year_id).toBe('year-2028');
+    expect(tx.auditEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ sourceYear: 2028, targetYear: 2099 }),
+    }));
   });
 
   it('updates global name and yearly goal atomically in one transaction', async () => {

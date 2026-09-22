@@ -243,6 +243,10 @@ export class PeriodCommandDto {
   @IsInt() @Min(1) revision!: number;
   @IsInt() @Min(2000) @Max(2200) to_year!: number;
   @IsIn(QUARTERS) to_quarter!: QuarterDto;
+  @ApiPropertyOptional({
+    description: "Поточна ревізія цільової квартальної картки. Обов'язкова, якщо картка вже існує; не передається для нової картки.",
+    minimum: 1,
+  })
   @IsOptional() @IsInt() @Min(1) target_revision?: number;
 }
 
@@ -261,6 +265,17 @@ export class ExtendYearsDto {
   @Type(() => RevisionTargetDto)
   source_years!: RevisionTargetDto[];
   @IsInt() @Min(2000) @Max(2200) target_year!: number;
+}
+
+export class ResumeYearDto {
+  @ApiProperty({ description: "ID останнього наявного річного запису проєкту або операційної задачі." })
+  @IsUniqueIdentifier() source_year_id!: string;
+  @ApiProperty({ description: "Актуальна ревізія вихідного річного запису." })
+  @IsInt() @Min(1) source_revision!: number;
+  @ApiProperty({ description: "Новий рік після перерви; рік має бути пізнішим за вихідний." })
+  @IsInt() @Min(2000) @Max(2200) target_year!: number;
+  @ApiPropertyOptional()
+  @IsOptional() @IsString() @MaxLength(2000) strategic_goal?: string;
 }
 
 export class PreparationStageReadModelDto {
@@ -424,6 +439,32 @@ export class InitiativeYearResponseDto {
   @ApiProperty() message!: string;
   @ApiProperty({ type: InitiativeYearReadModelDto })
   data!: InitiativeYearReadModelDto;
+}
+
+export class ResumeYearResultDto {
+  @ApiProperty() source_year_id!: string;
+  @ApiProperty() target_year_id!: string;
+  @ApiProperty() revision!: number;
+}
+
+export class ResumeYearResponseDto {
+  @ApiProperty({ enum: [true] }) success!: true;
+  @ApiProperty() message!: string;
+  @ApiProperty({ type: ResumeYearResultDto }) data!: ResumeYearResultDto;
+}
+
+export class ScopeTransferResultDto {
+  @ApiProperty() source_card_id!: string;
+  @ApiProperty() target_card_id!: string;
+  @ApiProperty() scope_item_id!: string;
+  @ApiProperty() source_card_revision!: number;
+  @ApiProperty() target_card_revision!: number;
+}
+
+export class ScopeTransferResponseDto {
+  @ApiProperty({ enum: [true] }) success!: true;
+  @ApiProperty() message!: string;
+  @ApiProperty({ type: ScopeTransferResultDto }) data!: ScopeTransferResultDto;
 }
 
 export class InitiativeYearsResponseDto {

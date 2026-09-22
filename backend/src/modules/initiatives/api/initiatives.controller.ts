@@ -8,8 +8,19 @@ import {
   Post,
   Query,
 } from "@nestjs/common";
-import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
-import { ApiSuccessDto } from "../../../common/dto/api-response.dto";
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
+import { ApiErrorDto, ApiSuccessDto } from "../../../common/dto/api-response.dto";
 import { CurrentUser } from "../../../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../../../common/decorators/permissions.decorator";
 import { AuthUser } from "../../../common/auth/auth-user";
@@ -20,7 +31,10 @@ import {
   CreateQuarterCardDto,
   DeleteInitiativeDto,
   ExtendYearsDto,
+  ResumeYearDto,
+  ResumeYearResponseDto,
   PeriodCommandDto,
+  ScopeTransferResponseDto,
   InitiativeYearResponseDto,
   InitiativeYearsResponseDto,
   InitiativeAvailableYearsResponseDto,
@@ -145,6 +159,19 @@ export class InitiativeYearsController {
     return this.initiatives.extendYears(dto, user);
   }
 
+  @RequirePermissions("canCreateEditInitiatives")
+  @Post("resume")
+  @ApiOperation({ summary: "Відновити проєкт або операційну задачу в новому році після паузи" })
+  @ApiCreatedResponse({ type: ResumeYearResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto, description: "Помилка валідації або INVALID_RESUME_YEAR." })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
+  @ApiForbiddenResponse({ type: ApiErrorDto, description: "Немає прав на редагування." })
+  @ApiNotFoundResponse({ type: ApiErrorDto, description: "Вихідний річний запис не знайдено." })
+  @ApiConflictResponse({ type: ApiErrorDto, description: "INVALID_RESUME_SOURCE, YEAR_ALREADY_EXISTS або REVISION_CONFLICT." })
+  resume(@Body() dto: ResumeYearDto, @CurrentUser() user: AuthUser) {
+    return this.initiatives.resumeYear(dto, user);
+  }
+
   @RequirePermissions("canDeleteInitiatives")
   @Delete(":id")
   remove(
@@ -240,6 +267,13 @@ export class QuarterCardsController {
 
   @RequirePermissions("canCreateEditInitiatives")
   @Post(":cardId/scope/:itemId/move")
+  @ApiOperation({ summary: "Перенести завдання до іншої квартальної картки" })
+  @ApiCreatedResponse({ type: ScopeTransferResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto, description: "Помилка валідації або неприпустимий цільовий період." })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
+  @ApiForbiddenResponse({ type: ApiErrorDto, description: "Немає прав на редагування або період архівний." })
+  @ApiNotFoundResponse({ type: ApiErrorDto, description: "Картку або завдання не знайдено." })
+  @ApiConflictResponse({ type: ApiErrorDto, description: "TARGET_REVISION_REQUIRED, REVISION_CONFLICT, SCOPE_LINEAGE_CONFLICT або TARGET_SCOPE_GROUP_CONFLICT; оновіть цільову картку перед повтором." })
   moveScope(
     @Param("cardId") cardId: string,
     @Param("itemId") itemId: string,
@@ -251,6 +285,13 @@ export class QuarterCardsController {
 
   @RequirePermissions("canCreateEditInitiatives")
   @Post(":cardId/scope/:itemId/copy")
+  @ApiOperation({ summary: "Скопіювати завдання до іншої квартальної картки" })
+  @ApiCreatedResponse({ type: ScopeTransferResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto, description: "Помилка валідації або неприпустимий цільовий період." })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
+  @ApiForbiddenResponse({ type: ApiErrorDto, description: "Немає прав на редагування або період архівний." })
+  @ApiNotFoundResponse({ type: ApiErrorDto, description: "Картку або завдання не знайдено." })
+  @ApiConflictResponse({ type: ApiErrorDto, description: "TARGET_REVISION_REQUIRED, REVISION_CONFLICT, SCOPE_LINEAGE_CONFLICT або TARGET_SCOPE_GROUP_CONFLICT; оновіть цільову картку перед повтором." })
   copyScope(
     @Param("cardId") cardId: string,
     @Param("itemId") itemId: string,

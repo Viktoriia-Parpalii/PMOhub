@@ -87,4 +87,16 @@ describe("server-first mutation flow", () => {
     expect(result.success).toBe(false);
     expect(hydrate).toHaveBeenCalledOnce();
   });
+
+  it("preserves conflict details for a guided backlog resume", async () => {
+    const hydrate = vi.fn(async () => undefined);
+    const details = { source_year_id: "year-2026", source_year: 2026, source_revision: 2 };
+    const result = await executeBackendMutation(
+      async () => { throw new ApiError("INITIATIVE_NAME_CONFLICT", "duplicate", 409, details); },
+      hydrate,
+    );
+    expect(result).toMatchObject({
+      success: false, errorCode: "INITIATIVE_NAME_CONFLICT", errorDetails: details,
+    });
+  });
 });

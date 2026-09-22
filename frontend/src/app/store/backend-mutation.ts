@@ -73,6 +73,7 @@ export const executeBackendMutation = async <T>(
       committed: false,
       status: "COMMIT_FAILED",
       errorCode: error instanceof ApiError ? error.code : undefined,
+      errorDetails: error instanceof ApiError ? error.details : undefined,
     };
   }
 };

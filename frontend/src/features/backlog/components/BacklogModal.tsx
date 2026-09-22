@@ -5,6 +5,7 @@ import { InitiativeViewModel, Quarter } from "../../../shared/types";
 import styles from "./BacklogModals.module.css";
 import { notify } from "../../../components/ui/ToastNotifications";
 import { NOTIFICATION_KINDS } from "../../../shared/constants/notificationConstants";
+import type { ResumeCandidate } from "./ResumeBacklogModal";
 
 interface BacklogModalProps {
   onClose: () => void;
@@ -12,6 +13,7 @@ interface BacklogModalProps {
   editItem: InitiativeViewModel | null;
   selectedYear: number;
   isReadOnly?: boolean;
+  onResumeCandidate?: (candidate: ResumeCandidate) => void;
 }
 
 export const BacklogModal = ({
@@ -20,6 +22,7 @@ export const BacklogModal = ({
   editItem,
   selectedYear,
   isReadOnly = false,
+  onResumeCandidate,
 }: BacklogModalProps) => {
   const { projects, tasks, updateProject, updateTask, createBacklogWithCards } =
     useAppContext();
@@ -82,7 +85,24 @@ export const BacklogModal = ({
           [],
         );
         if (!result.success) {
-          notify(NOTIFICATION_KINDS.error, result.message);
+          if (result.status !== "COMMIT_FAILED")
+            notify(NOTIFICATION_KINDS.error, result.message);
+          if (result.errorCode === "INITIATIVE_NAME_CONFLICT" && result.errorDetails &&
+            typeof result.errorDetails === "object") {
+            const details = result.errorDetails as Record<string, unknown>;
+            if (!details.target_year_exists && typeof details.source_year_id === "string" &&
+              typeof details.source_year === "number" && typeof details.source_revision === "number") {
+              onResumeCandidate?.({
+                kind: type === "PROJECTS" ? "project" : "task",
+                name: name.trim(),
+                sourceYearId: details.source_year_id,
+                sourceYear: details.source_year,
+                sourceRevision: details.source_revision,
+                targetYear: selectedYear,
+                strategicGoal,
+              });
+            }
+          }
           return;
         }
       }

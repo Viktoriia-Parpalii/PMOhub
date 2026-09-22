@@ -8,6 +8,7 @@ import {
   CreateInitiativeDto,
   CreateQuarterCardDto,
   ExtendYearsDto,
+  ResumeYearDto,
   InitialQuarterCardDto,
   PeriodCommandDto,
   QuarterDto,
@@ -49,14 +50,32 @@ export class InitiativesService {
         const name = dto.name.trim();
         const existing = await tx.initiative.findFirst({
           where: { kind: dto.kind, name },
-          select: { id: true },
+          select: {
+            id: true,
+            years: {
+              select: { id: true, year: true, revision: true },
+              orderBy: { year: "desc" },
+            },
+          },
         });
         if (existing) {
+          const source = existing.years.find((year) => year.year < dto.year);
+          const targetYearExists = existing.years.some((year) => year.year === dto.year);
+          const kindLabel = dto.kind === "PROJECT" ? "Проєкт" : "Операційна задача";
           throw new AppError(
             "INITIATIVE_NAME_CONFLICT",
-            "Ініціатива з такою назвою вже існує в беклозі.",
+            targetYearExists
+              ? `${kindLabel} з такою назвою вже є у беклозі за ${dto.year} рік.`
+              : `${kindLabel} з такою назвою вже існує.`,
             HttpStatus.CONFLICT,
-            { initiative_id: existing.id },
+            {
+              initiative_id: existing.id,
+              latest_year: existing.years[0]?.year ?? null,
+              target_year_exists: targetYearExists,
+              source_year_id: source?.id ?? null,
+              source_year: source?.year ?? null,
+              source_revision: source?.revision ?? null,
+            },
           );
         }
         const initial = dto.initial_card;
@@ -785,6 +804,90 @@ export class InitiativesService {
     return ok("Ініціативи продовжено", result);
   }
 
+  async resumeYear(dto: ResumeYearDto, actor: AuthUser) {
+    await this.assertCanEdit(actor);
+    let result: {
+      source_year_id: string;
+      target_year_id: string;
+      revision: number;
+    };
+    try {
+      result = await this.prisma.$transaction(async (tx) => {
+        if (this.yearLocked(dto.target_year)) throw this.archived();
+        const source = await tx.initiativeYear.findUnique({
+          where: { id: dto.source_year_id },
+        });
+        if (!source) throw this.notFound("Вихідний рік");
+        if (source.revision !== dto.source_revision)
+          await this.throwConflict(tx, "InitiativeYear", source.id);
+        if (source.year >= dto.target_year)
+          throw new AppError(
+            "INVALID_RESUME_YEAR",
+            "Рік відновлення має бути пізнішим за вихідний рік.",
+            HttpStatus.BAD_REQUEST,
+          );
+        const latest = await tx.initiativeYear.findFirst({
+          where: {
+            initiativeId: source.initiativeId,
+            year: { lt: dto.target_year },
+          },
+          orderBy: { year: "desc" },
+          select: { id: true, year: true },
+        });
+        if (!latest)
+          throw new AppError(
+            "INVALID_RESUME_SOURCE",
+            "Не знайдено попереднього року проєкту або операційної задачі.",
+            HttpStatus.CONFLICT,
+          );
+        const existing = await tx.initiativeYear.findUnique({
+          where: {
+            initiativeId_year: {
+              initiativeId: source.initiativeId,
+              year: dto.target_year,
+            },
+          },
+        });
+        if (existing)
+          throw new AppError(
+            "YEAR_ALREADY_EXISTS",
+            "Запис за обраний рік уже існує.",
+            HttpStatus.CONFLICT,
+            { initiative_year_id: existing.id },
+          );
+        const target = await this.createYear(
+          tx,
+          source.initiativeId,
+          dto.target_year,
+          { managerId: null, priorityId: null, departmentIds: [] },
+          dto.strategic_goal,
+        );
+        await this.audit(
+          tx, "InitiativeYear", target.id, "YEAR_RESUMED",
+          "Проєкт або операційну задачу відновлено після паузи",
+          actor, latest.year, undefined, dto.target_year,
+        );
+        return {
+          source_year_id: latest.id,
+          target_year_id: target.id,
+          revision: target.revision,
+        };
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      )
+        throw new AppError(
+          "YEAR_ALREADY_EXISTS",
+          "Запис за обраний рік уже існує.",
+          HttpStatus.CONFLICT,
+        );
+      throw error;
+    }
+    return ok("Запис відновлено в обраному році", result);
+  }
+
   async moveCard(id: string, dto: PeriodCommandDto, actor: AuthUser) {
     await this.assertCanEdit(actor);
     const result = await this.prisma.$transaction(
@@ -1137,6 +1240,14 @@ export class InitiativesService {
         ) {
           throw this.conflict(target.revision, "QuarterCard", target.id);
         }
+        if (target && dto.target_revision === undefined) {
+          throw new AppError(
+            "TARGET_REVISION_REQUIRED",
+            "Оновіть цільову картку перед зміною її скоупу.",
+            HttpStatus.CONFLICT,
+            { target_card_id: target.id, actual_revision: target.revision },
+          );
+        }
         if (!target) {
           target = await this.createEmptyCard(
             tx,
@@ -1184,15 +1295,40 @@ export class InitiativesService {
               },
             },
           });
-          const targetGroup =
-            matchingGroup ??
-            (await tx.scopeGroup.create({
-              data: {
-                quarterCardId: target.id,
-                lineageId: item.scopeGroup.lineageId,
-                title: item.scopeGroup.title,
-              },
-            }));
+          const sameTitleGroup = matchingGroup
+            ? null
+            : (await tx.scopeGroup.findMany({
+                where: { quarterCardId: target.id },
+              })).find(
+                (group) =>
+                  group.title.trim().toLocaleLowerCase("uk-UA") ===
+                  item.scopeGroup!.title.trim().toLocaleLowerCase("uk-UA"),
+              );
+          let targetGroup = matchingGroup ?? sameTitleGroup;
+          if (!targetGroup) {
+            try {
+              targetGroup = await tx.scopeGroup.create({
+                data: {
+                  quarterCardId: target.id,
+                  lineageId: item.scopeGroup.lineageId,
+                  title: item.scopeGroup.title,
+                },
+              });
+            } catch (error) {
+              if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === "P2002"
+              ) {
+                throw new AppError(
+                  "TARGET_SCOPE_GROUP_CONFLICT",
+                  "Групу цільової картки змінено. Оновіть її та повторіть дію.",
+                  HttpStatus.CONFLICT,
+                  { target_card_id: target.id },
+                );
+              }
+              throw error;
+            }
+          }
           targetGroupId = targetGroup.id;
         }
 
@@ -1275,14 +1411,6 @@ export class InitiativesService {
           await this.normalizeScopeOrder(tx, source.id);
         }
         if (targetExisted) {
-          if (dto.target_revision === undefined) {
-            throw new AppError(
-              "TARGET_REVISION_REQUIRED",
-              "Оновіть цільову картку перед зміною її скоупу.",
-              HttpStatus.CONFLICT,
-              { target_card_id: target.id, actual_revision: target.revision },
-            );
-          }
           const targetChanged = await tx.quarterCard.updateMany({
             where: { id: target.id, revision: dto.target_revision },
             data: { revision: { increment: 1 } },
@@ -1290,6 +1418,7 @@ export class InitiativesService {
           if (!targetChanged.count)
             await this.throwConflict(tx, "QuarterCard", target.id);
         }
+        await this.normalizeScopeOrder(tx, target.id);
         await this.replaceCardDepartments(
           tx,
           target.id,
@@ -1379,12 +1508,13 @@ export class InitiativesService {
     initiativeId: string,
     year: number,
     defaults: Defaults,
+    strategicGoal?: string,
   ) {
     return tx.initiativeYear.create({
       data: {
         initiativeId,
         year,
-        strategicGoal: null,
+        strategicGoal: strategicGoal?.trim() || null,
         preparationStage: {
           create: {
             managerId: defaults.managerId,

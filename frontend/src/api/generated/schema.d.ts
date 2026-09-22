@@ -276,6 +276,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/initiative-years/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Відновити проєкт або операційну задачу в новому році після паузи */
+        post: operations["InitiativeYearsController_resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/quarter-cards": {
         parameters: {
             query?: never;
@@ -397,6 +414,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Перенести завдання до іншої квартальної картки */
         post: operations["QuarterCardsController_moveScope"];
         delete?: never;
         options?: never;
@@ -413,6 +431,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Скопіювати завдання до іншої квартальної картки */
         post: operations["QuarterCardsController_copyScope"];
         delete?: never;
         options?: never;
@@ -1061,6 +1080,40 @@ export interface components {
             source_years: components["schemas"]["RevisionTargetDto"][];
             target_year: number;
         };
+        ResumeYearDto: {
+            /** @description ID останнього наявного річного запису проєкту або операційної задачі. */
+            source_year_id: string;
+            /** @description Актуальна ревізія вихідного річного запису. */
+            source_revision: number;
+            /** @description Новий рік після перерви; рік має бути пізнішим за вихідний. */
+            target_year: number;
+            strategic_goal?: string;
+        };
+        ResumeYearResultDto: {
+            source_year_id: string;
+            target_year_id: string;
+            revision: number;
+        };
+        ResumeYearResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message: string;
+            data: components["schemas"]["ResumeYearResultDto"];
+        };
+        ApiErrorDto: {
+            /**
+             * @example false
+             * @enum {boolean}
+             */
+            success: false;
+            /** @example VALIDATION_ERROR */
+            code: string;
+            /** @example Некоректні дані */
+            message: string;
+            details?: {
+                [key: string]: unknown;
+            };
+        };
         ScopeGroupReadModelDto: {
             id: string;
             lineage_id: string;
@@ -1204,11 +1257,25 @@ export interface components {
             scope_status_updates: components["schemas"]["ArchiveScopeStatusDto"][];
         };
         PeriodCommandDto: {
+            /** @description Поточна ревізія цільової квартальної картки. Обов'язкова, якщо картка вже існує; не передається для нової картки. */
+            target_revision?: number;
             revision: number;
             to_year: number;
             /** @enum {string} */
             to_quarter: "Q1" | "Q2" | "Q3" | "Q4";
-            target_revision?: number;
+        };
+        ScopeTransferResultDto: {
+            source_card_id: string;
+            target_card_id: string;
+            scope_item_id: string;
+            source_card_revision: number;
+            target_card_revision: number;
+        };
+        ScopeTransferResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message: string;
+            data: components["schemas"]["ScopeTransferResultDto"];
         };
         CreateUserDto: {
             name: string;
@@ -1576,19 +1643,13 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiSuccessDto"];
                 };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -1813,19 +1874,13 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiSuccessDto"];
                 };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -1842,7 +1897,7 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1850,11 +1905,72 @@ export interface operations {
                     "application/json": components["schemas"]["ApiSuccessDto"];
                 };
             };
+        };
+    };
+    InitiativeYearsController_resume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumeYearDto"];
+            };
+        };
+        responses: {
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ResumeYearResponseDto"];
+                };
+            };
+            /** @description Помилка валідації або INVALID_RESUME_YEAR. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description Немає прав на редагування. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description Вихідний річний запис не знайдено. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description INVALID_RESUME_SOURCE, YEAR_ALREADY_EXISTS або REVISION_CONFLICT. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
             };
         };
     };
@@ -2038,19 +2154,13 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiSuccessDto"];
                 };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -2069,19 +2179,13 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiSuccessDto"];
                 };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -2101,19 +2205,57 @@ export interface operations {
             };
         };
         responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiSuccessDto"];
-                };
-            };
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ScopeTransferResponseDto"];
+                };
+            };
+            /** @description Помилка валідації або неприпустимий цільовий період. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description Немає прав на редагування або період архівний. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description Картку або завдання не знайдено. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description TARGET_REVISION_REQUIRED, REVISION_CONFLICT, SCOPE_LINEAGE_CONFLICT або TARGET_SCOPE_GROUP_CONFLICT; оновіть цільову картку перед повтором. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
             };
         };
     };
@@ -2133,19 +2275,57 @@ export interface operations {
             };
         };
         responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiSuccessDto"];
-                };
-            };
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ScopeTransferResponseDto"];
+                };
+            };
+            /** @description Помилка валідації або неприпустимий цільовий період. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description Немає прав на редагування або період архівний. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description Картку або завдання не знайдено. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
+            };
+            /** @description TARGET_REVISION_REQUIRED, REVISION_CONFLICT, SCOPE_LINEAGE_CONFLICT або TARGET_SCOPE_GROUP_CONFLICT; оновіть цільову картку перед повтором. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorDto"];
+                };
             };
         };
     };
@@ -2179,19 +2359,13 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiSuccessDto"];
                 };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -2248,19 +2422,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiSuccessDto"];
                 };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -2357,19 +2525,13 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiSuccessDto"];
                 };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -2428,19 +2590,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiSuccessDto"];
                 };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -2453,19 +2609,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiSuccessDto"];
                 };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };
@@ -2499,19 +2649,13 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiSuccessDto"];
                 };
-            };
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };

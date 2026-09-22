@@ -155,7 +155,6 @@
   flex-direction: column;
   gap: 0.2rem;
   overflow-y: auto;
-  overscroll-behavior: contain;
   padding-right: 0.25rem;
   scrollbar-color: #c7d2fe transparent;
   scrollbar-gutter: stable;
