@@ -116,10 +116,10 @@
   font-weight: 700;
 }
 
-.subtitle {
-  margin: .25rem 0 0;
-  color: #64748b;
-  font-size: .875rem;
+.summaryRow {
+  display: flex;
+  align-items: center;
+  margin-top: .4rem;
 }
 
 .headerActions {
@@ -207,9 +207,7 @@
 }
 
 .filters {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  position: relative;
   margin-bottom: 1.5rem;
   border: 1px solid #f1f5f9;
   border-radius: .75rem;
@@ -219,39 +217,155 @@
 
 .filterControls {
   display: flex;
-  flex-wrap: wrap;
+  position: relative;
   align-items: center;
   gap: .75rem;
 }
 
-.filterInput {
-  min-width: 200px;
+.searchControl {
+  display: flex;
+  min-width: 0;
   flex: 1;
-  padding: .5rem .75rem;
+  height: 40px;
+  align-items: center;
+  gap: .5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: .65rem;
+  background: #fff;
+  padding: 0 .75rem;
+  color: #94a3b8;
+  transition: border-color .15s, box-shadow .15s;
 }
 
-.filterSelect {
-  min-width: 150px;
-  padding: .5rem .75rem;
+.searchControl:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px #e0e7ff;
 }
 
-.priorityFilter {
-  min-width: 120px;
+.searchControl input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #1e293b;
+  font-size: .875rem;
 }
 
-.resetButton {
-  min-height: 40px;
+.searchControl input::placeholder {
+  color: #94a3b8;
+}
+
+.filterPopoverGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem 1rem;
+}
+
+.portfolioFilterPanel.portfolioFilterPanel {
+  width: min(40rem, calc(100vw - 3rem));
+}
+
+.filterField,
+.departmentRoleFilter {
+  display: grid;
+  min-width: 0;
+  gap: .3rem;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.filterLabel {
+  padding: 0;
+  color: #475569;
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.filterField select {
+  width: 100%;
+  height: 38px;
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: .55rem;
+  background: #fff;
+  padding: 0 .65rem;
+  color: #1e293b;
+  font-size: .8rem;
+  outline: none;
+}
+
+.filterField select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px #e0e7ff;
+}
+
+.departmentRoleOptions {
+  display: grid;
+  min-height: 38px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .2rem;
+  border-radius: .55rem;
+  background: #f1f5f9;
+  padding: .2rem;
+}
+
+.departmentRoleFilter:disabled .departmentRoleOptions {
+  opacity: .55;
+}
+
+.departmentRoleOption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: .4rem;
+  padding: .25rem .4rem;
+  color: #64748b;
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color .15s, color .15s, box-shadow .15s;
+}
+
+.departmentRoleOption input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.departmentRoleOptionActive {
+  border-color: #c7d2fe;
+  background: #fff;
+  color: #4f46e5;
+  box-shadow: 0 1px 3px rgb(15 23 42 / .1);
+}
+
+.departmentRoleOption:has(input:focus-visible) {
+  outline: 2px solid #818cf8;
+  outline-offset: 1px;
+}
+
+.resultSummary {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: .45rem;
+  margin: 0;
   border: 1px solid #c7d2fe;
-  border-radius: .75rem;
+  border-radius: 999px;
   background: #eef2ff;
-  padding: 0 .9rem;
-  color: #4338ca;
-  font-size: 14px;
-  font-weight: 800;
+  padding: .45rem .75rem;
+  color: #4f46e5;
 }
 
-.resetButton:hover {
-  background: #e0e7ff;
+.resultSummary strong {
+  color: inherit;
+  font-size: .78rem;
+  font-weight: 800;
 }
 
 .emptyState {
@@ -292,6 +406,28 @@
   .headerActions {
     width: auto;
     justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  .portfolioFilterPanel.portfolioFilterPanel {
+    width: auto;
+  }
+
+  .filterControls {
+    flex-wrap: wrap;
+  }
+
+  .searchControl {
+    flex-basis: 100%;
+  }
+
+  .filterControls > :last-child {
+    margin-left: auto;
+  }
+
+  .filterPopoverGrid {
+    grid-template-columns: 1fr;
   }
 }
 

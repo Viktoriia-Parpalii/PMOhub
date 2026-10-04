@@ -559,9 +559,12 @@ export class AnalyticsService {
           ? null
           : filter.priority_key || undefined,
     };
-    return filter.risk
-      ? { AND: [dimensions, this.riskWhere(filter.risk)] }
-      : dimensions;
+    if (!filter.risk) return dimensions;
+    const riskFilter: Prisma.QuarterCardWhereInput =
+      filter.risk === "ANY"
+        ? { OR: RISK_TYPES.map((risk) => this.riskWhere(risk)) }
+        : this.riskWhere(filter.risk);
+    return { AND: [dimensions, riskFilter] };
   }
 
   private riskWhere(risk: RiskType): Prisma.QuarterCardWhereInput {

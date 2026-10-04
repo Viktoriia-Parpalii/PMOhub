@@ -7,6 +7,7 @@ export interface HistoryEvent {
 
 export type CapacityWeight = string;
 export type Quarter = "Q1" | "Q2" | "Q3" | "Q4";
+export type DepartmentRelation = "ANY" | "EXECUTOR" | "INVOLVED";
 
 export interface InitiativeListFilters {
   name?: string;
@@ -14,6 +15,8 @@ export interface InitiativeListFilters {
   manager_id?: string;
   priority_id?: string;
   status_id?: string;
+  department_id?: string;
+  department_relation?: DepartmentRelation;
   quarter?: Quarter;
 }
 
@@ -135,6 +138,7 @@ export interface BacklogQuarterCardSummary {
   manager_id: string | null;
   priority_id: string | null;
   effective_involved_department_ids: string[];
+  matches_department_filter: boolean;
   status_id: string;
   status_code: string;
   status: { id: string; code: string; name: string; color: string };
@@ -310,6 +314,7 @@ export interface InitiativeViewModel extends InitiativeMetadata {
   sizeSnapshot?: InitiativeSizeSnapshot;
   is_locked?: boolean;
   locked_at?: string;
+  matches_department_filter?: boolean;
 }
 
 export interface PriorityDef {

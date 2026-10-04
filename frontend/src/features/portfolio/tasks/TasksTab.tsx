@@ -26,6 +26,8 @@ import {
   filterDictionaryOptions,
   hasDictionaryOption,
 } from "../../../shared/filterDictionaryOptions";
+import { PortfolioFilters } from "../components/shared/PortfolioFilters";
+import { PortfolioResultSummary } from "../components/shared/PortfolioResultSummary";
 
 export const TasksTab = () => {
   const {
@@ -66,7 +68,7 @@ export const TasksTab = () => {
       ),
     [availableYearsQuery.data, businessPeriod.year],
   );
-  const listFilters = useInitiativeListFilters();
+  const listFilters = useInitiativeListFilters(350, true);
   const filterVisibility = systemSettings.filterOptionVisibility.portfolio;
   const managerOptions = useMemo(
     () => filterDictionaryOptions(managers || [], filterVisibility),
@@ -80,6 +82,10 @@ export const TasksTab = () => {
     () => filterDictionaryOptions(initiativeStatuses || [], filterVisibility),
     [filterVisibility, initiativeStatuses],
   );
+  const departmentOptions = useMemo(
+    () => filterDictionaryOptions(departments || [], filterVisibility),
+    [departments, filterVisibility],
+  );
   useEffect(() => {
     if (!hasDictionaryOption(managerOptions, listFilters.managerId))
       listFilters.setManagerId("");
@@ -87,10 +93,15 @@ export const TasksTab = () => {
       listFilters.setPriorityId("");
     if (!hasDictionaryOption(statusOptions, listFilters.statusId))
       listFilters.setStatusId("");
+    if (!hasDictionaryOption(departmentOptions, listFilters.departmentId))
+      listFilters.setDepartmentId("");
   }, [
+    departmentOptions,
+    listFilters.departmentId,
     listFilters.managerId,
     listFilters.priorityId,
     listFilters.setManagerId,
+    listFilters.setDepartmentId,
     listFilters.setPriorityId,
     listFilters.setStatusId,
     listFilters.statusId,
@@ -207,7 +218,11 @@ export const TasksTab = () => {
       <div className={styles.pageHeader}>
         <div>
           <h2 className={styles.title}>Портфель Операційних задач</h2>
-          <p className={styles.subtitle}>Всі задачі обраного періоду.</p>
+          <div className={styles.summaryRow}>
+            {!initiativeListState.isPending && !initiativeListState.isError && (
+              <PortfolioResultSummary count={portfolioTasks.length} kind="OPERATIONAL_TASK" />
+            )}
+          </div>
         </div>
         <div className={styles.headerActions}>
           <div className={styles.periodSelectors}>
@@ -255,69 +270,27 @@ export const TasksTab = () => {
         </div>
       </div>
 
-      <div className={styles.filters}>
-        <div className={styles.filterControls}>
-          <input
-            type="text"
-            placeholder="Пошук за назвою..."
-            value={listFilters.name}
-            onChange={(e) => listFilters.setName(e.target.value)}
-            className={styles.filterInput}
-          />
-          <input
-            type="text"
-            placeholder="Пошук за стратегічною задачею..."
-            value={listFilters.strategicGoal}
-            onChange={(e) => listFilters.setStrategicGoal(e.target.value)}
-            className={styles.filterInput}
-          />
-          <select
-            value={listFilters.managerId}
-            onChange={(e) => listFilters.setManagerId(e.target.value)}
-            className={styles.filterSelect}
-          >
-            <option value="">Всі менеджери</option>
-            {managerOptions.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={listFilters.priorityId}
-            onChange={(e) => listFilters.setPriorityId(e.target.value)}
-            className={`${styles.filterSelect} ${styles.priorityFilter}`}
-          >
-            <option value="">Всі пріоритети</option>
-            {priorityOptions.map((priority) => (
-                <option key={priority.id} value={priority.id}>
-                  {priority.name}
-                </option>
-              ))}
-          </select>
-          <select
-            value={listFilters.statusId}
-            onChange={(e) => listFilters.setStatusId(e.target.value)}
-            className={styles.filterSelect}
-            aria-label="Фільтр за статусом ініціативи"
-          >
-            <option value="">Всі статуси</option>
-            {statusOptions.map((status) => (
-              <option key={status.id} value={status.id}>
-                {status.name}
-              </option>
-            ))}
-          </select>
-          {listFilters.hasFilters && (
-            <button
-              onClick={listFilters.reset}
-              className={styles.resetButton}
-            >
-              Скинути
-            </button>
-          )}
-        </div>
-      </div>
+      <PortfolioFilters
+        name={listFilters.name}
+        strategicGoal={listFilters.strategicGoal}
+        managerId={listFilters.managerId}
+        priorityId={listFilters.priorityId}
+        statusId={listFilters.statusId}
+        departmentId={listFilters.departmentId}
+        departmentRelation={listFilters.departmentRelation}
+        managers={managerOptions}
+        priorities={priorityOptions}
+        statuses={statusOptions}
+        departments={departmentOptions}
+        onNameChange={listFilters.setName}
+        onStrategicGoalChange={listFilters.setStrategicGoal}
+        onManagerChange={listFilters.setManagerId}
+        onPriorityChange={listFilters.setPriorityId}
+        onStatusChange={listFilters.setStatusId}
+        onDepartmentChange={listFilters.setDepartmentId}
+        onDepartmentRelationChange={listFilters.setDepartmentRelation}
+        onReset={listFilters.reset}
+      />
       <div className={viewMode === "table" ? styles.tableContent : undefined}>
         {initiativeListState.isPending ? (
           <InitiativeListSkeleton variant={viewMode} />

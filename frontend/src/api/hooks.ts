@@ -78,7 +78,10 @@ export const useQuarterCardsQuery = (
 export const useBacklogQuarterCardSummariesQuery = (
   initiativeYearId: string,
   enabled = true,
-  filters: Pick<InitiativeListFilters, "manager_id" | "priority_id"> = {},
+  filters: Pick<
+    InitiativeListFilters,
+    "manager_id" | "priority_id" | "department_id"
+  > = {},
 ) =>
   useQuery({
     queryKey: queryKeys.backlogCardSummaries(initiativeYearId, filters),

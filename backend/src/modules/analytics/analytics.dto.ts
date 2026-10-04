@@ -39,8 +39,8 @@ export class AnalyticsDrilldownDto extends AnalyticsFilterDto {
   @Matches(/^(NONE|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i)
   priority_key?: string;
   @IsOptional()
-  @IsIn(["NO_MANAGER", "NO_PRIORITY", "NO_SCOPE", "NO_EXECUTOR"])
-  risk?: "NO_MANAGER" | "NO_PRIORITY" | "NO_SCOPE" | "NO_EXECUTOR";
+  @IsIn(["ANY", "NO_MANAGER", "NO_PRIORITY", "NO_SCOPE", "NO_EXECUTOR"])
+  risk?: "ANY" | "NO_MANAGER" | "NO_PRIORITY" | "NO_SCOPE" | "NO_EXECUTOR";
   @IsOptional() @IsIn(["cards", "preparation"]) view?:
     | "cards"
     | "preparation";

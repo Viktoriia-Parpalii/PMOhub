@@ -168,6 +168,6 @@ export interface AnalyticsDrilldownCriteria {
   size_name?: string;
   priority_key?: string;
   manager_id?: string;
-  risk?: "NO_MANAGER" | "NO_PRIORITY" | "NO_SCOPE" | "NO_EXECUTOR";
+  risk?: "ANY" | "NO_MANAGER" | "NO_PRIORITY" | "NO_SCOPE" | "NO_EXECUTOR";
   view?: "cards" | "preparation";
 }

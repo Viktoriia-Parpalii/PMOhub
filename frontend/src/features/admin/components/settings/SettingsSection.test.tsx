@@ -60,4 +60,19 @@ describe("SettingsSection", () => {
       }),
     );
   });
+
+  it("describes department visibility for every area that has the department filter", () => {
+    render(<SettingsSection />);
+
+    expect(
+      screen.getByText(
+        "Керує варіантами у фільтрах «Менеджер», «Підрозділ», «Пріоритет» і «Статус проєкту/операційної задачі».",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Керує варіантами у фільтрах «Менеджер», «Підрозділ» і «Пріоритет».",
+      ),
+    ).toBeInTheDocument();
+  });
 });

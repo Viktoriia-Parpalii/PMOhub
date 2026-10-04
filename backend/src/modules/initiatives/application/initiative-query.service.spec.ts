@@ -43,6 +43,7 @@ describe("InitiativeQueryService backlog summaries", () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
+          AND: undefined,
           quarter: 2,
           managerId: "manager-1",
           priorityId: "priority-1",
@@ -64,6 +65,43 @@ describe("InitiativeQueryService backlog summaries", () => {
         ],
       }),
     );
+  });
+
+  it.each([
+    ["EXECUTOR", { scopeItems: { some: { executors: { some: { departmentId: "department-1" } } } } }],
+    ["INVOLVED", {
+      AND: [
+        { departments: { some: { departmentId: "department-1" } } },
+        { scopeItems: { none: { executors: { some: { departmentId: "department-1" } } } } },
+      ],
+    }],
+  ] as const)("filters portfolio by %s department relation", async (department_relation, expected) => {
+    const findMany = vi.fn(async (_query: unknown) => []);
+    const service = new InitiativeQueryService({ quarterCard: { findMany } } as never);
+
+    await service.listCards({
+      kind: "PROJECT",
+      year: 2026,
+      quarter: "Q2",
+      department_id: "department-1",
+      department_relation,
+    });
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ AND: [expected] }),
+      }),
+    );
+  });
+
+  it("uses executor OR involved semantics for portfolio ANY", async () => {
+    const findMany = vi.fn(async (_query: unknown) => []);
+    const service = new InitiativeQueryService({ quarterCard: { findMany } } as never);
+
+    await service.listCards({ department_id: "department-1" });
+
+    const where = (findMany.mock.calls[0]?.[0] as { where: any }).where;
+    expect(where.AND[0].OR).toHaveLength(2);
   });
 
   it("matches backlog card dimensions on one card and keeps preparation fallback", async () => {
@@ -145,6 +183,28 @@ describe("InitiativeQueryService backlog summaries", () => {
     expect(count).toHaveBeenCalledTimes(4);
   });
 
+  it("filters backlog by a department in any card without preparation fallback", async () => {
+    const findMany = vi.fn(async (_query: unknown) => []);
+    const service = new InitiativeQueryService({ initiativeYear: { findMany } } as never);
+
+    await service.listYears({
+      kind: "PROJECT",
+      year: 2026,
+      department_id: "department-1",
+    });
+
+    const where = (findMany.mock.calls[0]?.[0] as { where: any }).where;
+    expect(where.OR).toEqual([
+      {
+        quarterCards: {
+          some: expect.objectContaining({
+            AND: [expect.objectContaining({ OR: expect.any(Array) })],
+          }),
+        },
+      },
+    ]);
+  });
+
   it("returns aggregates without scope text or custom fields", async () => {
     const prisma = {
       quarterCard: {
@@ -190,6 +250,7 @@ describe("InitiativeQueryService backlog summaries", () => {
     ).listBacklogCardSummaries("year-1", {
       manager_id: "manager-1",
       priority_id: "priority-1",
+      department_id: "executor",
     });
 
     expect(prisma.quarterCard.findMany).toHaveBeenCalledWith(
@@ -209,6 +270,7 @@ describe("InitiativeQueryService backlog summaries", () => {
       scope_completed: 1,
       scope_in_progress: 1,
       effective_involved_department_ids: ["involved"],
+      matches_department_filter: true,
     });
     expect(result.data[0]).not.toHaveProperty("scope");
     expect(result.data[0]).not.toHaveProperty("custom_fields");

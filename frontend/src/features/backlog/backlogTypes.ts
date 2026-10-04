@@ -7,4 +7,5 @@ export interface BacklogCardFilters {
   quarter: QuarterFilter;
   managerId: string;
   priorityId: string;
+  departmentId: string;
 }

@@ -5,6 +5,7 @@ import { HttpStatus } from "@nestjs/common";
 import { Prisma } from "../../../generated/prisma/client";
 import {
   BacklogCardSummariesQueryDto,
+  DepartmentRelationDto,
   InitiativeYearCountsQueryDto,
   InitiativeYearsQueryDto,
   QuarterCardsQueryDto,
@@ -119,7 +120,9 @@ export class InitiativeQueryService {
     });
     return ok(
       "Квартальні картки беклогу завантажено",
-      cards.map(mapBacklogCardSummary),
+      cards.map((card) =>
+        mapBacklogCardSummary(card, query.department_id),
+      ),
     );
   }
 
@@ -168,7 +171,12 @@ export class InitiativeQueryService {
   ): Prisma.QuarterCardWhereInput {
     const name = this.normalizedText(query.name);
     const strategicGoal = this.normalizedText(query.strategic_goal);
+    const departmentWhere = this.departmentCardWhere(
+      query.department_id,
+      query.department_relation ?? "ANY",
+    );
     return {
+      AND: departmentWhere ? [departmentWhere] : undefined,
       quarter: query.quarter ? Number(query.quarter.slice(1)) : undefined,
       managerId: query.manager_id,
       priorityId: query.priority_id,
@@ -190,18 +198,26 @@ export class InitiativeQueryService {
     const name = this.normalizedText(query.name);
     const strategicGoal = this.normalizedText(query.strategic_goal);
     const hasCardFilters = Boolean(
-      query.quarter || query.manager_id || query.priority_id,
+      query.quarter ||
+        query.manager_id ||
+        query.priority_id ||
+        query.department_id,
     );
     const cardWhere: Prisma.QuarterCardWhereInput = {
       quarter: query.quarter ? Number(query.quarter.slice(1)) : undefined,
       managerId: query.manager_id,
       priorityId: query.priority_id,
+      AND: query.department_id
+        ? [this.departmentCardWhere(query.department_id, "ANY")!]
+        : undefined,
     };
     const cardOrPreparation: Prisma.InitiativeYearWhereInput["OR"] =
       hasCardFilters
         ? [
             { quarterCards: { some: cardWhere } },
-            ...(!query.quarter && (query.manager_id || query.priority_id)
+            ...(!query.quarter &&
+            !query.department_id &&
+            (query.manager_id || query.priority_id)
               ? [
                   {
                     quarterCards: { none: {} },
@@ -225,6 +241,31 @@ export class InitiativeQueryService {
       },
       OR: cardOrPreparation,
     };
+  }
+
+  private departmentCardWhere(
+    departmentId: string | undefined,
+    relation: DepartmentRelationDto,
+  ): Prisma.QuarterCardWhereInput | undefined {
+    if (!departmentId) return undefined;
+    const executor: Prisma.QuarterCardWhereInput = {
+      scopeItems: {
+        some: { executors: { some: { departmentId } } },
+      },
+    };
+    const involved: Prisma.QuarterCardWhereInput = {
+      AND: [
+        { departments: { some: { departmentId } } },
+        {
+          scopeItems: {
+            none: { executors: { some: { departmentId } } },
+          },
+        },
+      ],
+    };
+    if (relation === "EXECUTOR") return executor;
+    if (relation === "INVOLVED") return involved;
+    return { OR: [executor, involved] };
   }
 
   private validateYear(year?: number) {

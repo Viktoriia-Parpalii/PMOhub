@@ -239,6 +239,15 @@
             }
           },
           {
+            "name": "department_id",
+            "required": false,
+            "in": "query",
+            "description": "Підрозділ, який є виконавцем завдання скоупу або залученим до квартальної картки.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "kind",
             "required": false,
             "in": "query",
@@ -331,6 +340,15 @@
             "name": "priority_id",
             "required": false,
             "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "department_id",
+            "required": false,
+            "in": "query",
+            "description": "Підрозділ, який є виконавцем завдання скоупу або залученим до квартальної картки.",
             "schema": {
               "type": "string"
             }
@@ -797,6 +815,15 @@
             }
           },
           {
+            "name": "department_id",
+            "required": false,
+            "in": "query",
+            "description": "Підрозділ, який є виконавцем завдання скоупу або залученим до квартальної картки.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "kind",
             "required": false,
             "in": "query",
@@ -838,6 +865,21 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "department_relation",
+            "required": false,
+            "in": "query",
+            "description": "Роль вибраного підрозділу. ANY означає виконавця або залучений підрозділ.",
+            "schema": {
+              "default": "ANY",
+              "type": "string",
+              "enum": [
+                "ANY",
+                "EXECUTOR",
+                "INVOLVED"
+              ]
             }
           }
         ],
@@ -885,6 +927,14 @@
           },
           {
             "name": "priority_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "department_id",
             "required": false,
             "in": "query",
             "schema": {
@@ -2752,6 +2802,7 @@
             "schema": {
               "type": "string",
               "enum": [
+                "ANY",
                 "NO_MANAGER",
                 "NO_PRIORITY",
                 "NO_SCOPE",
@@ -4130,6 +4181,10 @@
               "type": "string"
             }
           },
+          "matches_department_filter": {
+            "type": "boolean",
+            "description": "Ознака відповідності кварталу вибраному фільтру підрозділу. Без фільтра має значення true."
+          },
           "status_id": {
             "type": "string"
           },
@@ -4172,6 +4227,7 @@
           "manager_id",
           "priority_id",
           "effective_involved_department_ids",
+          "matches_department_filter",
           "status_id",
           "status_code",
           "status",

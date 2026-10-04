@@ -1189,6 +1189,8 @@ export interface components {
             manager_id: string | null;
             priority_id: string | null;
             effective_involved_department_ids: string[];
+            /** @description Ознака відповідності кварталу вибраному фільтру підрозділу. Без фільтра має значення true. */
+            matches_department_filter: boolean;
             status_id: string;
             status_code: string;
             status: Record<string, never>;
@@ -1683,6 +1685,8 @@ export interface operations {
                 strategic_goal?: string;
                 manager_id?: string;
                 priority_id?: string;
+                /** @description Підрозділ, який є виконавцем завдання скоупу або залученим до квартальної картки. */
+                department_id?: string;
                 kind?: "PROJECT" | "OPERATIONAL_TASK";
                 year?: number;
                 quarter?: "Q1" | "Q2" | "Q3" | "Q4";
@@ -1710,6 +1714,8 @@ export interface operations {
                 strategic_goal?: string;
                 manager_id?: string;
                 priority_id?: string;
+                /** @description Підрозділ, який є виконавцем завдання скоупу або залученим до квартальної картки. */
+                department_id?: string;
                 year: number;
                 quarter?: "Q1" | "Q2" | "Q3" | "Q4";
             };
@@ -1981,10 +1987,14 @@ export interface operations {
                 strategic_goal?: string;
                 manager_id?: string;
                 priority_id?: string;
+                /** @description Підрозділ, який є виконавцем завдання скоупу або залученим до квартальної картки. */
+                department_id?: string;
                 kind?: "PROJECT" | "OPERATIONAL_TASK";
                 year?: number;
                 quarter?: "Q1" | "Q2" | "Q3" | "Q4";
                 status_id?: string;
+                /** @description Роль вибраного підрозділу. ANY означає виконавця або залучений підрозділ. */
+                department_relation?: "ANY" | "EXECUTOR" | "INVOLVED";
             };
             header?: never;
             path?: never;
@@ -2007,6 +2017,7 @@ export interface operations {
             query?: {
                 manager_id?: string;
                 priority_id?: string;
+                department_id?: string;
             };
             header?: never;
             path: {
@@ -2948,7 +2959,7 @@ export interface operations {
                 card_id?: string;
                 size_name?: string;
                 priority_key?: string;
-                risk?: "NO_MANAGER" | "NO_PRIORITY" | "NO_SCOPE" | "NO_EXECUTOR";
+                risk?: "ANY" | "NO_MANAGER" | "NO_PRIORITY" | "NO_SCOPE" | "NO_EXECUTOR";
                 view?: "cards" | "preparation";
                 page: number;
                 page_size: number;

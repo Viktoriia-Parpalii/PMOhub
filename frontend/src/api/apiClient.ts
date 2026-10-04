@@ -284,6 +284,9 @@ const initiativeListParams = (
   if (filters.manager_id) params.set("manager_id", filters.manager_id);
   if (filters.priority_id) params.set("priority_id", filters.priority_id);
   if (filters.status_id) params.set("status_id", filters.status_id);
+  if (filters.department_id) params.set("department_id", filters.department_id);
+  if (filters.department_relation)
+    params.set("department_relation", filters.department_relation);
   return params.toString();
 };
 const withQuery = (path: string, query: string) =>
@@ -329,7 +332,10 @@ export const loadQuarterCards = (
 export const loadBacklogQuarterCardSummaries = (
   initiativeYearId: string,
   signal?: AbortSignal,
-  filters: Pick<InitiativeListFilters, "manager_id" | "priority_id"> = {},
+  filters: Pick<
+    InitiativeListFilters,
+    "manager_id" | "priority_id" | "department_id"
+  > = {},
 ) =>
   apiRequest<ApiResponse<BacklogQuarterCardSummary[]>>(
     withQuery(
@@ -501,6 +507,7 @@ export const toBacklogQuarterCardViewModel = (
   },
   is_locked: card.is_locked,
   locked_at: card.locked_at,
+  matches_department_filter: card.matches_department_filter,
 });
 
 export const command = <T = ApiResponse<unknown>>(

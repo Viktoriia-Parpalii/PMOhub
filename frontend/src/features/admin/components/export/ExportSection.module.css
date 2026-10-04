@@ -474,8 +474,38 @@
 
 .customFieldList {
   display: grid;
+  max-height: 21rem;
   gap: .35rem;
+  overflow-y: auto;
   padding-right: .3rem;
+  scrollbar-color: #a5b4fc transparent;
+  scrollbar-width: thin;
+}
+
+.customFieldList::-webkit-scrollbar {
+  width: 7px;
+}
+
+.customFieldList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.customFieldList::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #a5b4fc;
+  background-clip: padding-box;
+}
+
+.customFieldList::-webkit-scrollbar-thumb:hover {
+  background: #818cf8;
+  background-clip: padding-box;
+}
+
+.customFieldList::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .customFieldList>p {

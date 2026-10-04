@@ -520,7 +520,11 @@ export const Dashboard = () => {
                   title="Контроль плану"
                   badge={String(planningHealth?.risks?.total ?? 0)}
                 >
-                  <RiskList data={data} onOpen={openRecords} />
+                  <RiskList
+                    data={data}
+                    total={planningHealth?.risks?.total ?? 0}
+                    onOpen={openRecords}
+                  />
                 </Chart>
               </div>
             </>
@@ -1458,32 +1462,45 @@ const CapacityTable = ({
     </div>
   </div>
 );
-const RiskList = ({
+export const RiskList = ({
   data,
+  total,
   onOpen,
 }: {
   data: AnalyticsResponse;
+  total: number;
   onOpen: (title: string, criteria?: AnalyticsDrilldownCriteria) => void;
 }) => (
-  <div className={styles.riskList}>
-    {data.risks.length ? (
-      data.risks.map((risk) => (
-        <button
-          type="button"
-          key={risk.id}
-          onClick={() =>
-            onOpen("Планувальний ризик", { card_id: risk.id })
-          }
-          className={styles.risk}
-        >
-          <span className={styles.riskName}>{risk.name}</span>
-          <span className={styles.riskText}>
-            {risk.risks.map((item) => riskLabels[item] ?? item).join(" · ")}
-          </span>
-        </button>
-      ))
-    ) : (
-      <Empty />
+  <div className={styles.riskWidget}>
+    <div className={styles.riskList}>
+      {data.risks.length ? (
+        data.risks.map((risk) => (
+          <button
+            type="button"
+            key={risk.id}
+            onClick={() =>
+              onOpen("Контроль плану", { risk: "ANY" })
+            }
+            className={styles.risk}
+          >
+            <span className={styles.riskName}>{risk.name}</span>
+            <span className={styles.riskText}>
+              {risk.risks.map((item) => riskLabels[item] ?? item).join(" · ")}
+            </span>
+          </button>
+        ))
+      ) : (
+        <Empty />
+      )}
+    </div>
+    {total > data.risks.length && (
+      <button
+        type="button"
+        className={styles.riskViewAll}
+        onClick={() => onOpen("Контроль плану", { risk: "ANY" })}
+      >
+        Переглянути всі записи ({total})
+      </button>
     )}
   </div>
 );

@@ -96,15 +96,24 @@ export const BacklogTab = () => {
     () => filterDictionaryOptions(priorities, filterVisibility),
     [filterVisibility, priorities],
   );
+  const departmentFilterOptions = useMemo(
+    () => filterDictionaryOptions(departments, filterVisibility),
+    [departments, filterVisibility],
+  );
   useEffect(() => {
     if (!hasDictionaryOption(managerFilterOptions, listFilters.managerId))
       listFilters.setManagerId("");
     if (!hasDictionaryOption(priorityFilterOptions, listFilters.priorityId))
       listFilters.setPriorityId("");
+    if (!hasDictionaryOption(departmentFilterOptions, listFilters.departmentId))
+      listFilters.setDepartmentId("");
   }, [
+    departmentFilterOptions,
+    listFilters.departmentId,
     listFilters.managerId,
     listFilters.priorityId,
     listFilters.setManagerId,
+    listFilters.setDepartmentId,
     listFilters.setPriorityId,
     managerFilterOptions,
     priorityFilterOptions,
@@ -218,6 +227,7 @@ export const BacklogTab = () => {
     quarter: quarterFilter,
     managerId: listFilters.managerId,
     priorityId: listFilters.priorityId,
+    departmentId: listFilters.departmentId,
   };
   const cardsFor = (masterId: string) => cardsByMaster.get(masterId) ?? [];
   const highlightedQuarter =
@@ -392,12 +402,15 @@ export const BacklogTab = () => {
           goalSearch={listFilters.strategicGoal}
           managerFilter={listFilters.managerId}
           priorityFilter={listFilters.priorityId}
+          departmentFilter={listFilters.departmentId}
           managers={managerFilterOptions}
           priorities={priorityFilterOptions}
+          departments={departmentFilterOptions}
           onNameSearch={listFilters.setName}
           onGoalSearch={listFilters.setStrategicGoal}
           onManagerFilter={listFilters.setManagerId}
           onPriorityFilter={listFilters.setPriorityId}
+          onDepartmentFilter={listFilters.setDepartmentId}
           hasFilters={listFilters.hasFilters || quarterFilter !== "ALL"}
           onReset={() => {
             listFilters.reset();

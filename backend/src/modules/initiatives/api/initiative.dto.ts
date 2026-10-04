@@ -17,6 +17,8 @@ import { IsUniqueIdentifier } from "../../../common/validation/unique-identifier
 
 export const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
 export type QuarterDto = (typeof QUARTERS)[number];
+export const DEPARTMENT_RELATIONS = ["ANY", "EXECUTOR", "INVOLVED"] as const;
+export type DepartmentRelationDto = (typeof DEPARTMENT_RELATIONS)[number];
 
 const trimmed = ({ value }: { value: unknown }) =>
   typeof value === "string" ? value.trim() : value;
@@ -45,6 +47,14 @@ export class InitiativeListFiltersDto {
   @IsOptional()
   @IsUniqueIdentifier()
   priority_id?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Підрозділ, який є виконавцем завдання скоупу або залученим до квартальної картки.",
+  })
+  @IsOptional()
+  @IsUniqueIdentifier()
+  department_id?: string;
 }
 
 export class InitiativeYearsQueryDto extends InitiativeListFiltersDto {
@@ -75,6 +85,19 @@ export class QuarterCardsQueryDto extends InitiativeYearsQueryDto {
   @IsOptional()
   @IsUniqueIdentifier()
   status_id?: string;
+
+  @ApiPropertyOptional({
+    enum: DEPARTMENT_RELATIONS,
+    default: "ANY",
+    description:
+      "Роль вибраного підрозділу. ANY означає виконавця або залучений підрозділ.",
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.toUpperCase() : value,
+  )
+  @IsIn(DEPARTMENT_RELATIONS)
+  department_relation?: DepartmentRelationDto;
 }
 
 export class InitiativeYearCountsQueryDto extends InitiativeListFiltersDto {
@@ -101,6 +124,11 @@ export class BacklogCardSummariesQueryDto {
   @IsOptional()
   @IsUniqueIdentifier()
   priority_id?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUniqueIdentifier()
+  department_id?: string;
 }
 
 export class PreparationInputDto {
@@ -417,6 +445,11 @@ export class BacklogQuarterCardSummaryDto {
   @ApiProperty({ nullable: true }) manager_id!: string | null;
   @ApiProperty({ nullable: true }) priority_id!: string | null;
   @ApiProperty({ type: [String] }) effective_involved_department_ids!: string[];
+  @ApiProperty({
+    description:
+      "Ознака відповідності кварталу вибраному фільтру підрозділу. Без фільтра має значення true.",
+  })
+  matches_department_filter!: boolean;
   @ApiProperty() status_id!: string;
   @ApiProperty() status_code!: string;
   @ApiProperty({ type: Object }) status!: {

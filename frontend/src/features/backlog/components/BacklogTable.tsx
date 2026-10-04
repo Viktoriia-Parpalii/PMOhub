@@ -292,6 +292,7 @@ const ExpandedPeriodCards = ({
   const cardsQuery = useBacklogQuarterCardSummariesQuery(master.id, true, {
     manager_id: filters.managerId || undefined,
     priority_id: filters.priorityId || undefined,
+    department_id: filters.departmentId || undefined,
   });
   if (cardsQuery.isPending)
     return <div className={styles.accordionState}>Завантаження карток…</div>;
@@ -312,6 +313,9 @@ const ExpandedPeriodCards = ({
               key={card.id}
               card={card}
               highlighted={card.quarter === highlightedQuarter}
+              departmentMatch={Boolean(
+                filters.departmentId && card.matches_department_filter,
+              )}
               managers={managers}
               priorities={priorities}
               departments={departments}
@@ -394,6 +398,7 @@ const QuarterCard = ({
   statuses,
   onOpen,
   highlighted,
+  departmentMatch,
 }: {
   card: BacklogInitiative;
   managers: Manager[];
@@ -402,6 +407,7 @@ const QuarterCard = ({
   statuses: InitiativeStatusDef[];
   onOpen: (item: BacklogInitiative) => void;
   highlighted: boolean;
+  departmentMatch: boolean;
 }) => {
   const status = getInitiativeStatus(card.health_status, statuses);
   const scope = getScopeProgress(card);
@@ -409,12 +415,19 @@ const QuarterCard = ({
     <button
       type="button"
       onClick={() => onOpen(card)}
-      className={`${styles.periodCard} ${highlighted ? styles.periodCardHighlighted : ""}`}
+      className={`${styles.periodCard} ${highlighted ? styles.periodCardHighlighted : ""} ${departmentMatch ? styles.periodCardDepartmentMatch : ""}`}
       aria-label={`Переглянути ${card.quarter} ${card.year}`}
     >
       <div className={styles.periodTop}>
-        <span className={styles.periodTitle}>
-          {card.quarter} {card.year}
+        <span className={styles.periodTitleGroup}>
+          <span className={styles.periodTitle}>
+            {card.quarter} {card.year}
+          </span>
+          {departmentMatch && (
+            <span className={styles.departmentMatchBadge}>
+              Збіг підрозділу
+            </span>
+          )}
         </span>
         <span
           className={styles.statusBadge}

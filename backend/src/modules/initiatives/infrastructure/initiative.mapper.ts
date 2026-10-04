@@ -393,7 +393,10 @@ export const mapCardSummary = (card: any) => {
   };
 };
 
-export const mapBacklogCardSummary = (card: any) => {
+export const mapBacklogCardSummary = (
+  card: any,
+  departmentFilterId?: string,
+) => {
   const executorIds = new Set<string>(
     card.scopeItems.flatMap((item: any) =>
       item.executors.map((link: any) => link.departmentId),
@@ -414,6 +417,11 @@ export const mapBacklogCardSummary = (card: any) => {
     effective_involved_department_ids: departmentIds.filter(
       (id: string) => !executorIds.has(id),
     ),
+    matches_department_filter:
+      !departmentFilterId ||
+      executorIds.has(departmentFilterId) ||
+      (departmentIds.includes(departmentFilterId) &&
+        !executorIds.has(departmentFilterId)),
     status_id: card.statusId,
     status_code: card.status.code,
     status: {

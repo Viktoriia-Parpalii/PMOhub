@@ -43,6 +43,20 @@ describe("useInitiativeListFilters", () => {
       manager_id: undefined,
       priority_id: undefined,
       status_id: undefined,
+      department_id: undefined,
+      department_relation: undefined,
+    });
+  });
+
+  it("adds department relation only for portfolio filters", () => {
+    const { result } = renderHook(() => useInitiativeListFilters(350, true));
+    act(() => {
+      result.current.setDepartmentId("department-1");
+      result.current.setDepartmentRelation("INVOLVED");
+    });
+    expect(result.current.filters).toMatchObject({
+      department_id: "department-1",
+      department_relation: "INVOLVED",
     });
   });
 
@@ -63,6 +77,46 @@ describe("useInitiativeListFilters", () => {
     ).not.toEqual(
       queryKeys.portfolioCards("project", 2026, "Q2", {
         status_id: "status-2",
+      }),
+    );
+    expect(
+      queryKeys.portfolioCards("project", 2026, "Q2", {
+        department_id: "department-1",
+        department_relation: "EXECUTOR",
+      }),
+    ).not.toEqual(
+      queryKeys.portfolioCards("project", 2026, "Q2", {
+        department_id: "department-2",
+        department_relation: "EXECUTOR",
+      }),
+    );
+    expect(
+      queryKeys.portfolioCards("project", 2026, "Q2", {
+        department_id: "department-1",
+        department_relation: "EXECUTOR",
+      }),
+    ).not.toEqual(
+      queryKeys.portfolioCards("project", 2026, "Q2", {
+        department_id: "department-1",
+        department_relation: "INVOLVED",
+      }),
+    );
+    expect(
+      queryKeys.initiativeYearCounts(2026, {
+        department_id: "department-1",
+      }),
+    ).not.toEqual(
+      queryKeys.initiativeYearCounts(2026, {
+        department_id: "department-2",
+      }),
+    );
+    expect(
+      queryKeys.backlogCardSummaries("year-1", {
+        department_id: "department-1",
+      }),
+    ).not.toEqual(
+      queryKeys.backlogCardSummaries("year-1", {
+        department_id: "department-2",
       }),
     );
   });

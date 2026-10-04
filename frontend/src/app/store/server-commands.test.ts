@@ -130,6 +130,7 @@ describe("server command routing", () => {
       strategic_goal: "Ціль",
       manager_id: "manager-id",
       priority_id: "priority-id",
+      department_id: "department-id",
     };
     await loadInitiativeYears("project", undefined, 2027, {
       ...filters,
@@ -138,10 +139,12 @@ describe("server command routing", () => {
     await loadQuarterCards("task", undefined, 2027, "Q3", {
       ...filters,
       status_id: "status-id",
+      department_relation: "EXECUTOR" as const,
     });
     await loadBacklogQuarterCardSummaries("year-id", undefined, {
       manager_id: filters.manager_id,
       priority_id: filters.priority_id,
+      department_id: filters.department_id,
     });
     await loadInitiativeYearCounts(2027, undefined, {
       ...filters,
@@ -164,10 +167,12 @@ describe("server command routing", () => {
       quarter: "Q3",
       ...filters,
       status_id: "status-id",
+      department_relation: "EXECUTOR",
     });
     expect(Object.fromEntries(urls[2].searchParams)).toEqual({
       manager_id: "manager-id",
       priority_id: "priority-id",
+      department_id: "department-id",
     });
     expect(Object.fromEntries(urls[3].searchParams)).toMatchObject({
       year: "2027",

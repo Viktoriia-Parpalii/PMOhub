@@ -166,4 +166,37 @@ describe("AnalyticsService section contracts", () => {
     expect(result).toMatchObject({ total: 1, page: 2, page_size: 25 });
     expect(result.records[0]).not.toHaveProperty("status_code");
   });
+
+  it("limits the planning-control drilldown to cards with any planning risk", async () => {
+    const prisma: any = {
+      quarterCard: {
+        count: vi.fn(async () => 0),
+        findMany: vi.fn(async () => []),
+      },
+    };
+
+    await new AnalyticsService(prisma).drilldown({
+      year: 2027,
+      quarter: "Q1",
+      mode: "quarterly",
+      risk: "ANY",
+      page: 1,
+      page_size: 25,
+    });
+
+    expect(prisma.quarterCard.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            expect.objectContaining({ OR: expect.any(Array) }),
+          ]),
+        }),
+        skip: 0,
+        take: 25,
+      }),
+    );
+    const where = prisma.quarterCard.findMany.mock.calls[0][0].where;
+    const anyRisk = where.AND.find((item: any) => item.OR);
+    expect(anyRisk.OR).toHaveLength(4);
+  });
 });

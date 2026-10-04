@@ -773,6 +773,12 @@ button.kpi:hover {
   text-transform: uppercase;
 }
 
+.riskWidget {
+  display: grid;
+  min-height: 0;
+  gap: 10px;
+}
+
 .riskList {
   display: grid;
   max-height: 260px;
@@ -781,6 +787,23 @@ button.kpi:hover {
   padding-right: 4px;
   scrollbar-color: #c7d2fe transparent;
   scrollbar-width: thin;
+}
+
+.riskViewAll {
+  min-height: 36px;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color .15s, border-color .15s;
+}
+
+.riskViewAll:hover {
+  border-color: #818cf8;
+  background: #e0e7ff;
 }
 
 .risk {
