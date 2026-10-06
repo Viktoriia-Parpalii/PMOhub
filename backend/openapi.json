@@ -126,6 +126,74 @@
         ]
       }
     },
+    "/api/v1/initiatives/relation-candidates": {
+      "get": {
+        "operationId": "InitiativesController_relationCandidates",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minLength": 2,
+              "maxLength": 500,
+              "type": "string"
+            }
+          },
+          {
+            "name": "exclude_initiative_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROJECT",
+                "OPERATIONAL_TASK"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 20,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiativeRelationCandidatesResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "initiatives"
+        ]
+      }
+    },
     "/api/v1/initiatives": {
       "post": {
         "operationId": "InitiativesController_create",
@@ -3177,6 +3245,71 @@
           "success"
         ]
       },
+      "InitiativeRelationCandidateDto": {
+        "type": "object",
+        "properties": {
+          "initiative_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PROJECT",
+              "OPERATIONAL_TASK"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "available_years": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "relation_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "relation_revision": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "initiative_id",
+          "kind",
+          "name",
+          "available_years",
+          "relation_id",
+          "relation_revision"
+        ]
+      },
+      "InitiativeRelationCandidatesResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InitiativeRelationCandidateDto"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ]
+      },
       "PreparationInputDto": {
         "type": "object",
         "properties": {
@@ -3314,6 +3447,13 @@
       "CreateInitiativeDto": {
         "type": "object",
         "properties": {
+          "related_initiative_ids": {
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "kind": {
             "enum": [
               "PROJECT",
@@ -3466,6 +3606,51 @@
           "locked_at"
         ]
       },
+      "InitiativeRelationReadModelDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "relation_type": {
+            "type": "string",
+            "enum": [
+              "RELATED_INITIATIVE"
+            ]
+          },
+          "revision": {
+            "type": "number"
+          },
+          "related_initiative_id": {
+            "type": "string"
+          },
+          "related_kind": {
+            "type": "string",
+            "enum": [
+              "PROJECT",
+              "OPERATIONAL_TASK"
+            ]
+          },
+          "related_name": {
+            "type": "string"
+          },
+          "available_years": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "relation_type",
+          "revision",
+          "related_initiative_id",
+          "related_kind",
+          "related_name",
+          "available_years"
+        ]
+      },
       "InitiativeYearReadModelDto": {
         "type": "object",
         "properties": {
@@ -3513,6 +3698,12 @@
               "$ref": "#/components/schemas/QuarterCardSummaryDto"
             }
           },
+          "relations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InitiativeRelationReadModelDto"
+            }
+          },
           "is_locked": {
             "type": "boolean"
           },
@@ -3531,6 +3722,7 @@
           "revision",
           "preparation",
           "cards",
+          "relations",
           "is_locked",
           "locked_at"
         ]
@@ -3674,6 +3866,46 @@
           "revision"
         ]
       },
+      "InitiativeRelationRemovalDto": {
+        "type": "object",
+        "properties": {
+          "relation_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "relation_id",
+          "revision"
+        ]
+      },
+      "InitiativeRelationChangesDto": {
+        "type": "object",
+        "properties": {
+          "add_initiative_ids": {
+            "default": [],
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remove_relations": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InitiativeRelationRemovalDto"
+            }
+          }
+        },
+        "required": [
+          "add_initiative_ids",
+          "remove_relations"
+        ]
+      },
       "UpdateBacklogDto": {
         "type": "object",
         "properties": {
@@ -3690,6 +3922,9 @@
           "year_revision": {
             "type": "number",
             "minimum": 1
+          },
+          "relation_changes": {
+            "$ref": "#/components/schemas/InitiativeRelationChangesDto"
           }
         },
         "required": [

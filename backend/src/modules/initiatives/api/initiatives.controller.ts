@@ -38,6 +38,8 @@ import {
   InitiativeYearResponseDto,
   InitiativeYearsResponseDto,
   InitiativeAvailableYearsResponseDto,
+  InitiativeRelationCandidatesQueryDto,
+  InitiativeRelationCandidatesResponseDto,
   QuarterCardResponseDto,
   QuarterCardsResponseDto,
   BacklogQuarterCardSummariesResponseDto,
@@ -60,7 +62,16 @@ import {
 @ApiOkResponse({ type: ApiSuccessDto })
 @Controller("initiatives")
 export class InitiativesController {
-  constructor(private readonly initiatives: InitiativesService) {}
+  constructor(
+    private readonly initiatives: InitiativesService,
+    private readonly queries: InitiativeQueryService,
+  ) {}
+
+  @Get("relation-candidates")
+  @ApiOkResponse({ type: InitiativeRelationCandidatesResponseDto })
+  relationCandidates(@Query() query: InitiativeRelationCandidatesQueryDto) {
+    return this.queries.relationCandidates(query);
+  }
 
   @RequirePermissions("canCreateEditInitiatives")
   @Post()

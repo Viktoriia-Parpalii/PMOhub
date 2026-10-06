@@ -1,6 +1,7 @@
 import { Transform, Type } from "class-transformer";
 import {
   IsArray,
+  ArrayUnique,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -9,6 +10,7 @@ import {
   IsString,
   Max,
   MaxLength,
+  MinLength,
   Min,
   ValidateNested,
 } from "class-validator";
@@ -147,11 +149,63 @@ export class UpdateInitiativeYearDto {
   @IsInt() @Min(1) revision!: number;
 }
 
+export class InitiativeRelationRemovalDto {
+  @IsUniqueIdentifier() relation_id!: string;
+  @IsInt() @Min(1) revision!: number;
+}
+
+export class InitiativeRelationChangesDto {
+  @IsArray()
+  @ArrayUnique()
+  @IsUniqueIdentifier({ each: true })
+  add_initiative_ids: string[] = [];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InitiativeRelationRemovalDto)
+  remove_relations: InitiativeRelationRemovalDto[] = [];
+}
+
 export class UpdateBacklogDto {
   @IsString() name!: string;
   @IsOptional() @IsString() strategic_goal?: string;
   @IsInt() @Min(1) initiative_revision!: number;
   @IsInt() @Min(1) year_revision!: number;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => InitiativeRelationChangesDto)
+  relation_changes?: InitiativeRelationChangesDto;
+}
+
+export class InitiativeRelationCandidatesQueryDto {
+  @ApiProperty({ minLength: 2, maxLength: 500 })
+  @Transform(trimmed)
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(2)
+  @MaxLength(500)
+  query!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUniqueIdentifier()
+  exclude_initiative_id?: string;
+
+  @ApiPropertyOptional({ enum: ["PROJECT", "OPERATIONAL_TASK"] })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.toUpperCase() : value,
+  )
+  @IsIn(["PROJECT", "OPERATIONAL_TASK"])
+  kind?: "PROJECT" | "OPERATIONAL_TASK";
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 20, default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  limit?: number;
 }
 
 export class UpdatePreparationDto extends PreparationInputDto {
@@ -220,6 +274,12 @@ export class CreateInitiativeDto {
   @ValidateNested()
   @Type(() => InitialQuarterCardDto)
   initial_card?: InitialQuarterCardDto;
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUniqueIdentifier({ each: true })
+  related_initiative_ids?: string[];
 }
 
 export class UpdateCardDto {
@@ -339,6 +399,33 @@ export class QuarterCardSummaryDto {
   @ApiProperty() locked_at!: string;
 }
 
+export class InitiativeRelationReadModelDto {
+  @ApiProperty() id!: string;
+  @ApiProperty({ enum: ["RELATED_INITIATIVE"] }) relation_type!: string;
+  @ApiProperty() revision!: number;
+  @ApiProperty() related_initiative_id!: string;
+  @ApiProperty({ enum: ["PROJECT", "OPERATIONAL_TASK"] })
+  related_kind!: string;
+  @ApiProperty() related_name!: string;
+  @ApiProperty({ type: [Number] }) available_years!: number[];
+}
+
+export class InitiativeRelationCandidateDto {
+  @ApiProperty() initiative_id!: string;
+  @ApiProperty({ enum: ["PROJECT", "OPERATIONAL_TASK"] }) kind!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ type: [Number] }) available_years!: number[];
+  @ApiProperty({ nullable: true }) relation_id!: string | null;
+  @ApiProperty({ nullable: true }) relation_revision!: number | null;
+}
+
+export class InitiativeRelationCandidatesResponseDto {
+  @ApiProperty({ enum: [true] }) success!: true;
+  @ApiProperty() message!: string;
+  @ApiProperty({ type: [InitiativeRelationCandidateDto] })
+  data!: InitiativeRelationCandidateDto[];
+}
+
 export class InitiativeYearReadModelDto {
   @ApiProperty() id!: string;
   @ApiProperty() initiative_id!: string;
@@ -352,6 +439,8 @@ export class InitiativeYearReadModelDto {
   preparation!: PreparationStageReadModelDto | null;
   @ApiProperty({ type: [QuarterCardSummaryDto] })
   cards!: QuarterCardSummaryDto[];
+  @ApiProperty({ type: [InitiativeRelationReadModelDto] })
+  relations!: InitiativeRelationReadModelDto[];
   @ApiProperty() is_locked!: boolean;
   @ApiProperty() locked_at!: string;
 }

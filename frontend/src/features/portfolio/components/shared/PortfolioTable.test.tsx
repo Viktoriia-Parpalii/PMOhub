@@ -54,4 +54,27 @@ describe("PortfolioTable", () => {
     expect(within(screen.getByText("Друге завдання").closest("li")!).getByText("2.")).toBeInTheDocument();
     expect(within(screen.getByText("Інше завдання").closest("li")!).getByText("1.")).toBeInTheDocument();
   });
+
+  it("shows the full scope group title as a tooltip", () => {
+    const grouped = initiative("grouped", ["Завдання у групі"]);
+    const longTitle = "Дуже довгий заголовок групи для перевірки повного тексту";
+    grouped.scopeGroups = [{
+      id: "group-1",
+      lineage_id: "group-lineage-1",
+      title: longTitle,
+    }];
+    grouped.checklist[0].groupId = "group-1";
+
+    render(
+      <PortfolioTable
+        kind="project"
+        initiatives={[grouped]}
+        customFields={[]}
+        canEdit={false}
+        onOpen={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(longTitle)).toHaveAttribute("title", longTitle);
+  });
 });

@@ -1,5 +1,5 @@
 import React from "react";
-import { Check, Edit2, Eye, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Check, Edit2, Eye, Link2, Plus, RotateCcw, Trash2 } from "lucide-react";
 import {
   Department,
   InitiativeStatusDef,
@@ -85,11 +85,12 @@ interface BacklogTableProps {
   onResumeMaster: (item: BacklogInitiative) => void;
   onOpenCard: (item: BacklogInitiative) => void;
   onOpenPreparation: (item: BacklogInitiative) => void;
+  onOpenRelations: (item: BacklogInitiative) => void;
 }
 
 export const BacklogTable = (props: BacklogTableProps) => {
   const columns =
-    3 + props.visibleQuarters.length + (props.isSelecting ? 1 : 0);
+    4 + props.visibleQuarters.length + (props.isSelecting ? 1 : 0);
   return (
     <div className={styles.tableScroller}>
       <table className={styles.table}>
@@ -114,6 +115,7 @@ export const BacklogTable = (props: BacklogTableProps) => {
                 : "Назва задачі"}
             </th>
             <th className={styles.tableGoalHeader}>Стратегічна задача</th>
+            <th className={styles.relationsHeader}>Зв’язок</th>
             {props.visibleQuarters.map((quarter) => (
               <th key={quarter} className={styles.quarterHeader}>
                 {quarter}
@@ -131,6 +133,7 @@ export const BacklogTable = (props: BacklogTableProps) => {
               <React.Fragment key={master.id}>
                 <tr
                   className={`${styles.tableRow} ${selected ? styles.selectedRow : ""}`}
+                  data-initiative-id={master.initiative_id}
                 >
                   {props.isSelecting && (
                     <td className={styles.selectionCell}>
@@ -171,6 +174,25 @@ export const BacklogTable = (props: BacklogTableProps) => {
                     >
                       {master.strategic_goal || "—"}
                     </div>
+                  </td>
+                  <td className={styles.relationsCell}>
+                    {master.relations?.length ? (
+                      <button
+                        type="button"
+                        className={styles.relationsButton}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          props.onOpenRelations(master);
+                        }}
+                        title={`Пов’язаних ініціатив: ${master.relations.length}`}
+                        aria-label={`Переглянути пов’язані ініціативи: ${master.relations.length}`}
+                      >
+                        <Link2 size={18} />
+                        <span>{master.relations.length}</span>
+                      </button>
+                    ) : (
+                      <span className={styles.noRelations}>—</span>
+                    )}
                   </td>
                   {props.visibleQuarters.map((quarter) => {
                     const card = cards.find((item) => item.quarter === quarter);

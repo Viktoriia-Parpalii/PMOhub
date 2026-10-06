@@ -20,7 +20,7 @@ import {
   UpdateInitiativeYearDto,
   UpdatePreparationDto,
 } from "../api/initiative.dto";
-import { currentPeriod, isPeriodLocked } from "../domain/period.policy";
+import { isPeriodLocked } from "../domain/period.policy";
 import { sanitizeRichText } from "../../../common/security/rich-text";
 import { cardInclude, mapCard } from "../infrastructure/initiative.mapper";
 
@@ -212,6 +212,12 @@ export class InitiativesService {
           "Створено запис у беклозі",
           actor,
         );
+        await this.addInitiativeRelations(
+          tx,
+          initiative.id,
+          dto.related_initiative_ids ?? [],
+          actor,
+        );
         return {
           initiative_id: initiative.id,
           initiative_revision: initiative.revision,
@@ -299,6 +305,14 @@ export class InitiativesService {
         });
         if (!yearChanged.count)
           await this.throwConflict(tx, "InitiativeYear", id);
+        if (dto.relation_changes) {
+          await this.applyInitiativeRelationChanges(
+            tx,
+            year.initiativeId,
+            dto.relation_changes,
+            actor,
+          );
+        }
         await this.audit(
           tx,
           "InitiativeYear",
@@ -1140,8 +1154,36 @@ export class InitiativesService {
         const remaining = await tx.initiativeYear.count({
           where: { initiativeId: year.initiativeId },
         });
-        if (!remaining)
+        if (!remaining) {
+          const relations = await tx.initiativeRelation.findMany({
+            where: {
+              OR: [
+                { leftInitiativeId: year.initiativeId },
+                { rightInitiativeId: year.initiativeId },
+              ],
+            },
+            select: { id: true },
+          });
+          await tx.initiativeRelation.deleteMany({
+            where: {
+              OR: [
+                { leftInitiativeId: year.initiativeId },
+                { rightInitiativeId: year.initiativeId },
+              ],
+            },
+          });
+          for (const relation of relations) {
+            await this.audit(
+              tx,
+              "InitiativeRelation",
+              relation.id,
+              "INITIATIVE_RELATION_REMOVED",
+              "Зв’язок видалено разом з ініціативою",
+              actor,
+            );
+          }
           await tx.initiative.delete({ where: { id: year.initiativeId } });
+        }
         await this.audit(
           tx,
           "InitiativeYear",
@@ -1376,7 +1418,6 @@ export class InitiativesService {
           });
           if (!moved.count) await this.throwConflict(tx, "ScopeItem", item.id);
         } else {
-          const defaultWeight = await this.defaultWeight(tx);
           const copied = await tx.scopeItem.create({
             data: {
               quarterCardId: target.id,
@@ -1385,10 +1426,10 @@ export class InitiativesService {
               lineageId: item.lineageId,
               copiedFromItemId: item.id,
               text: item.text,
-              statusCode: "DEFAULT",
-              weightDefinitionId: defaultWeight.id,
-              weightSnapshotName: defaultWeight.name,
-              weightSnapshotValue: defaultWeight.weight,
+              statusCode: item.statusCode,
+              weightDefinitionId: item.weightDefinitionId,
+              weightSnapshotName: item.weightSnapshotName,
+              weightSnapshotValue: item.weightSnapshotValue,
               executors: {
                 createMany: {
                   data: item.executors.map((link) => ({
@@ -2175,9 +2216,6 @@ export class InitiativesService {
 
   private assertOpen(year: number, quarter: QuarterDto) {
     if (isPeriodLocked(year, quarter)) throw this.archived();
-    const current = currentPeriod();
-    if (year * 10 + qn(quarter) < current.year * 10 + qn(current.quarter))
-      throw this.archived();
   }
 
   private yearLocked(year: number) {
@@ -2256,6 +2294,123 @@ export class InitiativesService {
     });
     if (!stage) throw this.notFound("Підготовчий етап");
     throw this.conflict(stage.revision, "PreparationStage", id);
+  }
+
+  private relationPair(firstId: string, secondId: string) {
+    return firstId.toLowerCase() < secondId.toLowerCase()
+      ? { leftInitiativeId: firstId, rightInitiativeId: secondId }
+      : { leftInitiativeId: secondId, rightInitiativeId: firstId };
+  }
+
+  private relationConflict(message: string, details?: Record<string, unknown>) {
+    return new AppError(
+      "INITIATIVE_RELATION_CONFLICT",
+      message,
+      HttpStatus.CONFLICT,
+      details,
+    );
+  }
+
+  private async addInitiativeRelations(
+    tx: Tx,
+    initiativeId: string,
+    relatedInitiativeIds: string[],
+    actor: AuthUser,
+  ) {
+    const targetIds = unique(relatedInitiativeIds);
+    if (targetIds.includes(initiativeId)) {
+      throw this.relationConflict("Ініціативу не можна пов’язати із самою собою.");
+    }
+    if (!targetIds.length) return;
+    const existingTargets = await tx.initiative.findMany({
+      where: { id: { in: targetIds } },
+      select: { id: true },
+    });
+    if (existingTargets.length !== targetIds.length) {
+      throw new AppError(
+        "RELATED_INITIATIVE_NOT_FOUND",
+        "Одну з вибраних пов’язаних ініціатив не знайдено. Оновіть перелік і повторіть дію.",
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    for (const relatedInitiativeId of targetIds) {
+      const pair = this.relationPair(initiativeId, relatedInitiativeId);
+      try {
+        const relation = await tx.initiativeRelation.create({
+          data: {
+            relationType: "RELATED_INITIATIVE",
+            ...pair,
+          },
+        });
+        await this.audit(
+          tx,
+          "InitiativeRelation",
+          relation.id,
+          "INITIATIVE_RELATION_CREATED",
+          "Створено зв’язок між ініціативами",
+          actor,
+        );
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          throw this.relationConflict(
+            "Такий зв’язок уже існує. Оновіть запис і повторіть дію.",
+            { initiative_id: initiativeId, related_initiative_id: relatedInitiativeId },
+          );
+        }
+        throw error;
+      }
+    }
+  }
+
+  private async applyInitiativeRelationChanges(
+    tx: Tx,
+    initiativeId: string,
+    changes: {
+      add_initiative_ids: string[];
+      remove_relations: Array<{ relation_id: string; revision: number }>;
+    },
+    actor: AuthUser,
+  ) {
+    const removals = new Set<string>();
+    for (const removal of changes.remove_relations) {
+      if (removals.has(removal.relation_id)) {
+        throw this.relationConflict("Один зв’язок передано на видалення кілька разів.");
+      }
+      removals.add(removal.relation_id);
+      const deleted = await tx.initiativeRelation.deleteMany({
+        where: {
+          id: removal.relation_id,
+          revision: removal.revision,
+          OR: [
+            { leftInitiativeId: initiativeId },
+            { rightInitiativeId: initiativeId },
+          ],
+        },
+      });
+      if (!deleted.count) {
+        throw this.relationConflict(
+          "Зв’язок уже змінено іншим користувачем. Оновіть запис і повторіть дію.",
+          { relation_id: removal.relation_id },
+        );
+      }
+      await this.audit(
+        tx,
+        "InitiativeRelation",
+        removal.relation_id,
+        "INITIATIVE_RELATION_REMOVED",
+        "Видалено зв’язок між ініціативами",
+        actor,
+      );
+    }
+    await this.addInitiativeRelations(
+      tx,
+      initiativeId,
+      changes.add_initiative_ids,
+      actor,
+    );
   }
 
   private async audit(

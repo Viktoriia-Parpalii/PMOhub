@@ -35,6 +35,7 @@ const appContext = vi.hoisted(() => ({
   continueCard: vi.fn(),
   moveScopeItem: vi.fn(),
   copyScopeItem: vi.fn(),
+  transferScopeItems: vi.fn(),
   currentUser: {
     id: "user-1",
     name: "Супер адміністратор",
@@ -193,6 +194,9 @@ describe("InitiativeCardModal scope actions", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
+    appContext.businessPeriod.year = 2026;
+    appContext.businessPeriod.quarter = "Q3";
+    appContext.businessPeriod.business_date = "2026-09-07";
   });
 
   const targetCard = (changes: Record<string, unknown> = {}) => ({
@@ -224,45 +228,55 @@ describe("InitiativeCardModal scope actions", () => {
   };
 
   const openTransfer = (action: "Перенести завдання" | "Копіювати завдання") => {
-    fireEvent.click(screen.getByRole("button", { name: "Інші дії із завданням" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: action }));
-    fireEvent.click(screen.getByRole("button", { name: action === "Перенести завдання" ? "Перенести" : "Копіювати" }));
+    const copying = action === "Копіювати завдання";
+    fireEvent.click(screen.getByRole("button", {
+      name: copying ? "Режим копіювання завдань" : "Режим перенесення завдань",
+    }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Вибрати завдання/ }));
+    fireEvent.click(screen.getByRole("button", { name: copying ? "Копіювати (1)" : "Перенести (1)" }));
   };
 
-  it("warns about an identical target task and transfers only after explicit confirmation", async () => {
+  it("blocks an identical selected task and offers cancellation when nothing is eligible", async () => {
     mockTarget();
-    appContext.moveScopeItem.mockResolvedValue({ success: true, message: "Завдання перенесено" });
+    appContext.transferScopeItems.mockResolvedValue({ success: true, message: "Завдання перенесено" });
     renderModal(currentCard);
     openTransfer("Перенести завдання");
 
-    expect(await screen.findByRole("dialog", { name: "Схоже завдання вже є" })).toBeInTheDocument();
+    const conflictDialog = await screen.findByRole("dialog", { name: /Частина завдань уже є/ });
     expect(apiClient.loadInitiativeCardModel).toHaveBeenCalledWith("target-card");
-    expect(appContext.moveScopeItem).not.toHaveBeenCalled();
-    fireEvent.click(within(screen.getByRole("dialog", { name: "Схоже завдання вже є" }))
-      .getByRole("button", { name: "Скасувати" }));
-    expect(appContext.moveScopeItem).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Перенести" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Усе одно перенести" }));
-    await waitFor(() => expect(appContext.moveScopeItem).toHaveBeenCalledWith(
-      currentCard.id, "scope-current", 2026, "Q4", true, 4,
-    ));
+    expect(appContext.transferScopeItems).not.toHaveBeenCalled();
+    expect(within(conflictDialog).getByText("Історичне завдання")).toBeInTheDocument();
+    expect(within(conflictDialog).getByText(/Доступно для операції: 0/)).toBeInTheDocument();
+    expect(within(conflictDialog).queryByRole("button", { name: /лише відсутні/ })).not.toBeInTheDocument();
+    fireEvent.click(within(conflictDialog).getByRole("button", { name: "Скасувати операцію" }));
+    expect(appContext.transferScopeItems).not.toHaveBeenCalled();
   });
 
-  it("uses the copy's default weight for the warning", async () => {
+  it("uses the copied source weight when identifying duplicates", async () => {
     mockTarget();
+    renderModal(currentCard);
+    openTransfer("Копіювати завдання");
+    expect(await screen.findByRole("dialog", { name: /Частина завдань уже є/ })).toBeInTheDocument();
+  });
+
+  it("does not warn for a copy when the source weight differs from the target", async () => {
+    mockTarget();
+    appContext.transferScopeItems.mockResolvedValue({ success: true, message: "Завдання скопійовано" });
     renderModal({ ...currentCard, checklist: [{ ...currentCard.checklist[0], weightSnapshot: { name: "Інша", value: 5 } }] });
     openTransfer("Копіювати завдання");
-    expect(await screen.findByRole("dialog", { name: "Схоже завдання вже є" })).toBeInTheDocument();
+
+    await waitFor(() => expect(appContext.transferScopeItems).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog", { name: "Схоже завдання вже є" })).not.toBeInTheDocument();
   });
 
   it("skips the warning when the target has a different weight", async () => {
     mockTarget(targetCard({
       scope: [{ ...targetCard().scope[0], weight_snapshot: { name: "Інша", value: 7 } }],
     }));
-    appContext.moveScopeItem.mockResolvedValue({ success: true, message: "Завдання перенесено" });
+    appContext.transferScopeItems.mockResolvedValue({ success: true, message: "Завдання перенесено" });
     renderModal(currentCard);
     openTransfer("Перенести завдання");
-    await waitFor(() => expect(appContext.moveScopeItem).toHaveBeenCalled());
+    await waitFor(() => expect(appContext.transferScopeItems).toHaveBeenCalled());
     expect(screen.queryByRole("dialog", { name: "Схоже завдання вже є" })).not.toBeInTheDocument();
   });
 
@@ -270,10 +284,10 @@ describe("InitiativeCardModal scope actions", () => {
     mockTarget(targetCard({
       scope: [{ ...targetCard().scope[0], executor_department_ids: [] }],
     }));
-    appContext.moveScopeItem.mockResolvedValue({ success: true, message: "Завдання перенесено" });
+    appContext.transferScopeItems.mockResolvedValue({ success: true, message: "Завдання перенесено" });
     renderModal(currentCard);
     openTransfer("Перенести завдання");
-    await waitFor(() => expect(appContext.moveScopeItem).toHaveBeenCalled());
+    await waitFor(() => expect(appContext.transferScopeItems).toHaveBeenCalled());
     expect(screen.queryByRole("dialog", { name: "Схоже завдання вже є" })).not.toBeInTheDocument();
   });
 
@@ -284,8 +298,8 @@ describe("InitiativeCardModal scope actions", () => {
     renderModal(currentCard);
     openTransfer("Перенести завдання");
     await waitFor(() => expect(apiClient.loadQuarterCards).toHaveBeenCalled());
-    expect(appContext.moveScopeItem).not.toHaveBeenCalled();
-    expect(screen.queryByRole("dialog", { name: "Схоже завдання вже є" })).not.toBeInTheDocument();
+    expect(appContext.transferScopeItems).not.toHaveBeenCalled();
+    expect(await screen.findByRole("dialog", { name: /Частина завдань уже є/ })).toBeInTheDocument();
   });
 
   it("moves grouping into the actions menu and assigns an existing group", () => {
@@ -308,14 +322,11 @@ describe("InitiativeCardModal scope actions", () => {
     renderModal(currentCard);
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Інші дії із завданням" }),
-    );
-    fireEvent.click(
-      screen.getByRole("menuitem", { name: "Перенести завдання" }),
+      screen.getByRole("button", { name: "Режим перенесення завдань" }),
     );
 
     expect(
-      screen.getByText("Перенесення завдання в інший період"),
+      screen.getByText("Перенесення вибраних завдань (0)"),
     ).toBeInTheDocument();
   });
 
@@ -323,15 +334,111 @@ describe("InitiativeCardModal scope actions", () => {
     renderModal(currentCard);
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Інші дії із завданням" }),
-    );
-    fireEvent.click(
-      screen.getByRole("menuitem", { name: "Копіювати завдання" }),
+      screen.getByRole("button", { name: "Режим копіювання завдань" }),
     );
 
     expect(
-      screen.getByText("Копіювання завдання в інший період"),
+      screen.getByText("Копіювання вибраних завдань (0)"),
     ).toBeInTheDocument();
+  });
+
+  it("disables bulk transfer actions when every scope task is completed", () => {
+    renderModal({
+      ...currentCard,
+      checklist: currentCard.checklist.map((scope) => ({
+        ...scope,
+        color: "GREEN",
+        is_completed: true,
+      })),
+    });
+
+    expect(screen.getByRole("button", { name: "Режим перенесення завдань" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Режим копіювання завдань" })).toBeDisabled();
+  });
+
+  it("selects every transferable task in a group and copies them together", async () => {
+    const groupedCard = {
+      ...currentCard,
+      checklist: [
+        { ...currentCard.checklist[0], id: "scope-a", text: "Завдання A", groupId: "group-1" },
+        { ...currentCard.checklist[0], id: "scope-b", text: "Завдання B", lineage_id: "lineage-b", groupId: "group-1" },
+      ],
+    };
+    mockTarget();
+    appContext.transferScopeItems.mockResolvedValue({ success: true, message: "Завдання скопійовано" });
+    renderModal(groupedCard);
+
+    fireEvent.click(screen.getByRole("button", { name: "Режим копіювання завдань" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Вибрати групу Група один" }));
+    fireEvent.click(screen.getByRole("button", { name: "Копіювати (2)" }));
+
+    await waitFor(() => expect(appContext.transferScopeItems).toHaveBeenCalledWith(
+      "COPY", currentCard.id, ["scope-a", "scope-b"], 2026, "Q4", true, 4,
+    ));
+  });
+
+  it("lists duplicates and copies only selected tasks absent from the target quarter", async () => {
+    const groupedCard = {
+      ...currentCard,
+      checklist: [
+        { ...currentCard.checklist[0], id: "scope-a", text: "Завдання A", groupId: "group-1" },
+        { ...currentCard.checklist[0], id: "scope-b", text: "Завдання B", lineage_id: "lineage-b", groupId: "group-1" },
+      ],
+    };
+    mockTarget(targetCard({
+      scope: [{
+        ...targetCard().scope[0],
+        text: "Завдання A у цілі",
+        lineage_id: "lineage-current",
+        weight_snapshot: { name: "Інша", value: 99 },
+      }],
+    }));
+    appContext.transferScopeItems.mockResolvedValue({ success: true, message: "Завдання скопійовано" });
+    renderModal(groupedCard);
+
+    fireEvent.click(screen.getByRole("button", { name: "Режим копіювання завдань" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Вибрати групу Група один" }));
+    fireEvent.click(screen.getByRole("button", { name: "Копіювати (2)" }));
+
+    const dialog = await screen.findByRole("dialog", { name: /Частина завдань уже є/ });
+    expect(within(dialog).getByText("Завдання A")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Дублів: 1.*Доступно для операції: 1/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Скопіювати лише відсутні (1)" }));
+
+    await waitFor(() => expect(appContext.transferScopeItems).toHaveBeenCalledWith(
+      "COPY", currentCard.id, ["scope-b"], 2026, "Q4", true, 4,
+    ));
+  });
+
+  it("allows the card move button to target Q3 during its October grace window", async () => {
+    appContext.businessPeriod.quarter = "Q4";
+    appContext.businessPeriod.business_date = "2026-10-05";
+    appContext.moveCard.mockResolvedValue({ success: true, message: "Картку перенесено" });
+    renderModal({ ...currentCard, quarter: "Q4" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Продовжити / Перенести" }));
+    fireEvent.change(screen.getByLabelText("Цільовий рік"), { target: { value: "2026" } });
+    fireEvent.change(screen.getByLabelText("Квартал"), { target: { value: "Q3" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /^Перенести$/ })[0]);
+
+    await waitFor(() => expect(appContext.moveCard).toHaveBeenCalledWith(
+      "card-current", 2026, "Q3", true,
+    ));
+  });
+
+  it("keeps the continuation button working for a later open quarter", async () => {
+    appContext.businessPeriod.quarter = "Q4";
+    appContext.businessPeriod.business_date = "2026-10-05";
+    appContext.continueCard.mockResolvedValue({ success: true, message: "Картку продовжено" });
+    renderModal(currentCard);
+
+    fireEvent.click(screen.getByRole("button", { name: "Продовжити / Перенести" }));
+    fireEvent.change(screen.getByLabelText("Квартал"), { target: { value: "Q4" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /^Продовжити$/ })[0]);
+
+    await waitFor(() => expect(appContext.continueCard).toHaveBeenCalledWith(
+      "card-current", 2026, "Q4", true,
+    ));
   });
 
   it("creates and assigns a group from the actions submenu", () => {

@@ -3,6 +3,60 @@ import { InitiativeQueryService } from "./initiative-query.service";
 import { backlogCardSummaryInclude } from "../infrastructure/initiative.mapper";
 
 describe("InitiativeQueryService backlog summaries", () => {
+  it("returns case-insensitive ranked relation candidates with existing relation metadata", async () => {
+    const queryRaw = vi.fn(async () => [{ id: "initiative-exact" }, { id: "initiative-partial" }]);
+    const findMany = vi.fn(async () => [
+      {
+        id: "initiative-partial",
+        kind: "PROJECT",
+        name: "План модернізації",
+        years: [{ year: 2027 }],
+        relationsAsLeft: [],
+        relationsAsRight: [],
+      },
+      {
+        id: "initiative-exact",
+        kind: "OPERATIONAL_TASK",
+        name: "План",
+        years: [{ year: 2028 }, { year: 2026 }],
+        relationsAsLeft: [
+          { id: "relation-1", revision: 2, rightInitiativeId: "current" },
+        ],
+        relationsAsRight: [],
+      },
+    ]);
+    const service = new InitiativeQueryService({
+      $queryRaw: queryRaw,
+      initiative: { findMany },
+    } as never);
+
+    const result = await service.relationCandidates({
+      query: "пЛаН",
+      exclude_initiative_id: "current",
+      limit: 20,
+    });
+
+    expect(queryRaw).toHaveBeenCalledOnce();
+    expect(result.data).toEqual([
+      {
+        initiative_id: "initiative-exact",
+        kind: "OPERATIONAL_TASK",
+        name: "План",
+        available_years: [2028, 2026],
+        relation_id: "relation-1",
+        relation_revision: 2,
+      },
+      {
+        initiative_id: "initiative-partial",
+        kind: "PROJECT",
+        name: "План модернізації",
+        available_years: [2027],
+        relation_id: null,
+        relation_revision: null,
+      },
+    ]);
+  });
+
   it("returns only distinct backlog years in ascending order", async () => {
     const findMany = vi.fn(async () => [
       { year: 2022 },

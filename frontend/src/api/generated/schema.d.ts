@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/initiatives/relation-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InitiativesController_relationCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/initiatives": {
         parameters: {
             query?: never;
@@ -931,6 +947,21 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        InitiativeRelationCandidateDto: {
+            initiative_id: string;
+            /** @enum {string} */
+            kind: "PROJECT" | "OPERATIONAL_TASK";
+            name: string;
+            available_years: number[];
+            relation_id: string | null;
+            relation_revision: number | null;
+        };
+        InitiativeRelationCandidatesResponseDto: {
+            /** @enum {boolean} */
+            success: true;
+            message: string;
+            data: components["schemas"]["InitiativeRelationCandidateDto"][];
+        };
         PreparationInputDto: {
             manager_id?: string;
             priority_id?: string;
@@ -969,6 +1000,7 @@ export interface components {
             scope: components["schemas"]["CreateScopeItemDto"][];
         };
         CreateInitiativeDto: {
+            related_initiative_ids?: string[];
             /** @enum {string} */
             kind: "PROJECT" | "OPERATIONAL_TASK";
             name: string;
@@ -1004,6 +1036,17 @@ export interface components {
             is_locked: boolean;
             locked_at: string;
         };
+        InitiativeRelationReadModelDto: {
+            id: string;
+            /** @enum {string} */
+            relation_type: "RELATED_INITIATIVE";
+            revision: number;
+            related_initiative_id: string;
+            /** @enum {string} */
+            related_kind: "PROJECT" | "OPERATIONAL_TASK";
+            related_name: string;
+            available_years: number[];
+        };
         InitiativeYearReadModelDto: {
             id: string;
             initiative_id: string;
@@ -1016,6 +1059,7 @@ export interface components {
             revision: number;
             preparation: components["schemas"]["PreparationStageReadModelDto"] | null;
             cards: components["schemas"]["QuarterCardSummaryDto"][];
+            relations: components["schemas"]["InitiativeRelationReadModelDto"][];
             is_locked: boolean;
             locked_at: string;
         };
@@ -1055,11 +1099,22 @@ export interface components {
             strategic_goal?: string;
             revision: number;
         };
+        InitiativeRelationRemovalDto: {
+            relation_id: string;
+            revision: number;
+        };
+        InitiativeRelationChangesDto: {
+            /** @default [] */
+            add_initiative_ids: string[];
+            /** @default [] */
+            remove_relations: components["schemas"]["InitiativeRelationRemovalDto"][];
+        };
         UpdateBacklogDto: {
             name: string;
             strategic_goal?: string;
             initiative_revision: number;
             year_revision: number;
+            relation_changes?: components["schemas"]["InitiativeRelationChangesDto"];
         };
         UpdatePreparationDto: {
             manager_id?: string;
@@ -1629,6 +1684,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    InitiativesController_relationCandidates: {
+        parameters: {
+            query: {
+                query: string;
+                exclude_initiative_id?: string;
+                kind?: "PROJECT" | "OPERATIONAL_TASK";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InitiativeRelationCandidatesResponseDto"];
+                };
             };
         };
     };

@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppContext } from "../../app/store";
-import { InitiativeViewModel, Quarter } from "../../shared/types";
+import {
+  InitiativeRelation,
+  InitiativeViewModel,
+  Quarter,
+} from "../../shared/types";
 import { canViewInitiative, getPermissions } from "../../domain/permissions";
 import {
   getChainId,
@@ -19,6 +23,8 @@ import { ArchiveBanner } from "./components/BacklogFeedback";
 import { BacklogFilters } from "./components/BacklogFilters";
 import { BacklogTable } from "./components/BacklogTable";
 import { BacklogDeleteDialog } from "./components/BacklogDeleteDialog";
+import { InitiativeRelationsModal } from "./components/InitiativeRelationsModal";
+import { hrefForTab } from "../../app/appNavigation";
 import {
   BacklogInitiative as Initiative,
   BacklogTabKind as Tab,
@@ -49,7 +55,26 @@ import {
 
 const quarters: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 
+const backlogLocationFromUrl = () => {
+  const params = new URLSearchParams(window.location.search);
+  const kind = params.get("kind");
+  const year = Number(params.get("year"));
+  const initiativeId = params.get("initiative_id");
+  if (
+    !["PROJECT", "OPERATIONAL_TASK"].includes(kind ?? "") ||
+    !Number.isInteger(year) ||
+    !initiativeId
+  )
+    return null;
+  return {
+    tab: kind === "PROJECT" ? ("PROJECTS" as const) : ("TASKS" as const),
+    year,
+    initiativeId,
+  };
+};
+
 export const BacklogTab = () => {
+  const initialLocation = useMemo(backlogLocationFromUrl, []);
   const {
     projects,
     tasks,
@@ -71,11 +96,15 @@ export const BacklogTab = () => {
     initiativeListState,
     systemSettings,
   } = useAppContext();
-  const [activeTab, setActiveTab] = useState<Tab>("PROJECTS");
-  const [selectedYear, setSelectedYear] = useState(businessPeriod.year);
+  const [activeTab, setActiveTab] = useState<Tab>(
+    initialLocation?.tab ?? "PROJECTS",
+  );
+  const [selectedYear, setSelectedYear] = useState(
+    initialLocation?.year ?? businessPeriod.year,
+  );
   useEffect(() => {
-    setSelectedYear(businessPeriod.year);
-  }, [businessPeriod.year]);
+    if (!initialLocation) setSelectedYear(businessPeriod.year);
+  }, [businessPeriod.year, initialLocation]);
   const [quarterFilter, setQuarterFilter] = useState<QuarterFilter>("ALL");
   const availableYearsQuery = useInitiativeAvailableYearsQuery();
   const backlogYears = useMemo(
@@ -87,6 +116,10 @@ export const BacklogTab = () => {
     [availableYearsQuery.data, businessPeriod.year],
   );
   const listFilters = useInitiativeListFilters();
+  const [pendingInitiativeId, setPendingInitiativeId] = useState<string | null>(
+    initialLocation?.initiativeId ?? null,
+  );
+  const [relationsItem, setRelationsItem] = useState<Initiative | null>(null);
   const filterVisibility = systemSettings.filterOptionVisibility.backlog;
   const managerFilterOptions = useMemo(
     () => filterDictionaryOptions(managers, filterVisibility),
@@ -196,6 +229,35 @@ export const BacklogTab = () => {
     () => materializeVisibleMasters(records),
     [records, selectedYear, currentUser],
   );
+  useEffect(() => {
+    if (!pendingInitiativeId) return;
+    const master = allMasters.find(
+      (item) => item.initiative_id === pendingInitiativeId,
+    );
+    if (!master) return;
+    setExpandedId(master.id);
+    setPendingInitiativeId(null);
+    window.setTimeout(() => {
+      document
+        .querySelector(`[data-initiative-id="${pendingInitiativeId}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
+  }, [allMasters, pendingInitiativeId]);
+
+  useEffect(() => {
+    const handleBacklogNavigation = () => {
+      const location = backlogLocationFromUrl();
+      if (!location) return;
+      listFilters.reset();
+      setQuarterFilter("ALL");
+      setActiveTab(location.tab);
+      setSelectedYear(location.year);
+      setExpandedId(null);
+      setPendingInitiativeId(location.initiativeId);
+    };
+    window.addEventListener("popstate", handleBacklogNavigation);
+    return () => window.removeEventListener("popstate", handleBacklogNavigation);
+  }, [listFilters.reset]);
   const projectCount =
     countsQuery.data?.projects ?? {
       filtered: activeTab === "PROJECTS" ? allMasters.length : 0,
@@ -270,11 +332,34 @@ export const BacklogTab = () => {
     setActiveTab(tab);
     setExpandedId(null);
     cancelExtensionSelection();
+    window.history.replaceState(
+      { pmohubTab: "backlog" },
+      "",
+      hrefForTab("backlog", import.meta.env.BASE_URL),
+    );
   };
   const changeYear = (year: number) => {
     setSelectedYear(year);
     setExpandedId(null);
     cancelExtensionSelection();
+    window.history.replaceState(
+      { pmohubTab: "backlog" },
+      "",
+      hrefForTab("backlog", import.meta.env.BASE_URL),
+    );
+  };
+  const relationHref = (relation: InitiativeRelation) => {
+    const year = relation.available_years.includes(selectedYear)
+      ? selectedYear
+      : relation.available_years.length
+        ? Math.max(...relation.available_years)
+        : selectedYear;
+    const params = new URLSearchParams({
+      kind: relation.related_kind,
+      year: String(year),
+      initiative_id: relation.related_initiative_id,
+    });
+    return `${hrefForTab("backlog", import.meta.env.BASE_URL)}?${params}`;
   };
   const toggleSelected = (id: string) =>
     setSelectedIds((current) =>
@@ -469,6 +554,7 @@ export const BacklogTab = () => {
             void openCard(card);
           }}
           onOpenPreparation={setPreparationItem}
+          onOpenRelations={setRelationsItem}
           />
         )}
       </section>
@@ -527,6 +613,14 @@ export const BacklogTab = () => {
           }}
         />
       )}
+      {relationsItem?.relations?.length ? (
+        <InitiativeRelationsModal
+          initiativeName={relationsItem.name}
+          relations={relationsItem.relations}
+          onClose={() => setRelationsItem(null)}
+          getHref={relationHref}
+        />
+      ) : null}
       {masterToDelete && (
         <BacklogDeleteDialog
           item={masterToDelete}

@@ -81,6 +81,9 @@ export const serverCommands = {
       strategic_goal: body.strategic_goal,
       preparation: body.preparation,
       initial_card: body.initial_card,
+      ...(body.related_initiative_ids?.length
+        ? { related_initiative_ids: body.related_initiative_ids }
+        : {}),
     }),
   resumeYear: (body: Schemas["ResumeYearDto"]) =>
     command<CommandResult>("/initiative-years/resume", "POST", body),

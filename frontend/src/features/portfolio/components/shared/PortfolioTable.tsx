@@ -291,7 +291,9 @@ export const PortfolioTable = ({
                           <React.Fragment key={block.key}>
                             <li className={`${styles.scopeGroup} ${block.color ? styles[`scopeGroup${block.color}`] ?? "" : ""}`}>
                               <span className={styles.scopeNumber}>{block.number}</span>
-                              <span className={styles.scopeGroupTitle}>{block.group.title}</span>
+                              <span className={styles.scopeGroupTitle} title={block.group.title}>
+                                {block.group.title}
+                              </span>
                             </li>
                             {block.items.map(({ item, number }) => (
                               <TableScopeLine key={item.id} item={item} number={number} nested />

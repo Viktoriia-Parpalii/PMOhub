@@ -172,6 +172,15 @@ export interface AppContextType extends ReferenceDataState {
     isProject: boolean,
     expectedTargetRevision?: number | null,
   ) => Promise<MutationResult>;
+  transferScopeItems: (
+    mode: "MOVE" | "COPY",
+    cardId: string,
+    itemIds: string[],
+    toYear: number,
+    toQuarter: Quarter,
+    isProject: boolean,
+    expectedTargetRevision?: number | null,
+  ) => Promise<MutationResult>;
   createBacklogSnapshot: (
     kind: InitiativeKind,
     masterId: string,
@@ -511,6 +520,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         uuidOrUndefined(id),
       ),
     },
+    related_initiative_ids: raw.related_initiative_ids,
   });
   const activeWeightId = (
     item: Initiative["checklist"][number],
@@ -762,6 +772,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             year_revision: record.revision!,
             name: patch.name ?? record.name,
             strategic_goal: patch.strategic_goal ?? record.strategic_goal,
+            relation_changes: patch.relation_changes,
           }),
         () => refreshKind(kind),
       );
@@ -1025,6 +1036,54 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     isProject: boolean,
     expectedTargetRevision?: number | null,
   ) => scopeTransfer("COPY", cardId, itemId, toYear, toQuarter, isProject, expectedTargetRevision);
+  const transferScopeItems = async (
+    mode: "MOVE" | "COPY",
+    cardId: string,
+    itemIds: string[],
+    toYear: number,
+    toQuarter: Quarter,
+    isProject: boolean,
+    expectedTargetRevision?: number | null,
+  ) => {
+    const uniqueItemIds = [...new Set(itemIds)];
+    if (!uniqueItemIds.length) return fail("Оберіть хоча б одне завдання.");
+    const kind = isProject ? "project" : "task";
+    const card = recordsFor(kind).find((item) => item.id === cardId);
+    if (!card?.revision) return fail(SYSTEM_MESSAGES.initiatives.cardRevisionMissing);
+    let targetRevision: number | null = null;
+    try {
+      const targetCards = await loadQuarterCards(kind, undefined, toYear, toQuarter);
+      targetRevision = targetCards.find(
+        (candidate) => candidate.initiative_id === getChainId(card),
+      )?.revision ?? null;
+    } catch (error) {
+      return fail(error instanceof ApiError ? error.message : SYSTEM_MESSAGES.api.targetQuarterCheckFailed);
+    }
+    if (expectedTargetRevision !== undefined && targetRevision !== expectedTargetRevision)
+      return fail("Цільову картку змінено. Перевірте її та повторіть дію.");
+
+    let sourceRevision = card.revision;
+    return executeRemote(
+      async () => {
+        for (const itemId of uniqueItemIds) {
+          const response = mode === "MOVE"
+            ? await serverCommands.moveScope(cardId, itemId, sourceRevision, toYear, toQuarter, targetRevision ?? undefined)
+            : await serverCommands.copyScope(cardId, itemId, sourceRevision, toYear, toQuarter, targetRevision ?? undefined);
+          if (response.success === false) return response;
+          const data = response.data as { source_card_revision?: number; target_card_revision?: number } | undefined;
+          sourceRevision = data?.source_card_revision ?? sourceRevision;
+          targetRevision = data?.target_card_revision ?? targetRevision;
+        }
+        return {
+          success: true,
+          message: mode === "MOVE"
+            ? `Перенесено завдань: ${uniqueItemIds.length}`
+            : `Скопійовано завдань: ${uniqueItemIds.length}`,
+        };
+      },
+      () => refreshKind(kind),
+    );
+  };
   const createBacklogSnapshots = (
     kind: InitiativeKind,
     masterIds: string[],
@@ -1239,6 +1298,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     continueCard,
     moveScopeItem,
     copyScopeItem,
+    transferScopeItems,
     createBacklogSnapshot,
     createBacklogSnapshots,
     resumeBacklogYear,

@@ -1,7 +1,33 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InitiativesService } from './initiatives.service';
 
 const actor = { id: '00000000-0000-4000-8000-000000000099', name: 'Admin', email: 'admin@example.com', role: 'SUPER_ADMIN' as const, must_change_password: false };
+
+describe('InitiativesService target period grace window', () => {
+  afterEach(() => vi.useRealTimers());
+
+  const assertOpen = (year: number, quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4') => {
+    const service = new InitiativesService({} as never);
+    (service as unknown as { assertOpen: (targetYear: number, targetQuarter: typeof quarter) => void })
+      .assertOpen(year, quarter);
+  };
+
+  it('keeps Q3 2026 open for target-period commands through 14 October', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-14T20:59:59.000Z'));
+
+    expect(() => assertOpen(2026, 'Q3')).not.toThrow();
+  });
+
+  it('rejects Q3 2026 as a target from 15 October in Europe/Kyiv', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-14T21:00:00.000Z'));
+
+    expect(() => assertOpen(2026, 'Q3')).toThrowError(
+      expect.objectContaining({ code: 'ARCHIVED_PERIOD', status: 409 }),
+    );
+  });
+});
 
 describe('InitiativesService transactional rules', () => {
   it('updates status with a small command and returns exactly the updated card', async () => {
@@ -256,6 +282,71 @@ describe('InitiativesService transactional rules', () => {
     expect(tx.initiative.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'initiative-1', revision: 2 } }));
     expect(tx.initiativeYear.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'year-1', revision: 4 } }));
     expect(result.data).toMatchObject({ initiative_revision: 3, year_revision: 5 });
+  });
+
+  it('applies relation additions and revision-safe removals without replacing other links', async () => {
+    const tx: any = {
+      initiativeYear: {
+        findUnique: vi.fn(async () => ({ id: 'year-1', initiativeId: 'initiative-b', year: 2027 })),
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+      initiative: {
+        updateMany: vi.fn(async () => ({ count: 1 })),
+        findMany: vi.fn(async () => [{ id: 'initiative-a' }, { id: 'initiative-c' }]),
+      },
+      initiativeRelation: {
+        deleteMany: vi.fn(async () => ({ count: 1 })),
+        create: vi
+          .fn()
+          .mockResolvedValueOnce({ id: 'relation-new-1' })
+          .mockResolvedValueOnce({ id: 'relation-new-2' }),
+      },
+      auditEvent: { create: vi.fn(async () => ({})) },
+    };
+    const prisma: any = {
+      rolePermission: { findUnique: vi.fn(async () => ({ isReadOnly: false, canCreateEditInitiatives: true })) },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+
+    await new InitiativesService(prisma).updateBacklog('year-1', {
+      name: 'Updated name',
+      strategic_goal: '',
+      initiative_revision: 2,
+      year_revision: 4,
+      relation_changes: {
+        add_initiative_ids: ['initiative-a', 'initiative-c'],
+        remove_relations: [{ relation_id: 'relation-old', revision: 3 }],
+      },
+    }, actor);
+
+    expect(tx.initiativeRelation.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: 'relation-old',
+        revision: 3,
+        OR: [
+          { leftInitiativeId: 'initiative-b' },
+          { rightInitiativeId: 'initiative-b' },
+        ],
+      },
+    });
+    expect(tx.initiativeRelation.create).toHaveBeenCalledTimes(2);
+    expect(tx.initiativeRelation.create).toHaveBeenCalledWith({
+      data: {
+        relationType: 'RELATED_INITIATIVE',
+        leftInitiativeId: 'initiative-a',
+        rightInitiativeId: 'initiative-b',
+      },
+    });
+  });
+
+  it('rejects a self relation', async () => {
+    const service = new InitiativesService({} as any);
+    await expect((service as any).addInitiativeRelations(
+      {},
+      'initiative-1',
+      ['initiative-1'],
+      actor,
+    )).rejects.toMatchObject({ code: 'INITIATIVE_RELATION_CONFLICT', status: 409 });
   });
 
   it('creates only newly added executor links when a scope item is saved', async () => {
@@ -629,7 +720,7 @@ describe('InitiativesService transactional rules', () => {
     }));
   });
 
-  it('copies a non-green scope item with the same lineage and resets status and weight', async () => {
+  it('copies a non-green scope item with the same lineage, status and weight', async () => {
     const scopeCreate = vi.fn(async () => ({ id: 'copy' }));
     const source = {
       id: 'source-card',
@@ -645,6 +736,9 @@ describe('InitiativesService transactional rules', () => {
         lineageId: '00000000-0000-4000-8000-000000000010',
         text: 'Scope',
         statusCode: 'YELLOW',
+        weightDefinitionId: 'source-weight',
+        weightSnapshotName: 'Висока',
+        weightSnapshotValue: 8,
         revision: 2,
         executors: [{ departmentId: 'dept-b' }],
       }],
@@ -664,7 +758,6 @@ describe('InitiativesService transactional rules', () => {
         findMany: vi.fn(async () => []),
         updateMany: vi.fn(async () => ({ count: 1 })),
       },
-      taskWeight: { findFirst: vi.fn(async () => ({ id: 'default-weight', name: 'Не визначено', weight: 0 })) },
       quarterCardDepartment: {
         deleteMany: vi.fn(async () => ({})),
         findMany: vi.fn(async () => [{ departmentId: 'dept-a' }]),
@@ -690,9 +783,10 @@ describe('InitiativesService transactional rules', () => {
       data: expect.objectContaining({
         lineageId: source.scopeItems[0].lineageId,
         copiedFromItemId: 'scope-source',
-        statusCode: 'DEFAULT',
-        weightDefinitionId: 'default-weight',
-        weightSnapshotValue: 0,
+        statusCode: 'YELLOW',
+        weightDefinitionId: 'source-weight',
+        weightSnapshotName: 'Висока',
+        weightSnapshotValue: 8,
       }),
     });
     expect(result.data.scope_item_id).toBe('copy');

@@ -114,8 +114,24 @@ export const backlogCardSummaryInclude = {
   },
 } satisfies Prisma.QuarterCardInclude;
 
+const relatedInitiativeSelect = {
+  id: true,
+  kind: true,
+  name: true,
+  years: { select: { year: true }, orderBy: { year: "desc" as const } },
+};
+
 export const yearInclude = {
-  initiative: true,
+  initiative: {
+    include: {
+      relationsAsLeft: {
+        include: { rightInitiative: { select: relatedInitiativeSelect } },
+      },
+      relationsAsRight: {
+        include: { leftInitiative: { select: relatedInitiativeSelect } },
+      },
+    },
+  },
   preparationStage: { include: preparationInclude },
   quarterCards: {
     select: {
@@ -444,6 +460,33 @@ export const mapBacklogCardSummary = (
   };
 };
 
+const mapInitiativeRelations = (initiative: any) => [
+  ...initiative.relationsAsLeft.map((relation: any) => ({
+    id: relation.id,
+    relation_type: relation.relationType,
+    revision: relation.revision,
+    related_initiative_id: relation.rightInitiative.id,
+    related_kind: relation.rightInitiative.kind,
+    related_name: relation.rightInitiative.name,
+    available_years: relation.rightInitiative.years.map(
+      (item: any) => item.year,
+    ),
+  })),
+  ...initiative.relationsAsRight.map((relation: any) => ({
+    id: relation.id,
+    relation_type: relation.relationType,
+    revision: relation.revision,
+    related_initiative_id: relation.leftInitiative.id,
+    related_kind: relation.leftInitiative.kind,
+    related_name: relation.leftInitiative.name,
+    available_years: relation.leftInitiative.years.map(
+      (item: any) => item.year,
+    ),
+  })),
+].sort((left, right) =>
+  left.related_name.localeCompare(right.related_name, "uk"),
+);
+
 export const mapYear = (year: any) => ({
   id: year.id,
   initiative_id: year.initiativeId,
@@ -466,6 +509,7 @@ export const mapYear = (year: any) => ({
     is_locked: isPeriodLocked(year.year, `Q${card.quarter}` as Quarter),
     locked_at: periodLockAt(year.year, `Q${card.quarter}` as Quarter).toISO(),
   })),
+  relations: mapInitiativeRelations(year.initiative),
   is_locked: isPeriodLocked(year.year, "Q4"),
   locked_at: periodLockAt(year.year, "Q4").toISO(),
 });

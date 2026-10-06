@@ -6,6 +6,7 @@ import { Prisma } from "../../../generated/prisma/client";
 import {
   BacklogCardSummariesQueryDto,
   DepartmentRelationDto,
+  InitiativeRelationCandidatesQueryDto,
   InitiativeYearCountsQueryDto,
   InitiativeYearsQueryDto,
   QuarterCardsQueryDto,
@@ -30,6 +31,93 @@ const ok = <T>(message: string, data: T) => ({
 @Injectable()
 export class InitiativeQueryService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async relationCandidates(query: InitiativeRelationCandidatesQueryDto) {
+    const search = query.query.trim();
+    if (search.length < 2) {
+      throw new AppError(
+        "RELATION_SEARCH_TOO_SHORT",
+        "Введіть щонайменше два символи для пошуку.",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const escaped = search.replace(/[~%_\[]/g, (value) => `~${value}`);
+    const contains = `%${escaped}%`;
+    const startsWith = `${escaped}%`;
+    const conditions: Prisma.Sql[] = [
+      Prisma.sql`LOWER([name]) LIKE LOWER(${contains}) ESCAPE N'~'`,
+    ];
+    if (query.kind) conditions.push(Prisma.sql`[kind] = ${query.kind}`);
+    if (query.exclude_initiative_id) {
+      conditions.push(Prisma.sql`[id] <> ${query.exclude_initiative_id}`);
+    }
+    const ranked = await this.prisma.$queryRaw<Array<{ id: string }>>(
+      Prisma.sql`
+        SELECT TOP (${query.limit ?? 20}) [id]
+        FROM [initiatives]
+        WHERE ${Prisma.join(conditions, " AND ")}
+        ORDER BY
+          CASE
+            WHEN LOWER([name]) = LOWER(${search}) THEN 0
+            WHEN LOWER([name]) LIKE LOWER(${startsWith}) ESCAPE N'~' THEN 1
+            ELSE 2
+          END,
+          [name] ASC,
+          [id] ASC
+      `,
+    );
+    if (!ranked.length) return ok("Кандидатів не знайдено", []);
+    const candidates = await this.prisma.initiative.findMany({
+      where: { id: { in: ranked.map((item) => item.id) } },
+      include: {
+        years: { select: { year: true }, orderBy: { year: "desc" } },
+        relationsAsLeft: {
+          where: { relationType: "RELATED_INITIATIVE" },
+          select: {
+            id: true,
+            revision: true,
+            rightInitiativeId: true,
+          },
+        },
+        relationsAsRight: {
+          where: { relationType: "RELATED_INITIATIVE" },
+          select: {
+            id: true,
+            revision: true,
+            leftInitiativeId: true,
+          },
+        },
+      },
+    });
+    const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]));
+    return ok(
+      "Кандидатів завантажено",
+      ranked.flatMap(({ id }) => {
+        const candidate = byId.get(id);
+        if (!candidate) return [];
+        const relation = query.exclude_initiative_id
+          ? [
+              ...candidate.relationsAsLeft.filter(
+                (item) => item.rightInitiativeId === query.exclude_initiative_id,
+              ),
+              ...candidate.relationsAsRight.filter(
+                (item) => item.leftInitiativeId === query.exclude_initiative_id,
+              ),
+            ][0]
+          : undefined;
+        return [
+          {
+            initiative_id: candidate.id,
+            kind: candidate.kind,
+            name: candidate.name,
+            available_years: candidate.years.map((item) => item.year),
+            relation_id: relation?.id ?? null,
+            relation_revision: relation?.revision ?? null,
+          },
+        ];
+      }),
+    );
+  }
 
   async listYears(query: InitiativeYearsQueryDto) {
     this.validateYear(query.year);

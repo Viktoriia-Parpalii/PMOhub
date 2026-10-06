@@ -453,6 +453,7 @@ export const InitiativeCardModal = ({
     continueCard,
     moveScopeItem,
     copyScopeItem,
+    transferScopeItems,
     currentUser,
     rolePermissions,
     businessPeriod,
@@ -549,6 +550,14 @@ export const InitiativeCardModal = ({
   const [scopeTransferMode, setScopeTransferMode] = useState<"MOVE" | "COPY">(
     "MOVE",
   );
+  const [bulkTransferMode, setBulkTransferMode] = useState<"MOVE" | "COPY" | null>(null);
+  const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
+  const [scopeTransferConflicts, setScopeTransferConflicts] = useState<Array<{
+    id: string;
+    text: string;
+    reason: "ALREADY_TRANSFERRED" | "SIMILAR";
+  }> | null>(null);
+  const [eligibleScopeIds, setEligibleScopeIds] = useState<string[]>([]);
   const executors = useMemo(
     () =>
       Array.from(
@@ -673,9 +682,22 @@ export const InitiativeCardModal = ({
     setMovingId(null);
     setDuplicateTransferRevision(undefined);
   };
-  const performMove = async (expectedTargetRevision?: number | null) =>
+  const performMove = async (
+    expectedTargetRevision?: number | null,
+    selectedIds = selectedScopeIds,
+  ) =>
     !item
       ? undefined
+      : bulkTransferMode
+        ? transferScopeItems(
+            bulkTransferMode,
+            item.id,
+            selectedIds,
+            moveYear,
+            moveQuarter,
+            kind === "project",
+            expectedTargetRevision,
+          )
       : movingId
         ? scopeTransferMode === "COPY"
           ? copyScopeItem(
@@ -706,10 +728,13 @@ export const InitiativeCardModal = ({
       NOTIFICATION_KINDS.error,
       SYSTEM_MESSAGES.initiatives.archivedTransferDenied,
     );
-  const executeMove = async (expectedTargetRevision?: number | null) => {
+  const executeMove = async (
+    expectedTargetRevision?: number | null,
+    selectedIds = selectedScopeIds,
+  ) => {
     setIsPending(true);
     try {
-      const result = await performMove(expectedTargetRevision);
+      const result = await performMove(expectedTargetRevision, selectedIds);
       if (!result) return;
       if (!result.success) {
         notify(NOTIFICATION_KINDS.error, result.message);
@@ -720,8 +745,9 @@ export const InitiativeCardModal = ({
       setIsPending(false);
     }
   };
-  const prepareMove = async () => {
-    if (!movingId || !item) {
+  const prepareMove = async (selectedIds = selectedScopeIds) => {
+    if (!item) return;
+    if (!movingId && !bulkTransferMode) {
       await executeMove();
       return;
     }
@@ -732,26 +758,50 @@ export const InitiativeCardModal = ({
       const target = targetSummary
         ? (await loadInitiativeCardModel(targetSummary.id)).data
         : undefined;
-      const source = item.checklist.find((candidate) => candidate.id === movingId);
-      if (!source) {
+      const sources = bulkTransferMode
+        ? item.checklist.filter((candidate) => selectedIds.includes(candidate.id))
+        : item.checklist.filter((candidate) => candidate.id === movingId);
+      if (!sources.length) {
         notify(NOTIFICATION_KINDS.error, "Завдання не знайдено. Оновіть картку та повторіть дію.");
         return;
       }
-      if (target?.scope.some((candidate) =>
-        source.lineage_id && candidate.lineage_id === source.lineage_id,
+      if (target && bulkTransferMode) {
+        const conflicts = sources.flatMap((source) => {
+          const sameLineage = target.scope.some((candidate) =>
+            Boolean(source.lineage_id && candidate.lineage_id === source.lineage_id),
+          );
+          const similar = source.weightSnapshot?.value !== undefined && Boolean(
+            findSimilarScopeItem(source, target.scope, Number(source.weightSnapshot.value)),
+          );
+          return sameLineage || similar
+            ? [{
+                id: source.id,
+                text: source.text,
+                reason: sameLineage ? "ALREADY_TRANSFERRED" as const : "SIMILAR" as const,
+              }]
+            : [];
+        });
+        if (conflicts.length) {
+          const conflictIds = new Set(conflicts.map((conflict) => conflict.id));
+          setScopeTransferConflicts(conflicts);
+          setEligibleScopeIds(sources.filter((source) => !conflictIds.has(source.id)).map((source) => source.id));
+          return;
+        }
+      } else if (target?.scope.some((candidate) =>
+        sources.some((source) => source.lineage_id && candidate.lineage_id === source.lineage_id),
       )) {
         notify(NOTIFICATION_KINDS.error, "Це завдання вже існує у цільовій картці.");
         return;
       }
-      const effectiveWeight = scopeTransferMode === "COPY"
-        ? taskWeights.find((weight) => weight.is_default && weight.is_system && weight.is_active)?.weight
-        : source.weightSnapshot?.value;
-      if (target && effectiveWeight !== undefined &&
-        findSimilarScopeItem(source, target.scope, Number(effectiveWeight))) {
+      const hasSimilar = target && sources.some((source) =>
+        source.weightSnapshot?.value !== undefined &&
+        findSimilarScopeItem(source, target.scope, Number(source.weightSnapshot.value)),
+      );
+      if (hasSimilar) {
         setDuplicateTransferRevision(target.revision);
         return;
       }
-      await executeMove(target?.revision ?? null);
+      await executeMove(target?.revision ?? null, selectedIds);
     } catch (error) {
       notify(
         NOTIFICATION_KINDS.error,
@@ -770,7 +820,11 @@ export const InitiativeCardModal = ({
       );
       return;
     }
-    if (!movingId && hasCompletedScope) {
+    if (bulkTransferMode && !selectedScopeIds.length) {
+      notify(NOTIFICATION_KINDS.error, "Оберіть хоча б одне завдання.");
+      return;
+    }
+    if (!bulkTransferMode && !movingId && hasCompletedScope) {
       notify(
         NOTIFICATION_KINDS.error,
         SYSTEM_MESSAGES.initiatives.cardMoveHasCompletedScope,
@@ -786,6 +840,29 @@ export const InitiativeCardModal = ({
       return;
     }
     await prepareMove();
+  };
+  const openBulkTransfer = (mode: "MOVE" | "COPY") => {
+    setActiveTab("SCOPE");
+    setBulkTransferMode(mode);
+    setScopeTransferMode(mode);
+    setSelectedScopeIds([]);
+    setMovingId(null);
+    setShowMove(false);
+  };
+  const closeBulkTransfer = () => {
+    setBulkTransferMode(null);
+    setSelectedScopeIds([]);
+    setDuplicateTransferRevision(undefined);
+    setScopeTransferConflicts(null);
+    setEligibleScopeIds([]);
+  };
+  const selectableScopeIds = checklist.filter((scope) => !isCompletedItem(scope)).map((scope) => scope.id);
+  const toggleScopeSelection = (ids: string[]) => {
+    const selectable = ids.filter((id) => selectableScopeIds.includes(id));
+    const allSelected = selectable.length > 0 && selectable.every((id) => selectedScopeIds.includes(id));
+    setSelectedScopeIds((current) => allSelected
+      ? current.filter((id) => !selectable.includes(id))
+      : [...new Set([...current, ...selectable])]);
   };
   const requestContinuation = async () => {
     if (!item || isPending) return;
@@ -1027,8 +1104,12 @@ export const InitiativeCardModal = ({
           )}
           {scopeMove
             ? scopeTransferMode === "COPY"
-              ? "Копіювання завдання в інший період"
-              : "Перенесення завдання в інший період"
+              ? bulkTransferMode
+                ? `Копіювання вибраних завдань (${selectedScopeIds.length})`
+                : "Копіювання завдання в інший період"
+              : bulkTransferMode
+                ? `Перенесення вибраних завдань (${selectedScopeIds.length})`
+                : "Перенесення завдання в інший період"
             : "Продовжити / перенести картку"}
         </h3>
         <div className={styles.moveControls}>
@@ -1078,7 +1159,7 @@ export const InitiativeCardModal = ({
           <button
             type="button"
             onClick={requestMove}
-            disabled={isPending}
+            disabled={isPending || Boolean(bulkTransferMode && selectedScopeIds.length === 0)}
             aria-disabled={!scopeMove && hasCompletedScope}
             title={
               !scopeMove && hasCompletedScope
@@ -1088,15 +1169,15 @@ export const InitiativeCardModal = ({
             className={`modal-secondary h-10 px-3 text-sm text-indigo-900 ${!scopeMove && hasCompletedScope ? styles.blockedAction : ""}`}
           >
             {scopeMove && scopeTransferMode === "COPY"
-              ? "Копіювати"
-              : "Перенести"}
+              ? `Копіювати${bulkTransferMode ? ` (${selectedScopeIds.length})` : ""}`
+              : `Перенести${bulkTransferMode ? ` (${selectedScopeIds.length})` : ""}`}
           </button>
           <button
             type="button"
-            onClick={closeMove}
+            onClick={bulkTransferMode ? closeBulkTransfer : closeMove}
             className="h-10 px-2 text-sm font-extrabold text-indigo-600"
           >
-            Скасувати
+            {bulkTransferMode ? "Скасувати режим" : "Скасувати"}
           </button>
         </div>
       </section>
@@ -1337,24 +1418,61 @@ export const InitiativeCardModal = ({
             />
           </div>
           <section className={styles.scopePanel}>
-            <div className={styles.tabs}>
-              <button
-                type="button"
-                onClick={() => setActiveTab("SCOPE")}
-                className={`modal-tab ${activeTab === "SCOPE" ? "modal-tab-active" : ""}`}
-              >
-                СКОУП РОБІТ (ЗАВДАННЯ) ({checklist.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("HISTORY")}
-                className={`modal-tab ${activeTab === "HISTORY" ? "modal-tab-active" : ""}`}
-              >
-                Історія змін
-              </button>
+            <div className={styles.scopeHeaderRow}>
+              <div className={styles.tabs}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("SCOPE")}
+                  className={`modal-tab ${activeTab === "SCOPE" ? "modal-tab-active" : ""}`}
+                >
+                  СКОУП РОБІТ (ЗАВДАННЯ) ({checklist.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("HISTORY")}
+                  className={`modal-tab ${activeTab === "HISTORY" ? "modal-tab-active" : ""}`}
+                >
+                  Історія змін
+                </button>
+              </div>
+              {item && !isReadOnly && !isArchivedCard && checklist.length > 0 && (
+                <div className={styles.bulkTransferActions}>
+                  <button
+                    type="button"
+                    className={`modal-secondary ${styles.bulkTransferAction} ${bulkTransferMode === "MOVE" ? styles.bulkTransferActionActive : ""}`}
+                    aria-label="Режим перенесення завдань"
+                    aria-pressed={bulkTransferMode === "MOVE"}
+                    disabled={!selectableScopeIds.length}
+                    onClick={() => openBulkTransfer("MOVE")}
+                  >
+                    <ArrowRight size={16} /> Перенести
+                  </button>
+                  <button
+                    type="button"
+                    className={`modal-secondary ${styles.bulkTransferAction} ${bulkTransferMode === "COPY" ? styles.bulkTransferActionActive : ""}`}
+                    aria-label="Режим копіювання завдань"
+                    aria-pressed={bulkTransferMode === "COPY"}
+                    disabled={!selectableScopeIds.length}
+                    onClick={() => openBulkTransfer("COPY")}
+                  >
+                    <Copy size={16} /> Скопіювати
+                  </button>
+                </div>
+              )}
             </div>
             {activeTab === "SCOPE" ? (
               <div className={styles.scopeBody}>
+                {bulkTransferMode && (
+                  <>
+                    {movePanel(true)}
+                    <div className={styles.bulkSelectionBar}>
+                      <span>Вибрано {selectedScopeIds.length} з {selectableScopeIds.length}</span>
+                      <button type="button" onClick={() => toggleScopeSelection(selectableScopeIds)}>
+                        {selectedScopeIds.length === selectableScopeIds.length ? "Скасувати вибір" : "Вибрати всі"}
+                      </button>
+                    </div>
+                  </>
+                )}
                 <div className={styles.scopeList}>
                   {scopeWeightLocked && (
                     <p className={styles.lockedNotice}>
@@ -1369,12 +1487,26 @@ export const InitiativeCardModal = ({
                   )}
                   {checklist.map((scope) => {
                     const groupBlock = firstGroupByItem.get(scope.id);
+                    const groupSelectableIds = groupBlock?.items
+                      .map(({ item: grouped }) => grouped)
+                      .filter((grouped) => !isCompletedItem(grouped))
+                      .map((grouped) => grouped.id) ?? [];
                     return (
                       <React.Fragment key={scope.id}>
                         {groupBlock && (
                           <div
                             className={`${styles.scopeGroupHeader} ${styles[`scopeGroup${groupBlock.color ?? "DEFAULT"}`] ?? ""}`}
                           >
+                            {bulkTransferMode && (
+                              <input
+                                type="checkbox"
+                                className={styles.scopeCheckbox}
+                                aria-label={`Вибрати групу ${groupBlock.group.title}`}
+                                checked={groupSelectableIds.length > 0 && groupSelectableIds.every((id) => selectedScopeIds.includes(id))}
+                                disabled={groupSelectableIds.length === 0}
+                                onChange={() => toggleScopeSelection(groupBlock.items.map(({ item: grouped }) => grouped.id))}
+                              />
+                            )}
                             <span className={styles.scopeGroupNumber}>{groupBlock.number}</span>
                             <AutoGrowTextarea
                               disabled={standardFieldsReadOnly}
@@ -1411,9 +1543,20 @@ export const InitiativeCardModal = ({
                           </div>
                         )}
                         <div
-                          className={`scope-item scope-item-${scope.color ?? "DEFAULT"}`}
+                          className={`scope-item scope-item-${scope.color ?? "DEFAULT"} ${selectedScopeIds.includes(scope.id) ? styles.scopeItemSelected : ""}`}
                         >
                           <div className={styles.scopeInputRow}>
+                            {bulkTransferMode && (
+                              <input
+                                type="checkbox"
+                                className={styles.scopeCheckbox}
+                                aria-label={`Вибрати завдання ${scope.text}`}
+                                checked={selectedScopeIds.includes(scope.id)}
+                                disabled={isCompletedItem(scope)}
+                                title={isCompletedItem(scope) ? SYSTEM_MESSAGES.initiatives.completedScopeActionDenied : undefined}
+                                onChange={() => toggleScopeSelection([scope.id])}
+                              />
+                            )}
                             <span className="scope-item-number">{scopeNumbers.get(scope.id)}</span>
                         <AutoGrowTextarea
                           disabled={standardFieldsReadOnly}
@@ -1540,8 +1683,8 @@ export const InitiativeCardModal = ({
                           groups={scopeGroups}
                           currentGroupId={scope.groupId}
                           allowGrouping={!standardFieldsReadOnly}
-                          allowTransfer={Boolean(item && !isReadOnly && !isArchivedCard)}
-                          allowCopy={canCopyScope && !isReadOnly}
+                          allowTransfer={false}
+                          allowCopy={false}
                           allowDelete={!isReadOnly && !scopeWeightLocked}
                           actionsBlocked={isCompletedItem(scope)}
                           blockedReason={SYSTEM_MESSAGES.initiatives.completedScopeActionDenied}
@@ -1587,7 +1730,6 @@ export const InitiativeCardModal = ({
                           })}
                         </div>
                       )}
-                      {showMove && movingId === scope.id && movePanel(true)}
                         </div>
                       </React.Fragment>
                     );
@@ -1761,6 +1903,72 @@ export const InitiativeCardModal = ({
           </section>
         </div>
       )}
+      {scopeTransferConflicts && bulkTransferMode && (
+        <div className={styles.confirmationBackdrop}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="scope-conflicts-title"
+            aria-describedby="scope-conflicts-description"
+            className={`${styles.confirmationDialog} ${styles.scopeConflictsDialog}`}
+          >
+            <div className={styles.confirmationHeader}>
+              <span className={styles.confirmationIcon} aria-hidden="true">
+                <AlertTriangle size={22} />
+              </span>
+              <div>
+                <h3 id="scope-conflicts-title" className={styles.confirmationTitle}>
+                  Частина завдань уже є у {moveQuarter} {moveYear}
+                </h3>
+                <p id="scope-conflicts-description" className={styles.confirmationText}>
+                  Дублікати не можна {bulkTransferMode === "COPY" ? "скопіювати" : "перенести"} повторно.
+                  Можна продовжити лише з відсутніми завданнями або скасувати операцію.
+                </p>
+              </div>
+            </div>
+            <div className={styles.scopeConflictList}>
+              {scopeTransferConflicts.map((conflict) => (
+                <div key={conflict.id} className={styles.scopeConflictItem}>
+                  <span>{conflict.text}</span>
+                  <small>
+                    {conflict.reason === "ALREADY_TRANSFERRED"
+                      ? "Це саме завдання вже є в кварталі"
+                      : "Збігаються назва, вага та виконавці"}
+                  </small>
+                </div>
+              ))}
+            </div>
+            <p className={styles.scopeConflictSummary}>
+              Дублів: {scopeTransferConflicts.length}. Доступно для операції: {eligibleScopeIds.length}.
+            </p>
+            <div className={styles.confirmationActions}>
+              <button
+                type="button"
+                onClick={closeBulkTransfer}
+                className={styles.confirmationCancel}
+              >
+                Скасувати операцію
+              </button>
+              {eligibleScopeIds.length > 0 && (
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => {
+                    const ids = eligibleScopeIds;
+                    setSelectedScopeIds(ids);
+                    setScopeTransferConflicts(null);
+                    setEligibleScopeIds([]);
+                    void prepareMove(ids);
+                  }}
+                  className={styles.confirmationConfirm}
+                >
+                  {bulkTransferMode === "COPY" ? "Скопіювати" : "Перенести"} лише відсутні ({eligibleScopeIds.length})
+                </button>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
       {duplicateTransferRevision !== undefined && (
         <div className={styles.confirmationBackdrop}>
           <section
@@ -1782,8 +1990,8 @@ export const InitiativeCardModal = ({
                   Схоже завдання вже є
                 </h3>
                 <p id="similar-scope-description" className={styles.confirmationText}>
-                  Завдання з такою самою назвою, вагою та виконавцями вже є у {moveQuarter} {moveYear}.
-                  Усе одно {scopeTransferMode === "COPY" ? "скопіювати" : "перенести"}?
+                  {bulkTransferMode ? "Серед вибраних є завдання" : "Завдання"} з такою самою назвою, вагою та виконавцями вже є у {moveQuarter} {moveYear}.
+                  Усе одно {scopeTransferMode === "COPY" ? "скопіювати" : "перенести"} вибране?
                 </p>
               </div>
             </div>

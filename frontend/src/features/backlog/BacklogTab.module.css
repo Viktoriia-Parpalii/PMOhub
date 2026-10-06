@@ -442,6 +442,13 @@
     text-align: left;
 }
 
+.relationsHeader {
+    width: 7rem;
+    min-width: 7rem;
+    padding: 1rem .5rem;
+    text-align: center;
+}
+
 .tableGoalHeader {
     width: 22rem;
     min-width: 18rem;
@@ -516,9 +523,39 @@
 
 .nameCell,
 .goalCell,
+.relationsCell,
 .quarterCell,
 .actionsCell {
     padding: 1rem;
+}
+
+.relationsCell {
+    width: 7rem;
+    min-width: 7rem;
+    text-align: center;
+}
+
+.relationsButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .35rem;
+    border: 1px solid #c7d2fe;
+    border-radius: .65rem;
+    background: #eef2ff;
+    padding: .45rem .6rem;
+    font-size: .75rem;
+    font-weight: 800;
+    color: #4f46e5;
+}
+
+.relationsButton:hover {
+    border-color: #818cf8;
+    background: #e0e7ff;
+}
+
+.noRelations {
+    color: #94a3b8;
 }
 
 .nameButton {

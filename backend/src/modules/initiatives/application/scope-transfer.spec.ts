@@ -7,7 +7,8 @@ const sourceGroup = { id: 'source-group', lineageId: 'group-lineage', title: 'С
 const sourceItem = {
   id: 'source-item', lineageId: 'item-lineage', scopeGroupId: sourceGroup.id,
   scopeGroup: sourceGroup, sortOrder: 0, revision: 1, statusCode: 'YELLOW',
-  text: 'Завдання', weightSnapshotValue: { toNumber: () => 5 }, executors: [],
+  text: 'Завдання', weightDefinitionId: 'weight-5', weightSnapshotName: 'П’ять',
+  weightSnapshotValue: { toNumber: () => 5 }, executors: [],
 };
 
 const fixture = (matchingLineage: typeof sourceGroup | null, groups: typeof sourceGroup[] = []) => {

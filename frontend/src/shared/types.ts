@@ -31,6 +31,30 @@ export type UserRole = string;
 export type InitiativeKind = "PROJECT" | "OPERATIONAL_TASK";
 export type ScopeStatusCode = "DEFAULT" | "GREEN" | "YELLOW" | "RED";
 
+export interface InitiativeRelation {
+  id: string;
+  relation_type: "RELATED_INITIATIVE";
+  revision: number;
+  related_initiative_id: string;
+  related_kind: InitiativeKind;
+  related_name: string;
+  available_years: number[];
+}
+
+export interface InitiativeRelationCandidate {
+  initiative_id: string;
+  kind: InitiativeKind;
+  name: string;
+  available_years: number[];
+  relation_id: string | null;
+  relation_revision: number | null;
+}
+
+export interface InitiativeRelationChanges {
+  add_initiative_ids: string[];
+  remove_relations: Array<{ relation_id: string; revision: number }>;
+}
+
 export interface PreparationStageReadModel {
   initiative_year_id: string;
   manager_id: string | null;
@@ -66,6 +90,7 @@ export interface InitiativeYearReadModel {
   revision: number;
   preparation: PreparationStageReadModel | null;
   cards: QuarterCardSummary[];
+  relations: InitiativeRelation[];
   is_locked: boolean;
   locked_at: string;
 }
@@ -315,6 +340,9 @@ export interface InitiativeViewModel extends InitiativeMetadata {
   is_locked?: boolean;
   locked_at?: string;
   matches_department_filter?: boolean;
+  relations?: InitiativeRelation[];
+  related_initiative_ids?: string[];
+  relation_changes?: InitiativeRelationChanges;
 }
 
 export interface PriorityDef {

@@ -9,6 +9,7 @@ import {
   BacklogQuarterCardSummary,
   User,
   DepartmentCapacityHistoryItem,
+  InitiativeRelationCandidate,
 } from "../shared/types";
 import type {
   AnalyticsDrilldownResponse,
@@ -306,6 +307,25 @@ export const loadInitiativeAvailableYears = (signal?: AbortSignal) =>
   apiRequest<ApiResponse<number[]>>("/initiative-years/available-years", {
     signal,
   }).then((response) => response.data);
+export const loadInitiativeRelationCandidates = (
+  query: string,
+  options: {
+    excludeInitiativeId?: string;
+    kind?: "PROJECT" | "OPERATIONAL_TASK";
+    limit?: number;
+    signal?: AbortSignal;
+  } = {},
+) => {
+  const params = new URLSearchParams({ query: query.trim() });
+  if (options.excludeInitiativeId)
+    params.set("exclude_initiative_id", options.excludeInitiativeId);
+  if (options.kind) params.set("kind", options.kind);
+  if (options.limit) params.set("limit", String(options.limit));
+  return apiRequest<ApiResponse<InitiativeRelationCandidate[]>>(
+    `/initiatives/relation-candidates?${params.toString()}`,
+    { signal: options.signal },
+  ).then((response) => response.data);
+};
 export const loadInitiativeYearCounts = (
   year: number,
   signal?: AbortSignal,
@@ -390,6 +410,7 @@ export const toInitiativeYearViewModel = (
     cross_functional_dept_ids: year.preparation?.department_ids ?? [],
     history: [],
   },
+  relations: year.relations,
 });
 
 export const toInitiativeYearCardViewModels = (

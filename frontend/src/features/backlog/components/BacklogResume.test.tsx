@@ -10,6 +10,9 @@ const context = vi.hoisted(() => ({
   businessPeriod: { year: 2029 },
 }));
 vi.mock("../../../app/store", () => ({ useAppContext: () => context }));
+vi.mock("../../../api/apiClient", () => ({
+  loadInitiativeRelationCandidates: vi.fn(async () => []),
+}));
 
 const candidate: ResumeCandidate = {
   kind: "project", name: "Проєкт А", sourceYearId: "year-2026",

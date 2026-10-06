@@ -224,17 +224,36 @@ model CustomFieldOption {
 }
 
 model Initiative {
-  id        String           @id @default(uuid()) @db.UniqueIdentifier
-  kind      String           @db.VarChar(32)
-  name      String           @db.NVarChar(500)
-  revision  Int              @default(1)
-  createdAt DateTime         @default(now()) @map("created_at") @db.DateTime2
-  updatedAt DateTime         @updatedAt @map("updated_at") @db.DateTime2
-  years     InitiativeYear[]
+  id                 String               @id @default(uuid()) @db.UniqueIdentifier
+  kind               String               @db.VarChar(32)
+  name               String               @db.NVarChar(500)
+  revision           Int                  @default(1)
+  createdAt          DateTime             @default(now()) @map("created_at") @db.DateTime2
+  updatedAt          DateTime             @updatedAt @map("updated_at") @db.DateTime2
+  years              InitiativeYear[]
+  relationsAsLeft    InitiativeRelation[] @relation("InitiativeRelationLeft")
+  relationsAsRight   InitiativeRelation[] @relation("InitiativeRelationRight")
 
   @@unique([kind, name], map: "UX_initiatives_kind_name")
   @@index([kind], map: "IX_initiatives_kind")
   @@map("initiatives")
+}
+
+model InitiativeRelation {
+  id                String     @id @default(uuid()) @db.UniqueIdentifier
+  relationType      String     @map("relation_type") @db.VarChar(32)
+  leftInitiativeId  String     @map("left_initiative_id") @db.UniqueIdentifier
+  rightInitiativeId String     @map("right_initiative_id") @db.UniqueIdentifier
+  revision          Int        @default(1)
+  createdAt         DateTime   @default(now()) @map("created_at") @db.DateTime2
+  updatedAt         DateTime   @updatedAt @map("updated_at") @db.DateTime2
+  leftInitiative    Initiative @relation("InitiativeRelationLeft", fields: [leftInitiativeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rightInitiative   Initiative @relation("InitiativeRelationRight", fields: [rightInitiativeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([relationType, leftInitiativeId, rightInitiativeId], map: "UX_initiative_relations_type_pair")
+  @@index([leftInitiativeId], map: "IX_initiative_relations_left")
+  @@index([rightInitiativeId], map: "IX_initiative_relations_right")
+  @@map("initiative_relations")
 }
 
 model InitiativeYear {
