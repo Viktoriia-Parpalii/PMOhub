@@ -142,4 +142,24 @@ describe("ExportSection", () => {
     expect(screen.getByText("Стандартні поля")).toBeInTheDocument();
     expect(screen.getByText("Обов’язкові управлінські дані")).toBeInTheDocument();
   });
+
+  it("keeps export settings rendered while standard and custom checkboxes change", async () => {
+    renderSection();
+
+    const excelToggle = screen.getByRole("button", { name: /Налаштувати поля Excel/i });
+    fireEvent.click(excelToggle);
+    fireEvent.click(screen.getByLabelText("Примітки"));
+    fireEvent.click(await screen.findByLabelText(/Конфіденційний коментар/));
+
+    expect(screen.getByText("Стандартні поля")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Завантажити Excel/i })).toBeInTheDocument();
+
+    fireEvent.click(excelToggle);
+    fireEvent.click(screen.getByRole("button", { name: /Налаштувати приватність/i }));
+    fireEvent.click(screen.getByLabelText("Менеджери"));
+    fireEvent.click(await screen.findByLabelText(/Конфіденційний коментар/));
+
+    expect(screen.getByText("Обов’язкові управлінські дані")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Завантажити JSON для AI/i })).toBeInTheDocument();
+  });
 });

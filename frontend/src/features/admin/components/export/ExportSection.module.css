@@ -514,6 +514,7 @@
 }
 
 .customFieldRow {
+  position: relative;
   display: flex;
   align-items: center;
   gap: .55rem;
@@ -528,6 +529,11 @@
 
 .customFieldRow>input {
   position: absolute;
+  top: .55rem;
+  left: .55rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0;
   opacity: 0;
   pointer-events: none;
 }
@@ -547,6 +553,11 @@
 .customFieldRow:has(input:checked) .checkboxVisual {
   border-color: #4f46e5;
   background: #4f46e5;
+}
+
+.customFieldRow>input:focus-visible + .checkboxVisual {
+  outline: 3px solid rgb(99 102 241 / 18%);
+  outline-offset: 2px;
 }
 
 .customFieldRow>span:last-child {
