@@ -385,6 +385,8 @@ model ScopeItem {
   @@index([lineageId], map: "IX_scope_items_lineage")
   @@index([quarterCardId, sortOrder], map: "IX_scope_items_card_sort_order")
   @@index([scopeGroupId], map: "IX_scope_items_scope_group_id")
+  @@index([copiedFromItemId], map: "IX_scope_items_copied_from_item_id")
+  @@index([movedFromCardId], map: "IX_scope_items_moved_from_card_id")
   @@map("scope_items")
 }
 

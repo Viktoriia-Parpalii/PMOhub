@@ -29,7 +29,12 @@ JWT_ACCESS_SECRET=випадковий-секрет-щонайменше-32-си
 JWT_REFRESH_SECRET=інший-випадковий-секрет-щонайменше-32-символи
 FRONTEND_ORIGIN=http://localhost:3000
 COOKIE_SECURE=false
+INITIATIVE_UPDATE_MAX_WAIT_MS=5000
+INITIATIVE_UPDATE_TIMEOUT_MS=15000
+INITIATIVE_UPDATE_ISOLATION_LEVEL=SERIALIZABLE
 ```
+
+Три параметри `INITIATIVE_UPDATE_*` керують лише інтерактивною транзакцією повного збереження квартальної картки. Початково використовуйте `SERIALIZABLE`: backend пропускає незмінені рядки, об’єднує однотипні вставки/видалення та повертає `503 CARD_SAVE_TIMEOUT`, якщо транзакція все ж перевищила ліміт. `READ_COMMITTED` слід вмикати лише окремим контрольованим релізом після перевірки конкурентних збережень і журналів `initiative_card_update_timing`.
 
 База `pmohub` повинна вже існувати. Якщо SQL Server працює на іншому комп'ютері, замініть `localhost` його DNS-іменем або IP-адресою.
 

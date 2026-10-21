@@ -33,4 +33,9 @@ export const environmentSchema = Joi.object({
   COOKIE_SAME_SITE: Joi.string().valid("lax", "none").default("lax"),
   EXPORT_MAX_EXCEL_CARDS: Joi.number().integer().min(1).default(20_000),
   EXPORT_MAX_JSON_ROWS: Joi.number().integer().min(1).default(100_000),
+  INITIATIVE_UPDATE_MAX_WAIT_MS: Joi.number().integer().min(1_000).default(5_000),
+  INITIATIVE_UPDATE_TIMEOUT_MS: Joi.number().integer().min(5_000).default(15_000),
+  INITIATIVE_UPDATE_ISOLATION_LEVEL: Joi.string()
+    .valid("SERIALIZABLE", "READ_COMMITTED")
+    .default("SERIALIZABLE"),
 });

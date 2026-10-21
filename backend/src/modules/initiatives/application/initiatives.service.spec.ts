@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InitiativesService } from './initiatives.service';
+import { Prisma } from '../../../generated/prisma/client';
 
 const actor = { id: '00000000-0000-4000-8000-000000000099', name: 'Admin', email: 'admin@example.com', role: 'SUPER_ADMIN' as const, must_change_password: false };
 
@@ -349,30 +350,6 @@ describe('InitiativesService transactional rules', () => {
     )).rejects.toMatchObject({ code: 'INITIATIVE_RELATION_CONFLICT', status: 409 });
   });
 
-  it('creates only newly added executor links when a scope item is saved', async () => {
-    const tx: any = {
-      scopeItemExecutor: {
-        deleteMany: vi.fn(async () => ({ count: 1 })),
-        createMany: vi.fn(async () => ({ count: 1 })),
-      },
-    };
-    const service = new InitiativesService({} as any);
-
-    await (service as any).syncScopeExecutors(
-      tx,
-      'scope-1',
-      ['department-existing', 'department-added'],
-      new Set(['department-existing', 'department-removed']),
-    );
-
-    expect(tx.scopeItemExecutor.deleteMany).toHaveBeenCalledWith({
-      where: { scopeItemId: 'scope-1', departmentId: { notIn: ['department-existing', 'department-added'] } },
-    });
-    expect(tx.scopeItemExecutor.createMany).toHaveBeenCalledWith({
-      data: [{ scopeItemId: 'scope-1', departmentId: 'department-added' }],
-    });
-  });
-
   it('does not block a card update when department capacity is exceeded', async () => {
     const tx: any = {
       quarterCard: {
@@ -380,11 +357,18 @@ describe('InitiativesService transactional rules', () => {
           id: 'card-1',
           revision: 1,
           quarter: 1,
+          managerId: null,
+          priorityId: null,
+          statusId: 'status-old',
+          notes: null,
           initiativeYear: {
             year: 2099,
             initiative: { kind: 'PROJECT' },
           },
+          scopeGroups: [],
           scopeItems: [],
+          departments: [],
+          customFieldValues: [],
         })),
         updateMany: vi.fn(async () => ({ count: 1 })),
         update: vi.fn(async () => ({})),
@@ -414,6 +398,7 @@ describe('InitiativesService transactional rules', () => {
       /* Deliberately no department.findMany capacity query. */
     };
     const prisma: any = {
+      quarterCard: tx.quarterCard,
       rolePermission: {
         findUnique: vi.fn(async () => ({
           isReadOnly: false,
@@ -447,16 +432,27 @@ describe('InitiativesService transactional rules', () => {
           id: 'card-1',
           revision: 1,
           quarter: 1,
+          managerId: null,
+          priorityId: null,
+          statusId: 'status-in-progress',
+          notes: null,
           initiativeYear: {
             year: 2099,
             initiative: { kind: 'PROJECT' },
           },
+          scopeGroups: [],
           scopeItems: [{
             id: 'scope-completed',
             revision: 3,
+            text: 'Completed',
             statusCode: 'GREEN',
+            scopeGroupId: null,
+            sortOrder: 0,
+            weightDefinitionId: 'weight-1',
             executors: [],
           }],
+          departments: [],
+          customFieldValues: [],
         })),
         updateMany: vi.fn(async () => ({ count: 1 })),
       },
@@ -466,6 +462,7 @@ describe('InitiativesService transactional rules', () => {
       taskWeight: { findMany: vi.fn(async () => []) },
     };
     const prisma: any = {
+      quarterCard: tx.quarterCard,
       rolePermission: {
         findUnique: vi.fn(async () => ({
           isReadOnly: false,
@@ -489,7 +486,89 @@ describe('InitiativesService transactional rules', () => {
     expect(tx.quarterCard.updateMany).not.toHaveBeenCalled();
   });
 
-  it('preserves a scope weight snapshot when a card is saved without changing its weight', async () => {
+  it('batches executor link changes and skips weight recalculation', async () => {
+    const scopeId = '00000000-0000-4000-8000-000000000010';
+    const weightId = '00000000-0000-4000-8000-000000000020';
+    const oldDepartmentId = '00000000-0000-4000-8000-000000000030';
+    const newDepartmentId = '00000000-0000-4000-8000-000000000031';
+    const current = {
+      id: 'card-1',
+      revision: 1,
+      quarter: 1,
+      managerId: null,
+      priorityId: null,
+      statusId: 'status-in-progress',
+      notes: null,
+      initiativeYear: { year: 2099, initiative: { kind: 'PROJECT' } },
+      scopeGroups: [],
+      scopeItems: [{
+        id: scopeId,
+        revision: 2,
+        text: 'Task',
+        statusCode: 'YELLOW',
+        scopeGroupId: null,
+        sortOrder: 0,
+        weightDefinitionId: weightId,
+        weightSnapshotName: 'Вага',
+        weightSnapshotValue: { toNumber: () => 5 },
+        executors: [{ departmentId: oldDepartmentId }],
+      }],
+      departments: [{ departmentId: oldDepartmentId }],
+      customFieldValues: [],
+    };
+    const tx: any = {
+      manager: { findFirst: vi.fn() },
+      priority: { findFirst: vi.fn() },
+      department: { count: vi.fn(async () => 1) },
+      taskWeight: { findMany: vi.fn(async () => []) },
+      quarterCard: { updateMany: vi.fn(async () => ({ count: 1 })), update: vi.fn() },
+      scopeItem: { updateMany: vi.fn(async () => ({ count: 1 })) },
+      scopeItemExecutor: {
+        deleteMany: vi.fn(async () => ({ count: 1 })),
+        createMany: vi.fn(async () => ({ count: 1 })),
+      },
+      quarterCardDepartment: {
+        deleteMany: vi.fn(async () => ({ count: 1 })),
+        createMany: vi.fn(async () => ({ count: 1 })),
+      },
+      auditEvent: { create: vi.fn(async () => ({})) },
+    };
+    const prisma: any = {
+      quarterCard: { findUnique: vi.fn(async () => current) },
+      rolePermission: {
+        findUnique: vi.fn(async () => ({
+          isReadOnly: false,
+          canCreateEditInitiatives: true,
+        })),
+      },
+      $transaction: vi.fn(async (callback: (client: any) => unknown) => callback(tx)),
+    };
+
+    await new InitiativesService(prisma).updateCard('card-1', {
+      revision: 1,
+      department_ids: [],
+      status_id: 'status-in-progress',
+      scope: [{
+        id: scopeId,
+        revision: 2,
+        text: 'Task',
+        status_code: 'YELLOW',
+        weight_definition_id: weightId,
+        executor_department_ids: [newDepartmentId],
+      }],
+      custom_fields: {},
+    }, actor);
+
+    expect(tx.scopeItemExecutor.deleteMany).toHaveBeenCalledWith({
+      where: { OR: [{ scopeItemId: scopeId, departmentId: oldDepartmentId }] },
+    });
+    expect(tx.scopeItemExecutor.createMany).toHaveBeenCalledWith({
+      data: [{ scopeItemId: scopeId, departmentId: newDepartmentId }],
+    });
+    expect(tx.quarterCard.update).not.toHaveBeenCalled();
+  });
+
+  it('does not rewrite a scope item or its weight snapshot when nothing changed', async () => {
     const scopeId = '00000000-0000-4000-8000-000000000010';
     const weightId = '00000000-0000-4000-8000-000000000020';
     const departmentId = '00000000-0000-4000-8000-000000000030';
@@ -498,7 +577,10 @@ describe('InitiativesService transactional rules', () => {
     const currentScope = {
       id: scopeId,
       revision: 2,
+      text: 'Task',
       statusCode: 'YELLOW',
+      scopeGroupId: null,
+      sortOrder: 0,
       weightDefinitionId: weightId,
       weightSnapshotName: 'Стара назва',
       weightSnapshotValue: { toNumber: () => 5 },
@@ -510,11 +592,18 @@ describe('InitiativesService transactional rules', () => {
           id: 'card-1',
           revision: 1,
           quarter: 1,
+          managerId: null,
+          priorityId: null,
+          statusId: 'status-in-progress',
+          notes: null,
           initiativeYear: {
             year: 2099,
             initiative: { kind: 'PROJECT' },
           },
+          scopeGroups: [],
           scopeItems: [currentScope],
+          departments: [{ departmentId }],
+          customFieldValues: [],
         })),
         updateMany: vi.fn(async () => ({ count: 1 })),
         update: vi.fn(async () => ({})),
@@ -548,6 +637,7 @@ describe('InitiativesService transactional rules', () => {
       auditEvent: { create: vi.fn(async () => ({})) },
     };
     const prisma: any = {
+      quarterCard: tx.quarterCard,
       rolePermission: {
         findUnique: vi.fn(async () => ({
           isReadOnly: false,
@@ -572,13 +662,56 @@ describe('InitiativesService transactional rules', () => {
       custom_fields: {},
     }, actor);
 
-    expect(findWeights).toHaveBeenCalledWith({
-      where: { id: { in: [] }, isActive: true },
+    expect(findWeights).not.toHaveBeenCalled();
+    expect(updateScope).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('maps an expired update transaction to a retryable service error', async () => {
+    const current = {
+      id: 'card-1',
+      revision: 1,
+      quarter: 1,
+      managerId: null,
+      priorityId: null,
+      statusId: 'status-old',
+      notes: null,
+      initiativeYear: { year: 2099, initiative: { kind: 'PROJECT' } },
+      scopeGroups: [],
+      scopeItems: [],
+      departments: [],
+      customFieldValues: [],
+    };
+    const transactionError = new Prisma.PrismaClientKnownRequestError(
+      'Transaction already closed',
+      { code: 'P2028', clientVersion: 'test' },
+    );
+    const prisma: any = {
+      quarterCard: { findUnique: vi.fn(async () => current) },
+      rolePermission: {
+        findUnique: vi.fn(async () => ({
+          isReadOnly: false,
+          canCreateEditInitiatives: true,
+        })),
+      },
+      $transaction: vi.fn(async () => { throw transactionError; }),
+    };
+
+    await expect(new InitiativesService(prisma).updateCard('card-1', {
+      revision: 1,
+      department_ids: [],
+      status_id: 'status-new',
+      scope: [],
+      custom_fields: {},
+    }, actor)).rejects.toMatchObject({
+      code: 'CARD_SAVE_TIMEOUT',
+      status: 503,
+      message: 'Збереження тривало надто довго. Дані не змінено. Повторіть спробу.',
     });
-    const updateData = updateScope.mock.calls[0][0].data;
-    expect(updateData).not.toHaveProperty('weightDefinitionId');
-    expect(updateData).not.toHaveProperty('weightSnapshotName');
-    expect(updateData).not.toHaveProperty('weightSnapshotValue');
+    expect(prisma.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ maxWait: 5000, timeout: 15000 }),
+    );
   });
 
   it('preserves an inactive historical custom field without revalidating or overwriting it', async () => {

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { HttpStatus, Injectable } from "@nestjs/common";
+import { HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "../../../generated/prisma/client";
 import { PrismaService } from "../../../infrastructure/database/prisma.service";
 import { AuthUser } from "../../../common/auth/auth-user";
@@ -41,6 +41,8 @@ const unique = (values: string[]) => [...new Set(values)];
 
 @Injectable()
 export class InitiativesService {
+  private readonly logger = new Logger(InitiativesService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateInitiativeDto, actor: AuthUser) {
@@ -450,92 +452,291 @@ export class InitiativesService {
     return ok("Квартальну картку створено", result);
   }
 
-  async updateCard(id: string, dto: UpdateCardDto, actor: AuthUser) {
+  async updateCard(
+    id: string,
+    dto: UpdateCardDto,
+    actor: AuthUser,
+  ) {
     await this.assertCanEdit(actor);
-    const result = await this.prisma.$transaction(
-      async (tx) => {
-        const current = await tx.quarterCard.findUnique({
-          where: { id },
+    const startedAt = Date.now();
+    const current = await this.prisma.quarterCard.findUnique({
+      where: { id },
+      include: {
+        initiativeYear: { include: { initiative: true } },
+        scopeGroups: true,
+        scopeItems: { include: { executors: true } },
+        departments: true,
+        customFieldValues: {
           include: {
-            initiativeYear: { include: { initiative: true } },
-            scopeItems: { include: { executors: true } },
+            definition: {
+              select: {
+                id: true,
+                entityType: true,
+                fieldType: true,
+                isActive: true,
+              },
+            },
           },
-        });
-        if (!current) throw this.notFound("Картку");
-        if (isPeriodLocked(current.initiativeYear.year, qs(current.quarter)))
-          throw this.archived();
-        await this.assertReferences(tx, dto.manager_id, dto.priority_id, [
-          ...dto.department_ids,
-          ...dto.scope.flatMap((item) => item.executor_department_ids),
-        ]);
-        await this.assertCardStatus(tx, dto.status_id);
-        this.assertScopePayload(current.scopeItems, dto.scope);
-        this.assertScopeGroups(dto.scope_groups ?? [], dto.scope);
-        const currentScopeById = new Map(
-          current.scopeItems.map((item) => [item.id, item]),
-        );
-        const weights = await this.loadWeights(
-          tx,
-          dto.scope
-            .filter(
-              (item) =>
-                !item.id ||
-                currentScopeById.get(item.id)?.weightDefinitionId !==
-                  item.weight_definition_id,
-            )
-            .map((item) => item.weight_definition_id),
-        );
+        },
+      },
+    });
+    if (!current) throw this.notFound("Картку");
+    if (isPeriodLocked(current.initiativeYear.year, qs(current.quarter)))
+      throw this.archived();
+    if (current.revision !== dto.revision)
+      throw this.conflict(current.revision, "QuarterCard", id);
 
-        const incomingIds = new Set(
-          dto.scope.flatMap((item) => (item.id ? [item.id] : [])),
+    this.assertScopePayload(current.scopeItems, dto.scope);
+    this.assertScopeGroups(dto.scope_groups ?? [], dto.scope);
+    const notes = dto.notes ? sanitizeRichText(dto.notes) || null : null;
+    const currentScopeById = new Map(
+      current.scopeItems.map((item) => [item.id, item]),
+    );
+    const incomingIds = new Set(
+      dto.scope.flatMap((item) => (item.id ? [item.id] : [])),
+    );
+    const removedScopeIds = current.scopeItems
+      .filter((item) => !incomingIds.has(item.id))
+      .map((item) => item.id);
+    if (
+      current.scopeItems.some(
+        (item) => item.statusCode === "GREEN" && !incomingIds.has(item.id),
+      )
+    )
+      throw new AppError(
+        "COMPLETED_SCOPE_DELETE_FORBIDDEN",
+        "Виконане завдання не можна видалити зі скоупу.",
+        HttpStatus.CONFLICT,
+      );
+
+    const changedScope = dto.scope.flatMap((item, sortOrder) => {
+      if (!item.id) return [];
+      const existing = currentScopeById.get(item.id)!;
+      const nextExecutors = unique(item.executor_department_ids);
+      const currentExecutors = existing.executors.map(
+        (link) => link.departmentId,
+      );
+      const changed =
+        existing.text !== item.text.trim() ||
+        existing.statusCode !== item.status_code ||
+        existing.scopeGroupId !== (item.group_id ?? null) ||
+        existing.sortOrder !== sortOrder ||
+        existing.weightDefinitionId !== item.weight_definition_id ||
+        !this.sameStringSet(currentExecutors, nextExecutors);
+      return changed ? [{ item, sortOrder, existing, nextExecutors }] : [];
+    });
+    const newScope = dto.scope.flatMap((item, sortOrder) =>
+      item.id
+        ? []
+        : [
+            {
+              item,
+              sortOrder,
+              id: randomUUID(),
+              executors: unique(item.executor_department_ids),
+            },
+          ],
+    );
+
+    const incomingGroups = dto.scope_groups ?? [];
+    const currentGroupsById = new Map(
+      current.scopeGroups.map((group) => [group.id, group]),
+    );
+    const incomingGroupIds = new Set(
+      incomingGroups.map((group) => group.id),
+    );
+    const newGroups = incomingGroups.filter(
+      (group) => !currentGroupsById.has(group.id),
+    );
+    const changedGroups = incomingGroups.filter((group) => {
+      const existing = currentGroupsById.get(group.id);
+      return existing && existing.title !== group.title.trim();
+    });
+    const removedGroupIds = current.scopeGroups
+      .filter((group) => !incomingGroupIds.has(group.id))
+      .map((group) => group.id);
+
+    const effectiveDepartmentIds = unique([
+      ...dto.department_ids,
+      ...dto.scope.flatMap((item) => item.executor_department_ids),
+    ]);
+    const currentDepartmentIds = current.departments.map(
+      (link) => link.departmentId,
+    );
+    const addedDepartmentIds = effectiveDepartmentIds.filter(
+      (departmentId) => !currentDepartmentIds.includes(departmentId),
+    );
+    const removedDepartmentIds = currentDepartmentIds.filter(
+      (departmentId) => !effectiveDepartmentIds.includes(departmentId),
+    );
+    const departmentIdsToValidate = unique([
+      ...addedDepartmentIds,
+      ...newScope.flatMap((entry) => entry.executors),
+      ...changedScope.flatMap(({ existing, nextExecutors }) => {
+        const existingExecutors = new Set(
+          existing.executors.map((link) => link.departmentId),
         );
-        const removesCompletedScope = current.scopeItems.some(
-          (item) =>
-            item.statusCode === "GREEN" && !incomingIds.has(item.id),
+        return nextExecutors.filter(
+          (departmentId) => !existingExecutors.has(departmentId),
         );
-        if (removesCompletedScope)
-          throw new AppError(
-            "COMPLETED_SCOPE_DELETE_FORBIDDEN",
-            "Виконане завдання не можна видалити зі скоупу.",
-            HttpStatus.CONFLICT,
+      }),
+    ]);
+    const customFieldsChanged = this.customFieldsChanged(
+      current.customFieldValues,
+      dto.custom_fields ?? {},
+    );
+    const headerChanged =
+      current.managerId !== (dto.manager_id ?? null) ||
+      current.priorityId !== (dto.priority_id ?? null) ||
+      current.statusId !== dto.status_id ||
+      current.notes !== notes;
+    const hasChanges =
+      headerChanged ||
+      changedScope.length > 0 ||
+      newScope.length > 0 ||
+      removedScopeIds.length > 0 ||
+      newGroups.length > 0 ||
+      changedGroups.length > 0 ||
+      removedGroupIds.length > 0 ||
+      addedDepartmentIds.length > 0 ||
+      removedDepartmentIds.length > 0 ||
+      customFieldsChanged;
+
+    if (!hasChanges) {
+      this.logCardUpdateTiming(id, startedAt, 0, {
+        no_op: true,
+        scope_updates: 0,
+        scope_creates: 0,
+        scope_deletes: 0,
+      });
+      return ok("Картку збережено", {
+        card_id: id,
+        card_revision: current.revision,
+      });
+    }
+
+    const weightIds = unique([
+      ...newScope.map(({ item }) => item.weight_definition_id),
+      ...changedScope
+        .filter(
+          ({ item, existing }) =>
+            existing.weightDefinitionId !== item.weight_definition_id,
+        )
+        .map(({ item }) => item.weight_definition_id),
+    ]);
+    const isolationLevel =
+      process.env.INITIATIVE_UPDATE_ISOLATION_LEVEL === "READ_COMMITTED"
+        ? Prisma.TransactionIsolationLevel.ReadCommitted
+        : Prisma.TransactionIsolationLevel.Serializable;
+    const maxWait = this.positiveIntegerEnv(
+      "INITIATIVE_UPDATE_MAX_WAIT_MS",
+      5_000,
+    );
+    const timeout = this.positiveIntegerEnv(
+      "INITIATIVE_UPDATE_TIMEOUT_MS",
+      15_000,
+    );
+    const transactionStartedAt = Date.now();
+
+    try {
+      const result = await this.prisma.$transaction(
+        async (tx) => {
+          await this.assertReferences(
+            tx,
+            current.managerId !== (dto.manager_id ?? null)
+              ? dto.manager_id
+              : undefined,
+            current.priorityId !== (dto.priority_id ?? null)
+              ? dto.priority_id
+              : undefined,
+            departmentIdsToValidate,
           );
+          if (current.statusId !== dto.status_id)
+            await this.assertCardStatus(tx, dto.status_id);
+          const weights = await this.loadWeights(tx, weightIds);
 
-        const changed = await tx.quarterCard.updateMany({
-          where: { id, revision: dto.revision },
-          data: {
-            managerId: dto.manager_id ?? null,
-            priorityId: dto.priority_id ?? null,
-            statusId: dto.status_id,
-            notes: dto.notes ? sanitizeRichText(dto.notes) || null : null,
-            revision: { increment: 1 },
-          },
-        });
-        if (!changed.count) await this.throwConflict(tx, "QuarterCard", id);
+          if (newGroups.length) {
+            const foreign = await tx.scopeGroup.findFirst({
+              where: {
+                id: { in: newGroups.map((group) => group.id) },
+                quarterCardId: { not: id },
+              },
+              select: { id: true },
+            });
+            if (foreign)
+              throw new AppError(
+                "INVALID_SCOPE_GROUP",
+                "Група не належить цій квартальній картці.",
+              );
+          }
 
-        await this.upsertScopeGroups(tx, id, dto.scope_groups ?? []);
-        const removedIds = current.scopeItems
-          .filter((item) => !incomingIds.has(item.id))
-          .map((item) => item.id);
-        if (removedIds.length) {
-          await tx.scopeItem.updateMany({
-            where: { copiedFromItemId: { in: removedIds } },
-            data: { copiedFromItemId: null },
+          const cardUpdated = await tx.quarterCard.updateMany({
+            where: { id, revision: dto.revision },
+            data: {
+              revision: { increment: 1 },
+              ...(current.managerId !== (dto.manager_id ?? null)
+                ? { managerId: dto.manager_id ?? null }
+                : {}),
+              ...(current.priorityId !== (dto.priority_id ?? null)
+                ? { priorityId: dto.priority_id ?? null }
+                : {}),
+              ...(current.statusId !== dto.status_id
+                ? { statusId: dto.status_id }
+                : {}),
+              ...(current.notes !== notes ? { notes } : {}),
+            },
           });
-        }
-        await tx.scopeItem.deleteMany({
-          where: { quarterCardId: id, id: { notIn: [...incomingIds] } },
-        });
-        for (const [sortOrder, item] of dto.scope.entries()) {
-          if (item.id) {
-            const currentScope = currentScopeById.get(item.id)!;
+          if (!cardUpdated.count)
+            await this.throwConflict(tx, "QuarterCard", id);
+
+          if (newGroups.length)
+            await tx.scopeGroup.createMany({
+              data: newGroups.map((group) => ({
+                id: group.id,
+                quarterCardId: id,
+                lineageId: group.lineage_id ?? randomUUID(),
+                title: group.title.trim(),
+              })),
+            });
+          for (const group of changedGroups) {
+            await tx.scopeGroup.update({
+              where: { id: group.id },
+              data: { title: group.title.trim() },
+            });
+          }
+
+          if (removedScopeIds.length) {
+            await tx.scopeItem.updateMany({
+              where: { copiedFromItemId: { in: removedScopeIds } },
+              data: { copiedFromItemId: null },
+            });
+            await tx.scopeItem.deleteMany({
+              where: { quarterCardId: id, id: { in: removedScopeIds } },
+            });
+          }
+
+          const executorRemovals: Array<{
+            scopeItemId: string;
+            departmentId: string;
+          }> = [];
+          const executorAdditions: Array<{
+            scopeItemId: string;
+            departmentId: string;
+          }> = [];
+          for (const {
+            item,
+            sortOrder,
+            existing,
+            nextExecutors,
+          } of changedScope) {
             const weightChanged =
-              currentScope.weightDefinitionId !== item.weight_definition_id;
+              existing.weightDefinitionId !== item.weight_definition_id;
             const weight = weightChanged
               ? weights.get(item.weight_definition_id)!
               : undefined;
             const updated = await tx.scopeItem.updateMany({
               where: {
-                id: item.id,
+                id: item.id!,
                 quarterCardId: id,
                 revision: item.revision,
               },
@@ -555,72 +756,142 @@ export class InitiativesService {
               },
             });
             if (!updated.count)
-              await this.throwConflict(tx, "ScopeItem", item.id);
-            const nextExecutorIds = unique(item.executor_department_ids);
-            const currentExecutorIds = new Set(
-              current.scopeItems
-                .find((existing) => existing.id === item.id)
-                ?.executors.map((link) => link.departmentId) ?? [],
+              await this.throwConflict(tx, "ScopeItem", item.id!);
+            const existingExecutors = new Set(
+              existing.executors.map((link) => link.departmentId),
             );
-            await this.syncScopeExecutors(
-              tx,
-              item.id,
-              nextExecutorIds,
-              currentExecutorIds,
+            for (const departmentId of existingExecutors)
+              if (!nextExecutors.includes(departmentId))
+                executorRemovals.push({
+                  scopeItemId: item.id!,
+                  departmentId,
+                });
+            for (const departmentId of nextExecutors)
+              if (!existingExecutors.has(departmentId))
+                executorAdditions.push({
+                  scopeItemId: item.id!,
+                  departmentId,
+                });
+          }
+
+          if (newScope.length) {
+            await tx.scopeItem.createMany({
+              data: newScope.map(({ item, sortOrder, id: scopeItemId }) => {
+                const weight = weights.get(item.weight_definition_id)!;
+                return {
+                  id: scopeItemId,
+                  quarterCardId: id,
+                  lineageId: item.lineage_id ?? randomUUID(),
+                  scopeGroupId: item.group_id ?? null,
+                  sortOrder,
+                  text: item.text.trim(),
+                  statusCode: item.status_code,
+                  weightDefinitionId: weight.id,
+                  weightSnapshotName: weight.name,
+                  weightSnapshotValue: weight.weight,
+                };
+              }),
+            });
+            executorAdditions.push(
+              ...newScope.flatMap((entry) =>
+                entry.executors.map((departmentId) => ({
+                  scopeItemId: entry.id,
+                  departmentId,
+                })),
+              ),
             );
-          } else {
-            const weight = weights.get(item.weight_definition_id)!;
-            await tx.scopeItem.create({
-              data: {
+          }
+          if (executorRemovals.length)
+            await tx.scopeItemExecutor.deleteMany({
+              where: { OR: executorRemovals },
+            });
+          if (executorAdditions.length)
+            await tx.scopeItemExecutor.createMany({ data: executorAdditions });
+
+          if (removedGroupIds.length)
+            await tx.scopeGroup.deleteMany({
+              where: { id: { in: removedGroupIds }, quarterCardId: id },
+            });
+          if (removedDepartmentIds.length)
+            await tx.quarterCardDepartment.deleteMany({
+              where: {
                 quarterCardId: id,
-                lineageId: item.lineage_id ?? randomUUID(),
-                scopeGroupId: item.group_id ?? null,
-                sortOrder,
-                text: item.text.trim(),
-                statusCode: item.status_code,
-                weightDefinitionId: weight.id,
-                weightSnapshotName: weight.name,
-                weightSnapshotValue: weight.weight,
-                executors: {
-                  createMany: {
-                    data: unique(item.executor_department_ids).map(
-                      (departmentId) => ({ departmentId }),
-                    ),
-                  },
-                },
+                departmentId: { in: removedDepartmentIds },
               },
             });
-          }
-        }
-        const executorIds = dto.scope.flatMap(
-          (item) => item.executor_department_ids,
+          if (addedDepartmentIds.length)
+            await tx.quarterCardDepartment.createMany({
+              data: addedDepartmentIds.map((departmentId) => ({
+                quarterCardId: id,
+                departmentId,
+              })),
+            });
+          if (customFieldsChanged)
+            await this.applyCustomFieldChanges(
+              tx,
+              id,
+              current.initiativeYear.initiative.kind,
+              dto.custom_fields ?? {},
+              current.customFieldValues,
+            );
+
+          const weightChanged = changedScope.some(
+            ({ item, existing }) =>
+              existing.weightDefinitionId !== item.weight_definition_id,
+          );
+          if (newScope.length || removedScopeIds.length || weightChanged)
+            await this.recalculateCard(tx, id);
+          await this.audit(
+            tx,
+            "QuarterCard",
+            id,
+            "CARD_UPDATED",
+            "Оновлено квартальну картку",
+            actor,
+          );
+          return { card_id: id, card_revision: dto.revision + 1 };
+        },
+        { isolationLevel, maxWait, timeout },
+      );
+      this.logCardUpdateTiming(
+        id,
+        startedAt,
+        Date.now() - transactionStartedAt,
+        {
+          no_op: false,
+          scope_updates: changedScope.length,
+          scope_creates: newScope.length,
+          scope_deletes: removedScopeIds.length,
+          executor_additions: newScope.reduce(
+            (sum, item) => sum + item.executors.length,
+            0,
+          ),
+        },
+      );
+      return ok("Картку збережено", result);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2028"
+      ) {
+        this.logger.warn(
+          JSON.stringify({
+            event: "initiative_card_update_timeout",
+            card_id: id,
+            total_ms: Date.now() - startedAt,
+            transaction_ms: Date.now() - transactionStartedAt,
+            timeout_ms: timeout,
+            isolation_level: isolationLevel,
+          }),
         );
-        await this.deleteUnusedScopeGroups(tx, id);
-        await this.replaceCardDepartments(
-          tx,
-          id,
-          unique([...dto.department_ids, ...executorIds]),
+        throw new AppError(
+          "CARD_SAVE_TIMEOUT",
+          "Збереження тривало надто довго. Дані не змінено. Повторіть спробу.",
+          HttpStatus.SERVICE_UNAVAILABLE,
         );
-        await this.replaceCustomFields(
-          tx,
-          id,
-          current.initiativeYear.initiative.kind,
-          dto.custom_fields ?? {},
-        );
-        await this.recalculateCard(tx, id);
-        await this.audit(
-          tx,
-          "QuarterCard",
-          id,
-          "CARD_UPDATED",
-          "Оновлено квартальну картку",
-          actor,
-        );
-        return { card_id: id, card_revision: dto.revision + 1 };
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
-    return ok("Картку збережено", result);
+      }
+      throw error;
+    }
   }
 
   async updateCardStatus(
@@ -1688,28 +1959,6 @@ export class InitiativesService {
     });
   }
 
-  private async syncScopeExecutors(
-    tx: Tx,
-    scopeItemId: string,
-    nextExecutorIds: string[],
-    currentExecutorIds: Set<string>,
-  ) {
-    await tx.scopeItemExecutor.deleteMany({
-      where: { scopeItemId, departmentId: { notIn: nextExecutorIds } },
-    });
-    const addedExecutorIds = nextExecutorIds.filter(
-      (departmentId) => !currentExecutorIds.has(departmentId),
-    );
-    if (addedExecutorIds.length) {
-      await tx.scopeItemExecutor.createMany({
-        data: addedExecutorIds.map((departmentId) => ({
-          scopeItemId,
-          departmentId,
-        })),
-      });
-    }
-  }
-
   private async replaceCardDepartments(
     tx: Tx,
     cardId: string,
@@ -1729,6 +1978,221 @@ export class InitiativesService {
         .filter((id) => !existingIds.has(id))
         .map((departmentId) => ({ quarterCardId: cardId, departmentId })),
     });
+  }
+
+  private sameStringSet(left: string[], right: string[]) {
+    if (left.length !== right.length) return false;
+    const rightSet = new Set(right);
+    return left.every((value) => rightSet.has(value));
+  }
+
+  private positiveIntegerEnv(name: string, fallback: number) {
+    const parsed = Number(process.env[name]);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  private customFieldsChanged(
+    existingValues: Array<{
+      definitionId: string;
+      textValue: string | null;
+      numberValue: Prisma.Decimal | null;
+      booleanValue: boolean | null;
+      dateValue: Date | null;
+      optionValue: string | null;
+      definition: { fieldType: string; isActive: boolean };
+    }>,
+    values: Record<string, unknown>,
+  ) {
+    const presentValues = Object.fromEntries(
+      Object.entries(values).filter(
+        ([, value]) => value !== "" && value !== null && value !== undefined,
+      ),
+    );
+    const activeExisting = existingValues.filter(
+      (value) => value.definition.isActive,
+    );
+    const activeIds = new Set(activeExisting.map((value) => value.definitionId));
+    const desiredIds = Object.keys(presentValues).filter((id) => {
+      const existing = existingValues.find((value) => value.definitionId === id);
+      return existing?.definition.isActive !== false;
+    });
+    if (!this.sameStringSet([...activeIds], desiredIds)) return true;
+    return activeExisting.some((existing) =>
+      !this.customFieldDataEqual(
+        existing,
+        this.customFieldValue(
+          existing.definition.fieldType,
+          presentValues[existing.definitionId],
+        ),
+      ),
+    );
+  }
+
+  private customFieldDataEqual(
+    existing: {
+      textValue: string | null;
+      numberValue: Prisma.Decimal | null;
+      booleanValue: boolean | null;
+      dateValue: Date | null;
+      optionValue: string | null;
+    },
+    next: {
+      textValue: string | null;
+      numberValue: number | null;
+      booleanValue: boolean | null;
+      dateValue: Date | null;
+      optionValue: string | null;
+    },
+  ) {
+    return (
+      existing.textValue === next.textValue &&
+      (existing.numberValue === null
+        ? next.numberValue === null
+        : next.numberValue !== null &&
+          existing.numberValue.toNumber() === next.numberValue) &&
+      existing.booleanValue === next.booleanValue &&
+      (existing.dateValue?.getTime() ?? null) ===
+        (next.dateValue?.getTime() ?? null) &&
+      existing.optionValue === next.optionValue
+    );
+  }
+
+  private async applyCustomFieldChanges(
+    tx: Tx,
+    cardId: string,
+    kind: string,
+    values: Record<string, unknown>,
+    existingValues: Array<{
+      definitionId: string;
+      textValue: string | null;
+      numberValue: Prisma.Decimal | null;
+      booleanValue: boolean | null;
+      dateValue: Date | null;
+      optionValue: string | null;
+      definition: {
+        id: string;
+        entityType: string;
+        fieldType: string;
+        isActive: boolean;
+      };
+    }>,
+  ) {
+    const presentValues = Object.fromEntries(
+      Object.entries(values).filter(
+        ([, value]) => value !== "" && value !== null && value !== undefined,
+      ),
+    );
+    const historicalDefinitionIds = new Set(
+      existingValues
+        .filter((value) => !value.definition.isActive)
+        .map((value) => value.definitionId),
+    );
+    const writableDefinitionIds = Object.keys(presentValues).filter(
+      (id) => !historicalDefinitionIds.has(id),
+    );
+    const entityType = kind === "PROJECT" ? "project" : "task";
+    const definitions = writableDefinitionIds.length
+      ? await tx.customFieldDefinition.findMany({
+          where: {
+            id: { in: writableDefinitionIds },
+            entityType,
+            isActive: true,
+          },
+          include: { options: true },
+        })
+      : [];
+    if (definitions.length !== writableDefinitionIds.length)
+      throw new AppError(
+        "INVALID_CUSTOM_FIELD",
+        "Одне або кілька додаткових полів недоступні для цього типу ініціативи.",
+      );
+    const required = await tx.customFieldDefinition.findMany({
+      where: { entityType, isActive: true, isRequired: true },
+      select: { id: true },
+    });
+    if (required.some(({ id }) => !writableDefinitionIds.includes(id)))
+      throw new AppError(
+        "REQUIRED_CUSTOM_FIELD",
+        "Заповніть усі обов’язкові додаткові поля.",
+      );
+
+    const currentByDefinition = new Map(
+      existingValues.map((value) => [value.definitionId, value]),
+    );
+    const removedDefinitionIds = existingValues
+      .filter(
+        (value) =>
+          value.definition.isActive &&
+          !Object.prototype.hasOwnProperty.call(
+            presentValues,
+            value.definitionId,
+          ),
+      )
+      .map((value) => value.definitionId);
+    if (removedDefinitionIds.length)
+      await tx.customFieldValue.deleteMany({
+        where: {
+          quarterCardId: cardId,
+          definitionId: { in: removedDefinitionIds },
+        },
+      });
+
+    const creates: Prisma.CustomFieldValueCreateManyInput[] = [];
+    const updates: Array<{
+      definitionId: string;
+      data: ReturnType<InitiativesService["customFieldValue"]>;
+    }> = [];
+    for (const definition of definitions) {
+      const raw = presentValues[definition.id];
+      if (
+        definition.fieldType === "SELECT" &&
+        !definition.options.some((option) => option.value === String(raw))
+      )
+        throw new AppError(
+          "INVALID_CUSTOM_FIELD_OPTION",
+          `Недопустиме значення поля «${definition.name}».`,
+        );
+      const data = this.customFieldValue(definition.fieldType, raw);
+      const existing = currentByDefinition.get(definition.id);
+      if (!existing)
+        creates.push({
+          quarterCardId: cardId,
+          definitionId: definition.id,
+          ...data,
+        });
+      else if (!this.customFieldDataEqual(existing, data))
+        updates.push({ definitionId: definition.id, data });
+    }
+    if (creates.length)
+      await tx.customFieldValue.createMany({ data: creates });
+    for (const update of updates)
+      await tx.customFieldValue.update({
+        where: {
+          quarterCardId_definitionId: {
+            quarterCardId: cardId,
+            definitionId: update.definitionId,
+          },
+        },
+        data: update.data,
+      });
+  }
+
+  private logCardUpdateTiming(
+    cardId: string,
+    startedAt: number,
+    transactionMs: number,
+    counts: Record<string, number | boolean>,
+  ) {
+    const totalMs = Date.now() - startedAt;
+    const payload = JSON.stringify({
+      event: "initiative_card_update_timing",
+      card_id: cardId,
+      total_ms: totalMs,
+      transaction_ms: transactionMs,
+      ...counts,
+    });
+    if (totalMs > 2_000) this.logger.warn(payload);
+    else this.logger.log(payload);
   }
 
   private async replaceCustomFields(
